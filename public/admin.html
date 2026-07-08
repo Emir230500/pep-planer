@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8">
@@ -10,7 +10,7 @@
   <main class="shell wide">
     <section class="top">
       <div>
-        <p class="eyebrow">Admin · Elli SHS</p>
+        <p class="eyebrow">Admin Â· Elli SHS</p>
         <h1>Dienstplan hochladen</h1>
       </div>
       <a class="link" href="/">Mitarbeiteransicht</a>
@@ -26,14 +26,9 @@
     <section id="adminArea" class="hidden">
       <section class="panel">
         <h2>PEP-Plan importieren</h2>
-        <p class="hint">Am zuverlaessigsten: PEP-Einsatzplanung oeffnen und den Favorit PEP Druck kopieren nutzen. Die normale PEP-Ansicht nicht kopieren, weil dort Zeilen fehlen koennen.</p>
-        <p class="hint"><a class="link" href="/pep-kopierer.html">PEP-Kopierer oeffnen</a></p>
+        <p id="importHint" class="hint">Am zuverlaessigsten: In PEP die Druckansicht als HTML/Webseite speichern und diese Datei hier hochladen. Copy & Paste bitte nicht nutzen, weil dabei Zeilen fehlen koennen.</p>
         <label>Titel<input id="planTitle" placeholder="z. B. KW 27"></label>
-        <label>PEP-Text einfuegen<textarea id="pepTextInput" rows="8" placeholder="Hier den kopierten Text aus der PEP-Planseite einfuegen"></textarea></label>
-        <button id="openPepBrowserBtn" class="secondary">PEP-Browser oeffnen</button>
-        <button id="readPepBrowserBtn" class="secondary">PEP direkt aus offenem Browser lesen</button>
-        <button id="parseTextBtn" class="secondary">PEP-Text erkennen</button>
-        <label>Datei<input id="fileInput" type="file" accept=".pdf,.csv,.xlsx,.xls"></label>
+        <label>PEP-Datei hochladen<input id="fileInput" type="file" accept=".html,.htm,.pdf,.csv,.xlsx,.xls"></label>
         <div id="preview" class="preview hidden"></div>
         <div id="mapping" class="mapping hidden"></div>
         <button id="uploadBtn" disabled>Plan speichern</button>
@@ -92,6 +87,9 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js"></script>
+  <script src="/admin.js?v=20260708-1545"></script>
 </body>
 </html>
+
+
+

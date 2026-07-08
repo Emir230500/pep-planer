@@ -248,6 +248,2274 @@
   },
   "plans": [
     {
+      "id": "a912d595-9b6c-4e00-8f66-96ed24f6ce3f",
+      "title": "KW 31",
+      "uploadedAt": "2026-07-08T13:27:15.313Z",
+      "publishedAt": "2026-07-08T13:27:20.931Z",
+      "range": "27.07.2026 bis 01.08.2026",
+      "issues": [
+        {
+          "type": "break",
+          "row": 16,
+          "message": "Keine Pause erkannt: Aule, Timo 29.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 60,
+          "message": "Keine Pause erkannt: Dreßen, Ricarda 27.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 62,
+          "message": "Keine Pause erkannt: Dreßen, Ricarda 29.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 64,
+          "message": "Keine Pause erkannt: Dreßen, Ricarda 31.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 167,
+          "message": "Keine Pause erkannt: Pienle, Franziska 27.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 171,
+          "message": "Keine Pause erkannt: Pienle, Franziska 29.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 173,
+          "message": "Keine Pause erkannt: Pienle, Franziska 30.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 179,
+          "message": "Keine Pause erkannt: Renneke, Petra 27.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 180,
+          "message": "Keine Pause erkannt: Renneke, Petra 30.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 181,
+          "message": "Keine Pause erkannt: Renneke, Petra 30.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 185,
+          "message": "Keine Pause erkannt: Renneke, Petra 31.07.2026"
+        },
+        {
+          "type": "break",
+          "row": 187,
+          "message": "Keine Pause erkannt: Renneke, Petra 01.08.2026"
+        },
+        {
+          "type": "break",
+          "row": 204,
+          "message": "Keine Pause erkannt: Schumacher, Melanie 27.07.2026"
+        }
+      ],
+      "seenEmployees": [
+        "Altun, Havin",
+        "Atasever, Seda",
+        "Aule, Timo",
+        "Bayram, Evelyn",
+        "Berenbrinker, Gabriele",
+        "Bröckling, Angelina",
+        "Bröker, Rita",
+        "Demircan, Emirkan",
+        "Dorenkamp, Vanessa",
+        "Dreßen, Ricarda",
+        "Dück, Olga",
+        "Engelns, Justus",
+        "Engel, Viktoria-Isabel",
+        "Fenn, Claudia",
+        "Ficht, Tanja",
+        "Fritze, Laura",
+        "Grosse, Robert",
+        "Hadler, Nadine",
+        "Hammer, Pascal",
+        "Homann, Elena",
+        "Jacobi, Justus",
+        "Javed, Akil",
+        "Karstädt, Angela",
+        "Koch, Anja",
+        "Konxheli, Dafina",
+        "Konxhelli, Blerina",
+        "Ludwig, Jennifer",
+        "Merker, Luise",
+        "Pienle, Franziska",
+        "Pollmeier, Nicolas",
+        "Renneke, Petra",
+        "Rode, Joanna",
+        "Röder, Emelie",
+        "Runte, Anja",
+        "Schneider, Leon",
+        "Schumacher, Melanie",
+        "Selo, Nawal",
+        "Simmendinger, Evelyn",
+        "Slusar, Olga",
+        "Stark, Natalia",
+        "Walter, Maya",
+        "Westermann, Simone",
+        "Winter, Nicole",
+        "Worrech, Emma",
+        "Ziese, Benita",
+        "Zimmermann, Anica"
+      ],
+      "shifts": [
+        {
+          "name": "Altun, Havin",
+          "date": "27.07.2026",
+          "start": "15:55",
+          "end": "20:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Altun, Havin",
+          "date": "29.07.2026",
+          "start": "15:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Altun, Havin",
+          "date": "30.07.2026",
+          "start": "13:00",
+          "end": "21:00",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Altun, Havin",
+          "date": "31.07.2026",
+          "start": "11:55",
+          "end": "20:05",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Altun, Havin",
+          "date": "01.08.2026",
+          "start": "14:55",
+          "end": "20:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Altun, Havin",
+          "date": "01.08.2026",
+          "start": "14:55",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Altun, Havin",
+          "date": "01.08.2026",
+          "start": "18:00",
+          "end": "20:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Atasever, Seda",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Atasever, Seda",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Atasever, Seda",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Atasever, Seda",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Atasever, Seda",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Atasever, Seda",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Aule, Timo",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Getränke",
+          "break": "00:30"
+        },
+        {
+          "name": "Aule, Timo",
+          "date": "28.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Getränke",
+          "break": "00:30"
+        },
+        {
+          "name": "Aule, Timo",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Aule, Timo",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "10:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Aule, Timo",
+          "date": "29.07.2026",
+          "start": "10:00",
+          "end": "14:00",
+          "department": "Getränke",
+          "break": ""
+        },
+        {
+          "name": "Aule, Timo",
+          "date": "31.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Getränke",
+          "break": "00:30"
+        },
+        {
+          "name": "Aule, Timo",
+          "date": "01.08.2026",
+          "start": "10:00",
+          "end": "18:00",
+          "department": "Getränke",
+          "break": "00:30"
+        },
+        {
+          "name": "Bayram, Evelyn",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Bayram, Evelyn",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Bayram, Evelyn",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Bayram, Evelyn",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Bayram, Evelyn",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Bayram, Evelyn",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Berenbrinker, Gabriele",
+          "date": "27.07.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "BakeOff",
+          "break": "00:15"
+        },
+        {
+          "name": "Berenbrinker, Gabriele",
+          "date": "28.07.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "BakeOff",
+          "break": "00:15"
+        },
+        {
+          "name": "Berenbrinker, Gabriele",
+          "date": "29.07.2026",
+          "start": "15:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Berenbrinker, Gabriele",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Berenbrinker, Gabriele",
+          "date": "31.07.2026",
+          "start": "16:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Berenbrinker, Gabriele",
+          "date": "01.08.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "BakeOff",
+          "break": "00:15"
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "08:00",
+          "department": "Obst & Gemüse",
+          "break": ""
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "27.07.2026",
+          "start": "08:00",
+          "end": "14:00",
+          "department": "Werbung",
+          "break": ""
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "28.07.2026",
+          "start": "13:00",
+          "end": "21:00",
+          "department": "Marktaufsicht",
+          "break": "00:30"
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "28.07.2026",
+          "start": "13:00",
+          "end": "16:00",
+          "department": "Marktaufsicht",
+          "break": ""
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "28.07.2026",
+          "start": "16:00",
+          "end": "17:00",
+          "department": "Marktaufsicht",
+          "break": ""
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "28.07.2026",
+          "start": "17:00",
+          "end": "21:00",
+          "department": "Marktaufsicht",
+          "break": ""
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "29.07.2026",
+          "start": "13:00",
+          "end": "21:00",
+          "department": "Marktaufsicht",
+          "break": "00:30"
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "31.07.2026",
+          "start": "13:00",
+          "end": "21:00",
+          "department": "Marktaufsicht",
+          "break": "00:30"
+        },
+        {
+          "name": "Bröckling, Angelina",
+          "date": "01.08.2026",
+          "start": "13:00",
+          "end": "21:00",
+          "department": "Marktaufsicht",
+          "break": "00:30"
+        },
+        {
+          "name": "Bröker, Rita",
+          "date": "27.07.2026",
+          "start": "15:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": "00:15"
+        },
+        {
+          "name": "Bröker, Rita",
+          "date": "29.07.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": "00:15"
+        },
+        {
+          "name": "Bröker, Rita",
+          "date": "30.07.2026",
+          "start": "08:00",
+          "end": "13:00",
+          "department": "Food Abteilung",
+          "break": "00:15"
+        },
+        {
+          "name": "Bröker, Rita",
+          "date": "31.07.2026",
+          "start": "15:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": "00:15"
+        },
+        {
+          "name": "Demircan, Emirkan",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Marktleitung",
+          "break": "00:30"
+        },
+        {
+          "name": "Demircan, Emirkan",
+          "date": "28.07.2026",
+          "start": "08:00",
+          "end": "16:00",
+          "department": "Marktleitung",
+          "break": "00:30"
+        },
+        {
+          "name": "Demircan, Emirkan",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Marktleitung",
+          "break": "00:30"
+        },
+        {
+          "name": "Demircan, Emirkan",
+          "date": "30.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Marktleitung",
+          "break": "00:30"
+        },
+        {
+          "name": "Demircan, Emirkan",
+          "date": "31.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Marktleitung",
+          "break": "00:30"
+        },
+        {
+          "name": "Demircan, Emirkan",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Dorenkamp, Vanessa",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Dorenkamp, Vanessa",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Dorenkamp, Vanessa",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Dorenkamp, Vanessa",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Dorenkamp, Vanessa",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Dorenkamp, Vanessa",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Dreßen, Ricarda",
+          "date": "27.07.2026",
+          "start": "16:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Dreßen, Ricarda",
+          "date": "27.07.2026",
+          "start": "04:00",
+          "end": "61:20",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Dreßen, Ricarda",
+          "date": "29.07.2026",
+          "start": "16:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Dreßen, Ricarda",
+          "date": "29.07.2026",
+          "start": "04:00",
+          "end": "60:40",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Dreßen, Ricarda",
+          "date": "31.07.2026",
+          "start": "16:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Dreßen, Ricarda",
+          "date": "31.07.2026",
+          "start": "04:00",
+          "end": "58:20",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Dück, Olga",
+          "date": "28.07.2026",
+          "start": "07:55",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Dück, Olga",
+          "date": "28.07.2026",
+          "start": "07:55",
+          "end": "10:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Dück, Olga",
+          "date": "28.07.2026",
+          "start": "10:00",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Dück, Olga",
+          "date": "29.07.2026",
+          "start": "12:00",
+          "end": "16:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Dück, Olga",
+          "date": "31.07.2026",
+          "start": "07:55",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Dück, Olga",
+          "date": "31.07.2026",
+          "start": "07:55",
+          "end": "10:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Dück, Olga",
+          "date": "31.07.2026",
+          "start": "10:00",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Engel, Viktoria-Isabel",
+          "date": "28.07.2026",
+          "start": "15:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Engel, Viktoria-Isabel",
+          "date": "28.07.2026",
+          "start": "04:40",
+          "end": "07:39",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Engel, Viktoria-Isabel",
+          "date": "31.07.2026",
+          "start": "15:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Engel, Viktoria-Isabel",
+          "date": "31.07.2026",
+          "start": "04:40",
+          "end": "06:19",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Engel, Viktoria-Isabel",
+          "date": "01.08.2026",
+          "start": "11:55",
+          "end": "16:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Engel, Viktoria-Isabel",
+          "date": "01.08.2026",
+          "start": "03:49",
+          "end": "04:10",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Fenn, Claudia",
+          "date": "27.07.2026",
+          "start": "15:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Fenn, Claudia",
+          "date": "27.07.2026",
+          "start": "00:32",
+          "end": "04:55",
+          "department": "Kasse",
+          "break": "00:32"
+        },
+        {
+          "name": "Fenn, Claudia",
+          "date": "28.07.2026",
+          "start": "15:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Fenn, Claudia",
+          "date": "28.07.2026",
+          "start": "15:55",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Fenn, Claudia",
+          "date": "28.07.2026",
+          "start": "18:00",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Ficht, Tanja",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ficht, Tanja",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ficht, Tanja",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ficht, Tanja",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ficht, Tanja",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ficht, Tanja",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Fritze, Laura",
+          "date": "27.07.2026",
+          "start": "15:00",
+          "end": "21:00",
+          "department": "Tiefkühl",
+          "break": ""
+        },
+        {
+          "name": "Fritze, Laura",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Fritze, Laura",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Fritze, Laura",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Fritze, Laura",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Grosse, Robert",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Grosse, Robert",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Grosse, Robert",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Grosse, Robert",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Grosse, Robert",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Grosse, Robert",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Hadler, Nadine",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Hadler, Nadine",
+          "date": "28.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Hadler, Nadine",
+          "date": "30.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Hadler, Nadine",
+          "date": "31.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Hadler, Nadine",
+          "date": "01.08.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Hammer, Pascal",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Werbung",
+          "break": "00:30"
+        },
+        {
+          "name": "Hammer, Pascal",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Hammer, Pascal",
+          "date": "30.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Hammer, Pascal",
+          "date": "31.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Hammer, Pascal",
+          "date": "01.08.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Homann, Elena",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Homann, Elena",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Homann, Elena",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Homann, Elena",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Homann, Elena",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Homann, Elena",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Jacobi, Justus",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Jacobi, Justus",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Jacobi, Justus",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Jacobi, Justus",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Jacobi, Justus",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Jacobi, Justus",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Javed, Akil",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Javed, Akil",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Javed, Akil",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Javed, Akil",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Javed, Akil",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Javed, Akil",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Karstädt, Angela",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Karstädt, Angela",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Karstädt, Angela",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Karstädt, Angela",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Karstädt, Angela",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Karstädt, Angela",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Koch, Anja",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Koch, Anja",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Koch, Anja",
+          "date": "30.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Koch, Anja",
+          "date": "31.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Koch, Anja",
+          "date": "01.08.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Konxheli, Dafina",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Konxheli, Dafina",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Konxheli, Dafina",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Konxheli, Dafina",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Konxheli, Dafina",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Konxheli, Dafina",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Konxhelli, Blerina",
+          "date": "27.07.2026",
+          "start": "13:00",
+          "end": "21:00",
+          "department": "Marktaufsicht",
+          "break": "00:30"
+        },
+        {
+          "name": "Konxhelli, Blerina",
+          "date": "28.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Konxhelli, Blerina",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Konxhelli, Blerina",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "10:00",
+          "department": "Obst & Gemüse",
+          "break": ""
+        },
+        {
+          "name": "Konxhelli, Blerina",
+          "date": "29.07.2026",
+          "start": "10:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": ""
+        },
+        {
+          "name": "Konxhelli, Blerina",
+          "date": "30.07.2026",
+          "start": "13:00",
+          "end": "21:00",
+          "department": "Marktaufsicht",
+          "break": "00:30"
+        },
+        {
+          "name": "Konxhelli, Blerina",
+          "date": "01.08.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Ludwig, Jennifer",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ludwig, Jennifer",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ludwig, Jennifer",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ludwig, Jennifer",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ludwig, Jennifer",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ludwig, Jennifer",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Merker, Luise",
+          "date": "27.07.2026",
+          "start": "15:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": "00:15"
+        },
+        {
+          "name": "Merker, Luise",
+          "date": "27.07.2026",
+          "start": "04:30",
+          "end": "04:45",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Merker, Luise",
+          "date": "28.07.2026",
+          "start": "08:00",
+          "end": "13:00",
+          "department": "Food Abteilung",
+          "break": "00:15"
+        },
+        {
+          "name": "Merker, Luise",
+          "date": "28.07.2026",
+          "start": "04:45",
+          "end": "04:45",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Merker, Luise",
+          "date": "29.07.2026",
+          "start": "15:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": "00:15"
+        },
+        {
+          "name": "Merker, Luise",
+          "date": "29.07.2026",
+          "start": "04:45",
+          "end": "05:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Merker, Luise",
+          "date": "31.07.2026",
+          "start": "15:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": "00:15"
+        },
+        {
+          "name": "Merker, Luise",
+          "date": "31.07.2026",
+          "start": "04:45",
+          "end": "05:15",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "13:00",
+          "department": "BakeOff",
+          "break": "00:30"
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "27.07.2026",
+          "start": "06:30",
+          "end": "15:58",
+          "department": "BakeOff",
+          "break": ""
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "28.07.2026",
+          "start": "10:00",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "28.07.2026",
+          "start": "07:30",
+          "end": "13:28",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "29.07.2026",
+          "start": "12:00",
+          "end": "18:00",
+          "department": "BakeOff",
+          "break": "00:15"
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "29.07.2026",
+          "start": "05:45",
+          "end": "12:43",
+          "department": "BakeOff",
+          "break": ""
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "30.07.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "BakeOff",
+          "break": "00:15"
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "30.07.2026",
+          "start": "05:45",
+          "end": "11:58",
+          "department": "BakeOff",
+          "break": ""
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "31.07.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "BakeOff",
+          "break": "00:15"
+        },
+        {
+          "name": "Pienle, Franziska",
+          "date": "31.07.2026",
+          "start": "05:45",
+          "end": "06:13",
+          "department": "BakeOff",
+          "break": ""
+        },
+        {
+          "name": "Pollmeier, Nicolas",
+          "date": "29.07.2026",
+          "start": "16:00",
+          "end": "21:00",
+          "department": "Getränke",
+          "break": "00:15"
+        },
+        {
+          "name": "Pollmeier, Nicolas",
+          "date": "31.07.2026",
+          "start": "16:00",
+          "end": "21:00",
+          "department": "Getränke",
+          "break": "00:15"
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "27.07.2026",
+          "start": "10:00",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "27.07.2026",
+          "start": "07:30",
+          "end": "87:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "30.07.2026",
+          "start": "07:55",
+          "end": "15:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "30.07.2026",
+          "start": "07:10",
+          "end": "94:50",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "30.07.2026",
+          "start": "07:55",
+          "end": "10:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "30.07.2026",
+          "start": "10:00",
+          "end": "15:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "31.07.2026",
+          "start": "10:00",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "31.07.2026",
+          "start": "07:30",
+          "end": "87:31",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "01.08.2026",
+          "start": "06:55",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Renneke, Petra",
+          "date": "01.08.2026",
+          "start": "05:10",
+          "end": "87:21",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Rode, Joanna",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Rode, Joanna",
+          "date": "28.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Rode, Joanna",
+          "date": "29.07.2026",
+          "start": "10:00",
+          "end": "18:00",
+          "department": "Tiefkühl",
+          "break": "00:30"
+        },
+        {
+          "name": "Rode, Joanna",
+          "date": "31.07.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Rode, Joanna",
+          "date": "01.08.2026",
+          "start": "06:00",
+          "end": "14:00",
+          "department": "Obst & Gemüse",
+          "break": "00:30"
+        },
+        {
+          "name": "Röder, Emelie",
+          "date": "27.07.2026",
+          "start": "16:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Röder, Emelie",
+          "date": "29.07.2026",
+          "start": "16:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Runte, Anja",
+          "date": "27.07.2026",
+          "start": "08:00",
+          "end": "16:00",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Runte, Anja",
+          "date": "27.07.2026",
+          "start": "08:00",
+          "end": "10:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Runte, Anja",
+          "date": "27.07.2026",
+          "start": "10:00",
+          "end": "16:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Runte, Anja",
+          "date": "28.07.2026",
+          "start": "11:55",
+          "end": "16:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Runte, Anja",
+          "date": "29.07.2026",
+          "start": "07:55",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Runte, Anja",
+          "date": "29.07.2026",
+          "start": "07:55",
+          "end": "10:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Runte, Anja",
+          "date": "29.07.2026",
+          "start": "10:00",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Runte, Anja",
+          "date": "30.07.2026",
+          "start": "10:00",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Schumacher, Melanie",
+          "date": "27.07.2026",
+          "start": "17:00",
+          "end": "21:00",
+          "department": "Auto Dispo",
+          "break": ""
+        },
+        {
+          "name": "Schumacher, Melanie",
+          "date": "27.07.2026",
+          "start": "04:00",
+          "end": "10:43",
+          "department": "Auto Dispo",
+          "break": ""
+        },
+        {
+          "name": "Selo, Nawal",
+          "date": "28.07.2026",
+          "start": "06:00",
+          "end": "13:00",
+          "department": "BakeOff",
+          "break": "00:30"
+        },
+        {
+          "name": "Selo, Nawal",
+          "date": "28.07.2026",
+          "start": "06:30",
+          "end": "07:09",
+          "department": "BakeOff",
+          "break": ""
+        },
+        {
+          "name": "Selo, Nawal",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "13:00",
+          "department": "BakeOff",
+          "break": "00:30"
+        },
+        {
+          "name": "Selo, Nawal",
+          "date": "29.07.2026",
+          "start": "05:16",
+          "end": "06:30",
+          "department": "BakeOff",
+          "break": ""
+        },
+        {
+          "name": "Selo, Nawal",
+          "date": "30.07.2026",
+          "start": "06:00",
+          "end": "13:00",
+          "department": "BakeOff",
+          "break": "00:30"
+        },
+        {
+          "name": "Selo, Nawal",
+          "date": "30.07.2026",
+          "start": "03:23",
+          "end": "06:30",
+          "department": "BakeOff",
+          "break": ""
+        },
+        {
+          "name": "Selo, Nawal",
+          "date": "31.07.2026",
+          "start": "06:00",
+          "end": "13:00",
+          "department": "BakeOff",
+          "break": "00:30"
+        },
+        {
+          "name": "Selo, Nawal",
+          "date": "01.08.2026",
+          "start": "06:00",
+          "end": "13:00",
+          "department": "BakeOff",
+          "break": "00:30"
+        },
+        {
+          "name": "Simmendinger, Evelyn",
+          "date": "29.07.2026",
+          "start": "15:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Simmendinger, Evelyn",
+          "date": "29.07.2026",
+          "start": "15:55",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Simmendinger, Evelyn",
+          "date": "29.07.2026",
+          "start": "18:00",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Simmendinger, Evelyn",
+          "date": "31.07.2026",
+          "start": "06:55",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Simmendinger, Evelyn",
+          "date": "01.08.2026",
+          "start": "10:00",
+          "end": "15:00",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Slusar, Olga",
+          "date": "28.07.2026",
+          "start": "06:55",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Slusar, Olga",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "13:00",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Slusar, Olga",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "10:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Slusar, Olga",
+          "date": "29.07.2026",
+          "start": "10:00",
+          "end": "13:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Slusar, Olga",
+          "date": "30.07.2026",
+          "start": "06:55",
+          "end": "13:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Slusar, Olga",
+          "date": "31.07.2026",
+          "start": "16:00",
+          "end": "21:00",
+          "department": "Tiefkühl",
+          "break": "00:15"
+        },
+        {
+          "name": "Slusar, Olga",
+          "date": "01.08.2026",
+          "start": "08:55",
+          "end": "15:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Stark, Natalia",
+          "date": "27.07.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": "00:32"
+        },
+        {
+          "name": "Stark, Natalia",
+          "date": "28.07.2026",
+          "start": "08:00",
+          "end": "12:00",
+          "department": "Food Abteilung",
+          "break": "00:41"
+        },
+        {
+          "name": "Stark, Natalia",
+          "date": "29.07.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Stark, Natalia",
+          "date": "31.07.2026",
+          "start": "14:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Walter, Maya",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Walter, Maya",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Walter, Maya",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Walter, Maya",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Walter, Maya",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Walter, Maya",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Westermann, Simone",
+          "date": "27.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Westermann, Simone",
+          "date": "28.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Westermann, Simone",
+          "date": "29.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Westermann, Simone",
+          "date": "31.07.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Westermann, Simone",
+          "date": "01.08.2026",
+          "start": "06:00",
+          "end": "12:00",
+          "department": "Mopro",
+          "break": "00:15"
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "27.07.2026",
+          "start": "15:00",
+          "end": "21:00",
+          "department": "Auto Dispo",
+          "break": "00:15"
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "27.07.2026",
+          "start": "05:45",
+          "end": "07:08",
+          "department": "Auto Dispo",
+          "break": ""
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "28.07.2026",
+          "start": "08:00",
+          "end": "13:00",
+          "department": "Auto Dispo",
+          "break": "00:15"
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "28.07.2026",
+          "start": "04:45",
+          "end": "07:23",
+          "department": "Auto Dispo",
+          "break": ""
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "29.07.2026",
+          "start": "15:00",
+          "end": "21:00",
+          "department": "Auto Dispo",
+          "break": "00:15"
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "29.07.2026",
+          "start": "05:45",
+          "end": "06:38",
+          "department": "Auto Dispo",
+          "break": ""
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "30.07.2026",
+          "start": "08:00",
+          "end": "13:00",
+          "department": "Auto Dispo",
+          "break": "00:15"
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "30.07.2026",
+          "start": "04:45",
+          "end": "06:53",
+          "department": "Auto Dispo",
+          "break": ""
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "01.08.2026",
+          "start": "08:00",
+          "end": "13:00",
+          "department": "Auto Dispo",
+          "break": "00:15"
+        },
+        {
+          "name": "Winter, Nicole",
+          "date": "01.08.2026",
+          "start": "04:45",
+          "end": "07:08",
+          "department": "Auto Dispo",
+          "break": ""
+        },
+        {
+          "name": "Worrech, Emma",
+          "date": "27.07.2026",
+          "start": "16:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Worrech, Emma",
+          "date": "27.07.2026",
+          "start": "16:55",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Worrech, Emma",
+          "date": "27.07.2026",
+          "start": "18:00",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Worrech, Emma",
+          "date": "31.07.2026",
+          "start": "15:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Worrech, Emma",
+          "date": "31.07.2026",
+          "start": "15:55",
+          "end": "18:00",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Worrech, Emma",
+          "date": "31.07.2026",
+          "start": "18:00",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": ""
+        },
+        {
+          "name": "Worrech, Emma",
+          "date": "01.08.2026",
+          "start": "15:55",
+          "end": "21:05",
+          "department": "Kasse",
+          "break": "00:30"
+        },
+        {
+          "name": "Ziese, Benita",
+          "date": "27.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ziese, Benita",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ziese, Benita",
+          "date": "29.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ziese, Benita",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ziese, Benita",
+          "date": "31.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Ziese, Benita",
+          "date": "01.08.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Zimmermann, Anica",
+          "date": "27.07.2026",
+          "start": "06:55",
+          "end": "12:05",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Zimmermann, Anica",
+          "date": "28.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Zimmermann, Anica",
+          "date": "29.07.2026",
+          "start": "06:55",
+          "end": "12:00",
+          "department": "Kasse",
+          "break": "00:15"
+        },
+        {
+          "name": "Zimmermann, Anica",
+          "date": "30.07.2026",
+          "start": "00:00",
+          "end": "00:00",
+          "department": "Abwesenheit",
+          "break": ""
+        },
+        {
+          "name": "Zimmermann, Anica",
+          "date": "31.07.2026",
+          "start": "16:00",
+          "end": "20:00",
+          "department": "Food Abteilung",
+          "break": ""
+        },
+        {
+          "name": "Zimmermann, Anica",
+          "date": "01.08.2026",
+          "start": "07:00",
+          "end": "12:00",
+          "department": "Kasse",
+          "break": "00:15"
+        }
+      ]
+    },
+    {
       "id": "5c807d0b-796c-4fab-8e2e-5f466365b42f",
       "title": "KW 29",
       "uploadedAt": "2026-07-08T08:51:38.757Z",
@@ -1936,1832 +4204,6 @@
           "end": "20:00",
           "department": "Food Abteilung",
           "break": ""
-        }
-      ]
-    },
-    {
-      "id": "48bfb7ab-db1f-457b-82c6-9a33d2be7c57",
-      "title": "32",
-      "uploadedAt": "2026-07-08T08:43:23.202Z",
-      "publishedAt": "2026-07-08T08:43:26.059Z",
-      "range": "03.08.2026 bis 08.08.2026",
-      "issues": [],
-      "seenEmployees": [
-        "Altun, Havin",
-        "Atasever, Seda",
-        "Aule, Timo",
-        "Bayram, Evelyn",
-        "Berenbrinker, Gabriele",
-        "Bröckling, Angelina",
-        "Bröker, Rita",
-        "Demircan, Emirkan",
-        "Dorenkamp, Vanessa",
-        "Dreßen, Ricarda",
-        "Dück, Olga",
-        "Engelns, Justus",
-        "Engel, Viktoria-Isabel",
-        "Fenn, Claudia",
-        "Ficht, Tanja",
-        "Fritze, Laura",
-        "Grosse, Robert",
-        "Hadler, Nadine",
-        "Hammer, Pascal",
-        "Homann, Elena",
-        "Jacobi, Justus",
-        "Javed, Akil",
-        "Karstädt, Angela",
-        "Koch, Anja",
-        "Konxheli, Dafina",
-        "Konxhelli, Blerina",
-        "Ludwig, Jennifer",
-        "Merker, Luise",
-        "Pienle, Franziska",
-        "Pollmeier, Nicolas",
-        "Renneke, Petra",
-        "Rode, Joanna",
-        "Röder, Emelie",
-        "Runte, Anja",
-        "Schneider, Leon",
-        "Schumacher, Melanie",
-        "Selo, Nawal",
-        "Simmendinger, Evelyn",
-        "Slusar, Olga",
-        "Stark, Natalia",
-        "Walter, Maya",
-        "Westermann, Simone",
-        "Winter, Nicole",
-        "Worrech, Emma",
-        "Ziese, Benita",
-        "Zimmermann, Anica"
-      ],
-      "shifts": [
-        {
-          "name": "Altun, Havin",
-          "date": "03.08.2026",
-          "start": "15:55",
-          "end": "20:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Altun, Havin",
-          "date": "05.08.2026",
-          "start": "15:55",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Altun, Havin",
-          "date": "06.08.2026",
-          "start": "11:55",
-          "end": "16:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Altun, Havin",
-          "date": "07.08.2026",
-          "start": "15:55",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Altun, Havin",
-          "date": "07.08.2026",
-          "start": "18:00",
-          "end": "20:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Altun, Havin",
-          "date": "08.08.2026",
-          "start": "06:55",
-          "end": "15:05",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Atasever, Seda",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Atasever, Seda",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Atasever, Seda",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Atasever, Seda",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Atasever, Seda",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Atasever, Seda",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Aule, Timo",
-          "date": "03.08.2026",
-          "start": "14:00",
-          "end": "21:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Aule, Timo",
-          "date": "05.08.2026",
-          "start": "12:00",
-          "end": "19:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Aule, Timo",
-          "date": "06.08.2026",
-          "start": "06:00",
-          "end": "13:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Aule, Timo",
-          "date": "07.08.2026",
-          "start": "14:00",
-          "end": "21:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Aule, Timo",
-          "date": "08.08.2026",
-          "start": "10:00",
-          "end": "16:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Bayram, Evelyn",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Bayram, Evelyn",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Bayram, Evelyn",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Bayram, Evelyn",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Bayram, Evelyn",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Bayram, Evelyn",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Berenbrinker, Gabriele",
-          "date": "03.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "BakeOff",
-          "break": ""
-        },
-        {
-          "name": "Berenbrinker, Gabriele",
-          "date": "05.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Berenbrinker, Gabriele",
-          "date": "07.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Bröckling, Angelina",
-          "date": "03.08.2026",
-          "start": "13:00",
-          "end": "21:00",
-          "department": "Marktaufsicht",
-          "break": "00:30"
-        },
-        {
-          "name": "Bröckling, Angelina",
-          "date": "04.08.2026",
-          "start": "13:00",
-          "end": "21:00",
-          "department": "Marktaufsicht",
-          "break": "00:30"
-        },
-        {
-          "name": "Bröckling, Angelina",
-          "date": "06.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Bröckling, Angelina",
-          "date": "07.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Bröckling, Angelina",
-          "date": "08.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Bröker, Rita",
-          "date": "03.08.2026",
-          "start": "15:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Bröker, Rita",
-          "date": "05.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Bröker, Rita",
-          "date": "06.08.2026",
-          "start": "08:00",
-          "end": "13:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Bröker, Rita",
-          "date": "07.08.2026",
-          "start": "15:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Bröker, Rita",
-          "date": "08.08.2026",
-          "start": "08:00",
-          "end": "13:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Demircan, Emirkan",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Marktleitung",
-          "break": "00:30"
-        },
-        {
-          "name": "Demircan, Emirkan",
-          "date": "04.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Marktleitung",
-          "break": "00:30"
-        },
-        {
-          "name": "Demircan, Emirkan",
-          "date": "05.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Marktleitung",
-          "break": "00:30"
-        },
-        {
-          "name": "Demircan, Emirkan",
-          "date": "06.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Marktleitung",
-          "break": "00:30"
-        },
-        {
-          "name": "Demircan, Emirkan",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Demircan, Emirkan",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Dorenkamp, Vanessa",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "13:00",
-          "department": "BakeOff",
-          "break": "00:30"
-        },
-        {
-          "name": "Dorenkamp, Vanessa",
-          "date": "04.08.2026",
-          "start": "06:00",
-          "end": "13:00",
-          "department": "BakeOff",
-          "break": "00:30"
-        },
-        {
-          "name": "Dorenkamp, Vanessa",
-          "date": "05.08.2026",
-          "start": "06:00",
-          "end": "13:00",
-          "department": "BakeOff",
-          "break": "00:30"
-        },
-        {
-          "name": "Dorenkamp, Vanessa",
-          "date": "06.08.2026",
-          "start": "06:00",
-          "end": "13:00",
-          "department": "BakeOff",
-          "break": "00:30"
-        },
-        {
-          "name": "Dorenkamp, Vanessa",
-          "date": "07.08.2026",
-          "start": "06:00",
-          "end": "13:00",
-          "department": "BakeOff",
-          "break": "00:30"
-        },
-        {
-          "name": "Dorenkamp, Vanessa",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Dreßen, Ricarda",
-          "date": "03.08.2026",
-          "start": "15:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Dreßen, Ricarda",
-          "date": "05.08.2026",
-          "start": "15:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Dreßen, Ricarda",
-          "date": "07.08.2026",
-          "start": "15:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Dück, Olga",
-          "date": "04.08.2026",
-          "start": "07:55",
-          "end": "10:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Dück, Olga",
-          "date": "04.08.2026",
-          "start": "10:00",
-          "end": "12:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Dück, Olga",
-          "date": "07.08.2026",
-          "start": "11:55",
-          "end": "16:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Engelns, Justus",
-          "date": "04.08.2026",
-          "start": "15:55",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Engelns, Justus",
-          "date": "04.08.2026",
-          "start": "18:00",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Engelns, Justus",
-          "date": "07.08.2026",
-          "start": "15:55",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Engelns, Justus",
-          "date": "08.08.2026",
-          "start": "14:55",
-          "end": "20:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Engel, Viktoria-Isabel",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Engel, Viktoria-Isabel",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Engel, Viktoria-Isabel",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Engel, Viktoria-Isabel",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Engel, Viktoria-Isabel",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Engel, Viktoria-Isabel",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Fenn, Claudia",
-          "date": "04.08.2026",
-          "start": "15:55",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Fenn, Claudia",
-          "date": "07.08.2026",
-          "start": "15:55",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Fenn, Claudia",
-          "date": "07.08.2026",
-          "start": "18:00",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Ficht, Tanja",
-          "date": "03.08.2026",
-          "start": "16:55",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Ficht, Tanja",
-          "date": "03.08.2026",
-          "start": "18:00",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Ficht, Tanja",
-          "date": "08.08.2026",
-          "start": "15:55",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Fritze, Laura",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Fritze, Laura",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Fritze, Laura",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Fritze, Laura",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Fritze, Laura",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Fritze, Laura",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Grosse, Robert",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Grosse, Robert",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Grosse, Robert",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Grosse, Robert",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Grosse, Robert",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Grosse, Robert",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Hadler, Nadine",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Hadler, Nadine",
-          "date": "04.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Hadler, Nadine",
-          "date": "06.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Hadler, Nadine",
-          "date": "07.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Hadler, Nadine",
-          "date": "08.08.2026",
-          "start": "06:00",
-          "end": "13:00",
-          "department": "Mopro",
-          "break": "00:30"
-        },
-        {
-          "name": "Hammer, Pascal",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Werbung",
-          "break": "00:30"
-        },
-        {
-          "name": "Hammer, Pascal",
-          "date": "05.08.2026",
-          "start": "11:00",
-          "end": "13:00",
-          "department": "Werbung",
-          "break": ""
-        },
-        {
-          "name": "Hammer, Pascal",
-          "date": "05.08.2026",
-          "start": "13:00",
-          "end": "19:00",
-          "department": "Tiefkühl",
-          "break": "00:30"
-        },
-        {
-          "name": "Hammer, Pascal",
-          "date": "06.08.2026",
-          "start": "08:00",
-          "end": "16:00",
-          "department": "Marktaufsicht",
-          "break": "00:30"
-        },
-        {
-          "name": "Hammer, Pascal",
-          "date": "07.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Hammer, Pascal",
-          "date": "08.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Homann, Elena",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Homann, Elena",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Homann, Elena",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Homann, Elena",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Homann, Elena",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Homann, Elena",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Jacobi, Justus",
-          "date": "05.08.2026",
-          "start": "15:55",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Jacobi, Justus",
-          "date": "05.08.2026",
-          "start": "18:00",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Jacobi, Justus",
-          "date": "08.08.2026",
-          "start": "10:00",
-          "end": "15:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "07:00",
-          "department": "Obst & Gemüse",
-          "break": ""
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "03.08.2026",
-          "start": "07:00",
-          "end": "14:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "04.08.2026",
-          "start": "06:00",
-          "end": "07:00",
-          "department": "Obst & Gemüse",
-          "break": ""
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "04.08.2026",
-          "start": "07:00",
-          "end": "14:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "05.08.2026",
-          "start": "06:00",
-          "end": "07:00",
-          "department": "Obst & Gemüse",
-          "break": ""
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "05.08.2026",
-          "start": "07:00",
-          "end": "14:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "07.08.2026",
-          "start": "06:00",
-          "end": "07:00",
-          "department": "Obst & Gemüse",
-          "break": ""
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "07.08.2026",
-          "start": "07:00",
-          "end": "14:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "08.08.2026",
-          "start": "06:00",
-          "end": "07:00",
-          "department": "Obst & Gemüse",
-          "break": ""
-        },
-        {
-          "name": "Javed, Akil",
-          "date": "08.08.2026",
-          "start": "07:00",
-          "end": "14:00",
-          "department": "Getränke",
-          "break": "00:30"
-        },
-        {
-          "name": "Karstädt, Angela",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Karstädt, Angela",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Karstädt, Angela",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Karstädt, Angela",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Karstädt, Angela",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Karstädt, Angela",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Krankheit",
-          "break": ""
-        },
-        {
-          "name": "Koch, Anja",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Koch, Anja",
-          "date": "05.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Koch, Anja",
-          "date": "07.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Koch, Anja",
-          "date": "08.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Konxheli, Dafina",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Konxheli, Dafina",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Konxheli, Dafina",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Konxheli, Dafina",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Konxheli, Dafina",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Konxheli, Dafina",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Konxhelli, Blerina",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Konxhelli, Blerina",
-          "date": "04.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Konxhelli, Blerina",
-          "date": "05.08.2026",
-          "start": "13:00",
-          "end": "21:00",
-          "department": "Marktaufsicht",
-          "break": "00:30"
-        },
-        {
-          "name": "Konxhelli, Blerina",
-          "date": "06.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Konxhelli, Blerina",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Konxhelli, Blerina",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Ludwig, Jennifer",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Ludwig, Jennifer",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Ludwig, Jennifer",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Ludwig, Jennifer",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Ludwig, Jennifer",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Ludwig, Jennifer",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Merker, Luise",
-          "date": "03.08.2026",
-          "start": "15:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Merker, Luise",
-          "date": "05.08.2026",
-          "start": "15:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Merker, Luise",
-          "date": "07.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Merker, Luise",
-          "date": "08.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Pienle, Franziska",
-          "date": "03.08.2026",
-          "start": "10:00",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Pienle, Franziska",
-          "date": "04.08.2026",
-          "start": "11:55",
-          "end": "18:05",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Pienle, Franziska",
-          "date": "06.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "BakeOff",
-          "break": ""
-        },
-        {
-          "name": "Pienle, Franziska",
-          "date": "07.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "BakeOff",
-          "break": ""
-        },
-        {
-          "name": "Pienle, Franziska",
-          "date": "08.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "BakeOff",
-          "break": ""
-        },
-        {
-          "name": "Pollmeier, Nicolas",
-          "date": "08.08.2026",
-          "start": "15:00",
-          "end": "19:00",
-          "department": "Getränke",
-          "break": ""
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "03.08.2026",
-          "start": "11:55",
-          "end": "16:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "04.08.2026",
-          "start": "10:00",
-          "end": "16:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "05.08.2026",
-          "start": "07:55",
-          "end": "10:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "05.08.2026",
-          "start": "10:00",
-          "end": "12:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "06.08.2026",
-          "start": "07:55",
-          "end": "10:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "06.08.2026",
-          "start": "10:00",
-          "end": "15:05",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "07.08.2026",
-          "start": "07:55",
-          "end": "10:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "07.08.2026",
-          "start": "10:00",
-          "end": "12:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Renneke, Petra",
-          "date": "08.08.2026",
-          "start": "13:55",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Rode, Joanna",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Rode, Joanna",
-          "date": "05.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "Obst & Gemüse",
-          "break": "00:30"
-        },
-        {
-          "name": "Rode, Joanna",
-          "date": "06.08.2026",
-          "start": "13:00",
-          "end": "21:00",
-          "department": "Marktaufsicht",
-          "break": "00:30"
-        },
-        {
-          "name": "Rode, Joanna",
-          "date": "07.08.2026",
-          "start": "13:00",
-          "end": "21:00",
-          "department": "Marktaufsicht",
-          "break": "00:30"
-        },
-        {
-          "name": "Rode, Joanna",
-          "date": "08.08.2026",
-          "start": "13:00",
-          "end": "21:00",
-          "department": "Marktaufsicht",
-          "break": "00:30"
-        },
-        {
-          "name": "Röder, Emelie",
-          "date": "03.08.2026",
-          "start": "16:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Röder, Emelie",
-          "date": "05.08.2026",
-          "start": "16:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Runte, Anja",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Runte, Anja",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Runte, Anja",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Runte, Anja",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Runte, Anja",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Runte, Anja",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Schneider, Leon",
-          "date": "03.08.2026",
-          "start": "15:55",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Schneider, Leon",
-          "date": "06.08.2026",
-          "start": "15:55",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Schumacher, Melanie",
-          "date": "03.08.2026",
-          "start": "16:00",
-          "end": "21:00",
-          "department": "Tiefkühl",
-          "break": ""
-        },
-        {
-          "name": "Selo, Nawal",
-          "date": "04.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "BakeOff",
-          "break": ""
-        },
-        {
-          "name": "Selo, Nawal",
-          "date": "05.08.2026",
-          "start": "12:00",
-          "end": "18:00",
-          "department": "BakeOff",
-          "break": ""
-        },
-        {
-          "name": "Selo, Nawal",
-          "date": "06.08.2026",
-          "start": "15:55",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Selo, Nawal",
-          "date": "06.08.2026",
-          "start": "18:00",
-          "end": "21:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Selo, Nawal",
-          "date": "07.08.2026",
-          "start": "10:00",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Selo, Nawal",
-          "date": "08.08.2026",
-          "start": "06:00",
-          "end": "14:00",
-          "department": "BakeOff",
-          "break": "00:30"
-        },
-        {
-          "name": "Simmendinger, Evelyn",
-          "date": "03.08.2026",
-          "start": "07:55",
-          "end": "10:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Simmendinger, Evelyn",
-          "date": "03.08.2026",
-          "start": "10:00",
-          "end": "12:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Simmendinger, Evelyn",
-          "date": "05.08.2026",
-          "start": "11:55",
-          "end": "16:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Simmendinger, Evelyn",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Slusar, Olga",
-          "date": "04.08.2026",
-          "start": "06:55",
-          "end": "12:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Slusar, Olga",
-          "date": "05.08.2026",
-          "start": "10:00",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Slusar, Olga",
-          "date": "06.08.2026",
-          "start": "06:55",
-          "end": "13:05",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Slusar, Olga",
-          "date": "07.08.2026",
-          "start": "06:55",
-          "end": "12:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Slusar, Olga",
-          "date": "08.08.2026",
-          "start": "06:55",
-          "end": "14:05",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Stark, Natalia",
-          "date": "03.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Stark, Natalia",
-          "date": "04.08.2026",
-          "start": "08:00",
-          "end": "13:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Stark, Natalia",
-          "date": "05.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Stark, Natalia",
-          "date": "07.08.2026",
-          "start": "14:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Walter, Maya",
-          "date": "05.08.2026",
-          "start": "17:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Walter, Maya",
-          "date": "07.08.2026",
-          "start": "16:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Westermann, Simone",
-          "date": "03.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Westermann, Simone",
-          "date": "04.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Westermann, Simone",
-          "date": "05.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Westermann, Simone",
-          "date": "06.08.2026",
-          "start": "06:00",
-          "end": "12:00",
-          "department": "Mopro",
-          "break": ""
-        },
-        {
-          "name": "Westermann, Simone",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Westermann, Simone",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Frei",
-          "break": ""
-        },
-        {
-          "name": "Winter, Nicole",
-          "date": "03.08.2026",
-          "start": "15:00",
-          "end": "21:00",
-          "department": "Auto Dispo",
-          "break": ""
-        },
-        {
-          "name": "Winter, Nicole",
-          "date": "04.08.2026",
-          "start": "08:00",
-          "end": "13:00",
-          "department": "Auto Dispo",
-          "break": ""
-        },
-        {
-          "name": "Winter, Nicole",
-          "date": "05.08.2026",
-          "start": "15:00",
-          "end": "21:00",
-          "department": "Auto Dispo",
-          "break": ""
-        },
-        {
-          "name": "Winter, Nicole",
-          "date": "06.08.2026",
-          "start": "08:00",
-          "end": "13:00",
-          "department": "Auto Dispo",
-          "break": ""
-        },
-        {
-          "name": "Winter, Nicole",
-          "date": "08.08.2026",
-          "start": "08:00",
-          "end": "13:00",
-          "department": "Auto Dispo",
-          "break": ""
-        },
-        {
-          "name": "Worrech, Emma",
-          "date": "03.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Worrech, Emma",
-          "date": "04.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Worrech, Emma",
-          "date": "05.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Worrech, Emma",
-          "date": "06.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Worrech, Emma",
-          "date": "07.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Worrech, Emma",
-          "date": "08.08.2026",
-          "start": "00:00",
-          "end": "00:00",
-          "department": "Urlaub",
-          "break": ""
-        },
-        {
-          "name": "Ziese, Benita",
-          "date": "03.08.2026",
-          "start": "17:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Ziese, Benita",
-          "date": "07.08.2026",
-          "start": "16:00",
-          "end": "21:00",
-          "department": "Tiefkühl",
-          "break": ""
-        },
-        {
-          "name": "Zimmermann, Anica",
-          "date": "03.08.2026",
-          "start": "06:55",
-          "end": "12:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Zimmermann, Anica",
-          "date": "05.08.2026",
-          "start": "06:55",
-          "end": "12:05",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Zimmermann, Anica",
-          "date": "06.08.2026",
-          "start": "10:00",
-          "end": "18:00",
-          "department": "Kasse",
-          "break": "00:30"
-        },
-        {
-          "name": "Zimmermann, Anica",
-          "date": "07.08.2026",
-          "start": "16:00",
-          "end": "20:00",
-          "department": "Food Abteilung",
-          "break": ""
-        },
-        {
-          "name": "Zimmermann, Anica",
-          "date": "08.08.2026",
-          "start": "07:55",
-          "end": "10:00",
-          "department": "Kasse",
-          "break": ""
-        },
-        {
-          "name": "Zimmermann, Anica",
-          "date": "08.08.2026",
-          "start": "10:00",
-          "end": "15:05",
-          "department": "Werbung",
-          "break": "00:30"
         }
       ]
     },
@@ -7220,10 +7662,10 @@
       ]
     }
   ],
-  "publishedPlanId": "5c807d0b-796c-4fab-8e2e-5f466365b42f",
+  "publishedPlanId": "a912d595-9b6c-4e00-8f66-96ed24f6ce3f",
   "publishedPlanIds": [
+    "a912d595-9b6c-4e00-8f66-96ed24f6ce3f",
     "5c807d0b-796c-4fab-8e2e-5f466365b42f",
-    "48bfb7ab-db1f-457b-82c6-9a33d2be7c57",
     "427909ed-2817-447c-a393-1355518071a4",
     "05ea51e5-a7d9-49e6-8fec-961635fb340c"
   ]

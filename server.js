@@ -279,21 +279,6 @@ function cleanShift(shift) {
 }
 
 function applyDailyBreaks(shifts) {
-  const byPersonDay = new Map();
-  for (const shift of shifts) {
-    const key = `${employeeKey(shift.name)}|${shift.date}`;
-    if (!byPersonDay.has(key)) byPersonDay.set(key, []);
-    byPersonDay.get(key).push(shift);
-  }
-
-  for (const dayShifts of byPersonDay.values()) {
-    const workShifts = dayShifts.filter(shift => !isStatusShift(shift));
-    const existingBreak = Math.max(0, ...workShifts.map(shift => timeToMinutesSafe(shift.break)));
-    const requiredBreak = legalBreakMinutes(totalDurationMinutes(workShifts));
-    if (!requiredBreak || existingBreak >= requiredBreak) continue;
-    const target = workShifts.slice().sort((a, b) => shiftDurationMinutes(b) - shiftDurationMinutes(a))[0];
-    if (target) target.break = minutesToBreak(requiredBreak);
-  }
   return shifts;
 }
 
@@ -309,7 +294,7 @@ function shiftIssues(shifts) {
     if (isSuspiciousName(shift.name)) issues.push({ type: "name", row: index + 1, message: `Name pruefen: ${label}` });
     if (isStatusShift(shift)) return;
     if (!shift.department || shift.department === "PEP") issues.push({ type: "department", row: index + 1, message: `Abteilung fehlt: ${label}` });
-    if (!shift.break && needsBreakCheck(shift)) issues.push({ type: "break", row: index + 1, message: `Pause pruefen: ${label}` });
+    if (!shift.break && needsBreakCheck(shift)) issues.push({ type: "break", row: index + 1, message: `Keine Pause erkannt: ${label}` });
     if (!isTime(shift.start) || !isTime(shift.end)) issues.push({ type: "time", row: index + 1, message: `Zeit pruefen: ${label}` });
     if (isBreakTimeValue(shift.start) || isBreakTimeValue(shift.end)) issues.push({ type: "time", row: index + 1, message: `Pause als Dienst erkannt: ${label}` });
   });

@@ -1,4 +1,4 @@
-let parsedRows = [];
+﻿let parsedRows = [];
 let headers = [];
 let currentFileType = "";
 let adminState = { plans: [], employees: [], publishedPlans: [] };
@@ -49,7 +49,7 @@ async function submitAdminLogin() {
   }
 }
 
-pepTextInput.addEventListener("input", () => {
+pepTextInput?.addEventListener("input", () => {
   parsedRows = [];
   headers = [];
   fileInput.value = "";
@@ -63,7 +63,8 @@ pepTextInput.addEventListener("input", () => {
 fileInput.addEventListener("change", async event => {
   uploadMsg.textContent = "";
   uploadMsg.classList.remove("error");
-  pepTextInput.value = "";
+  if (pepTextInput) pepTextInput.value = "";
+  lastPepTextNames = [];
   const file = event.target.files[0];
   if (!file) return;
   try {
@@ -84,11 +85,11 @@ fileInput.addEventListener("change", async event => {
   }
 });
 
-document.querySelector("#parseTextBtn").addEventListener("click", () => {
+document.querySelector("#parseTextBtn")?.addEventListener("click", () => {
   parsePepTextInput();
 });
 
-document.querySelector("#openPepBrowserBtn").addEventListener("click", async () => {
+document.querySelector("#openPepBrowserBtn")?.addEventListener("click", async () => {
   uploadMsg.textContent = "PEP-Browser wird geoeffnet...";
   uploadMsg.classList.remove("error");
   try {
@@ -100,7 +101,7 @@ document.querySelector("#openPepBrowserBtn").addEventListener("click", async () 
   }
 });
 
-document.querySelector("#readPepBrowserBtn").addEventListener("click", async () => {
+document.querySelector("#readPepBrowserBtn")?.addEventListener("click", async () => {
   uploadMsg.textContent = "PEP wird aus dem offenen Browser gelesen...";
   uploadMsg.classList.remove("error");
   try {
@@ -220,9 +221,10 @@ function validateEmployeeCoverage(shifts) {
   if (knownNames.length < 10) return;
   const imported = new Set(shifts.map(shift => normalizePersonName(shift.name)).filter(Boolean));
   const seenInPepText = new Set(lastPepTextNames.map(normalizePersonName));
-  const missing = knownNames.filter(name => !imported.has(name) && !seenInPepText.has(name));
-  if (missing.length >= 4 || imported.size < knownNames.length * 0.85) {
-    throw new Error(`Import wirkt unvollstaendig: ${missing.length} bekannte Mitarbeiter fehlen, z. B. ${missing.slice(0, 5).join(", ")}. Bitte mit dem neuen PEP-Kopierer nochmal kopieren oder Datei/PDF importieren.`);
+  const covered = new Set([...imported, ...seenInPepText]);
+  const missing = knownNames.filter(name => !covered.has(name));
+  if (missing.length >= 4 || covered.size < knownNames.length * 0.85) {
+    throw new Error(`Import wirkt unvollstaendig: ${missing.length} bekannte Mitarbeiter fehlen, z. B. ${missing.slice(0, 8).join(", ")}. Bitte HTML/Datei aus der PEP-Druckansicht neu hochladen oder pruefen, ob diese Mitarbeiter dort enthalten sind.`);
   }
 }
 
@@ -558,8 +560,8 @@ function monthKey(date) {
 
 function renderAdminPause(shift) {
   if (shift.break) return escapeHtml(shift.break);
-  if (needsBreakCheck(shift)) return '<span class="warn-text">Pause fehlt</span>';
-  return "keine Pause";
+  if (needsBreakCheck(shift)) return '<span class="warn-text">Keine Pause erkannt</span>';
+  return "Keine Pause erkannt";
 }
 
 function shiftDurationMinutes(shift) {
@@ -652,9 +654,29 @@ function renderPreview() {
 function readFile(file) {
   const ext = file.name.split(".").pop().toLowerCase();
   currentFileType = ext;
+  if (ext === "html" || ext === "htm") return readHtml(file);
   if (ext === "pdf") return readPdf(file);
   if (ext === "csv") return readCsv(file);
   return readExcel(file);
+}
+
+function readHtml(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("HTML-Datei konnte nicht gelesen werden."));
+    reader.onload = () => {
+      try {
+        const rows = rowsFromPepHtml(String(reader.result || ""));
+        if (!rows.length) {
+          throw new Error("In der HTML-Datei wurden keine Schichten erkannt. Bitte die PEP-Druckansicht als Webseite/HTML speichern und diese Datei hochladen.");
+        }
+        resolve(rows);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.readAsText(file, "utf-8");
+  });
 }
 
 function readCsv(file) {
@@ -716,6 +738,88 @@ function readPdf(file) {
     };
     reader.readAsArrayBuffer(file);
   });
+}
+
+function rowsFromPepHtml(html) {
+  const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+  const dates = detectHtmlDates(doc, html);
+  const employees = Array.from(doc.querySelectorAll('[id^="employee-"]'))
+    .map(cell => {
+      const match = String(cell.id || "").match(/^employee-(\d+)$/);
+      const name = normalizePersonName(cell.querySelector(".Employee__Link")?.textContent || "");
+      return match && name ? { rowIndex: match[1], name } : null;
+    })
+    .filter(Boolean);
+
+  if (!employees.length) {
+    throw new Error("HTML nicht erkannt: Es wurden keine Mitarbeiterzeilen gefunden. Bitte aus der PEP-Druckansicht speichern, nicht aus einer leeren/normalen Seite.");
+  }
+
+  if (dates.length < 3) {
+    throw new Error("HTML nicht erkannt: Es wurden keine Kalenderdaten gefunden. Bitte die Wochen-Druckansicht aus PEP speichern.");
+  }
+
+  lastPepTextNames = employees.map(employee => employee.name);
+  const rows = [];
+  for (const employee of employees) {
+    for (let dayIndex = 0; dayIndex < dates.length; dayIndex++) {
+      const cell = doc.querySelector(`td[data-tr-index="${employee.rowIndex}"][data-td-index="${dayIndex}"]`);
+      if (!cell) continue;
+      const cellText = cleanDomText(cell.textContent || "");
+      for (const shift of extractCellShifts(cellText)) {
+        rows.push({
+          Mitarbeiter: employee.name,
+          Datum: dates[dayIndex] || "",
+          Start: shift.start,
+          Ende: shift.end,
+          Abteilung: shift.department || "",
+          Pause: shift.breakTime || ""
+        });
+      }
+    }
+  }
+
+  if (!rows.length) {
+    throw new Error(`HTML erkannt (${employees.length} Mitarbeiter), aber keine Schichten gefunden. Bitte pruefen, ob die gespeicherte PEP-Datei die Druckansicht mit sichtbaren Dienstzeiten enthaelt.`);
+  }
+
+  return rows;
+}
+
+function detectHtmlDates(doc, html) {
+  const headerDates = Array.from(doc.querySelectorAll(".DayHeaderOnPrint .date-format"))
+    .map(item => cleanDomText(item.textContent || ""))
+    .filter(Boolean);
+  const year = detectHtmlYear(doc, html);
+  const uniqueDates = unique(headerDates)
+    .map(value => dateFromHeader(value, [`01.01.${year}`]))
+    .filter(Boolean);
+  if (uniqueDates.length >= 3) return uniqueDates.slice(0, 7);
+
+  const savedUrlDate = String(html || "").match(/\/(20\d{2})-(\d{1,2})-(\d{1,2})(?:[^\d]|$)/);
+  if (savedUrlDate) {
+    const start = `${savedUrlDate[3].padStart(2, "0")}.${savedUrlDate[2].padStart(2, "0")}.${savedUrlDate[1]}`;
+    const startDate = parseGermanDate(start);
+    const maxDayIndex = Math.max(0, ...Array.from(String(html).matchAll(/data-td-index="(\d+)"/g)).map(match => Number(match[1])).filter(Number.isFinite));
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + Math.min(Math.max(maxDayIndex, 5), 6));
+    return dateRange(start, formatGermanDate(endDate));
+  }
+
+  return detectDates(doc.body?.textContent || html);
+}
+
+function detectHtmlYear(doc, html) {
+  const title = doc.querySelector("title")?.textContent || "";
+  return (title.match(/\b(20\d{2})\b/) || String(html).match(/\b(20\d{2})\b/) || [null, String(new Date().getFullYear())])[1];
+}
+
+function cleanDomText(value) {
+  return String(value || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function rowsFromPepPages(pages, text) {
@@ -989,15 +1093,16 @@ function splitEmployeeBlocks(text) {
 }
 
 function extractTimeRanges(text) {
-  const flat = text.replace(/\s+/g, " ");
+  const flat = String(text || "").replace(/\s+/g, " ");
   const ranges = [];
-  const rangeRegex = /(\d{2}:\d{2})\s*(?:-|–|—)\s*(\d{2}:\d{2})([^0-9]{0,80})/g;
+  const rangeRegex = /(\d{2}:\d{2})\s*(?:-|–|—|â€“|â€”|-)\s*(\d{2}:\d{2})/g;
   for (const match of flat.matchAll(rangeRegex)) {
+    const context = match.input.slice(match.index, match.index + 180);
     ranges.push({
       start: match[1],
       end: match[2],
-      breakTime: detectBreak(match.input.slice(match.index, match.index + 140)),
-      department: detectDepartment(match[3])
+      breakTime: detectBreak(context),
+      department: detectDepartment(context)
     });
   }
 
@@ -1006,11 +1111,12 @@ function extractTimeRanges(text) {
   const tokens = flat.match(/\d{2}:\d{2}|[A-Za-z\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc\u00df&/]+/g) || [];
   for (let i = 0; i < tokens.length - 2; i++) {
     if (/^\d{2}:\d{2}$/.test(tokens[i]) && /^\d{2}:\d{2}$/.test(tokens[i + 1])) {
+      const context = tokens.slice(i, i + 12).join(" ");
       ranges.push({
         start: tokens[i],
         end: tokens[i + 1],
-        breakTime: detectBreak(tokens.slice(i, i + 8).join(" ")),
-        department: detectDepartment(tokens.slice(i + 2, i + 8).join(" "))
+        breakTime: detectBreak(context),
+        department: detectDepartment(context)
       });
       i++;
     }
@@ -1036,7 +1142,7 @@ function extractCellShifts(text) {
     .filter(range => !isPlaceholderRange(range.start, range.end));
   const withDepartment = explicit
     .filter(range => range.department)
-    .map(range => ({ ...range, breakTime: range.breakTime || fallbackBreak(range.start, range.end) }));
+    .map(range => ({ ...range, breakTime: range.breakTime || "" }));
   if (withDepartment.length) return dedupeShifts(withDepartment);
   if (explicit.length) return [];
 
@@ -1052,7 +1158,7 @@ function extractCellShifts(text) {
   return [{
     start: ordered.start,
     end: ordered.end,
-    breakTime: detectBreak(flat) || fallbackBreak(ordered.start, ordered.end),
+    breakTime: detectBreak(flat) || "",
     department
   }];
 }
@@ -1104,6 +1210,12 @@ function normalizeBreakValue(value) {
 
   const time = lower.match(/\b(?:00?|0):([0-5]\d)\b|\b01:00\b/);
   if (time) return time[0] === "01:00" ? "01:00" : `00:${time[1]}`;
+
+  const compactTime = lower.match(/\b00(15|30|45)\b/);
+  if (compactTime) return `00:${compactTime[1]}`;
+
+  const standaloneMinutes = lower.match(/(?:^|[^\d:])(15|30|45)(?![\d:])/);
+  if (standaloneMinutes) return `00:${standaloneMinutes[1]}`;
 
   const minutes = lower.match(/\b(15|30|45|60)\s*(?:min|minute|minutes|m)\b/);
   if (minutes) return minutes[1] === "60" ? "01:00" : `00:${minutes[1]}`;
@@ -1185,3 +1297,7 @@ function parseCsv(text) {
 }
 
 loadAdmin();
+
+
+
+
