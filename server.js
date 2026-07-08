@@ -11,6 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
+const BUILD_VERSION = "pausenfix-20260708-1605";
 let pgPool = null;
 
 const MIME = {
@@ -289,15 +290,29 @@ function isSuspiciousName(name) {
 
 function shiftIssues(shifts) {
   const issues = [];
+  const dailyBreaks = new Map();
+  for (const shift of shifts) {
+    if (isStatusShift(shift)) continue;
+    const key = `${employeeKey(shift.name)}|${shift.date}`;
+    const current = dailyBreaks.get(key) || { hasBreak: false, totalMinutes: 0, label: `${shift.name || "Unbekannt"} ${shift.date || ""}`.trim(), row: 0 };
+    current.hasBreak = current.hasBreak || Boolean(shift.break);
+    current.totalMinutes += shiftDurationMinutes(shift);
+    current.row = current.row || shifts.indexOf(shift) + 1;
+    dailyBreaks.set(key, current);
+  }
   shifts.forEach((shift, index) => {
     const label = `${shift.name || "Unbekannt"} ${shift.date || ""}`.trim();
     if (isSuspiciousName(shift.name)) issues.push({ type: "name", row: index + 1, message: `Name pruefen: ${label}` });
     if (isStatusShift(shift)) return;
     if (!shift.department || shift.department === "PEP") issues.push({ type: "department", row: index + 1, message: `Abteilung fehlt: ${label}` });
-    if (!shift.break && needsBreakCheck(shift)) issues.push({ type: "break", row: index + 1, message: `Keine Pause erkannt: ${label}` });
     if (!isTime(shift.start) || !isTime(shift.end)) issues.push({ type: "time", row: index + 1, message: `Zeit pruefen: ${label}` });
     if (isBreakTimeValue(shift.start) || isBreakTimeValue(shift.end)) issues.push({ type: "time", row: index + 1, message: `Pause als Dienst erkannt: ${label}` });
   });
+  for (const info of dailyBreaks.values()) {
+    if (legalBreakMinutes(info.totalMinutes) && !info.hasBreak) {
+      issues.push({ type: "break", row: info.row, message: `Keine Pause erkannt: ${info.label}` });
+    }
+  }
   return issues;
 }
 
@@ -336,7 +351,7 @@ function missingEmployeesForPlan(db, plan) {
 }
 
 function publicPlan(plan, extra = {}) {
-  const issues = plan.issues && plan.issues.length ? plan.issues : shiftIssues(plan.shifts || []);
+  const issues = shiftIssues(plan.shifts || []);
   return {
     id: plan.id,
     title: plan.title,
@@ -379,6 +394,7 @@ async function handleApi(req, res, pathname) {
       const ids = publishedIds(db);
       const publishedPlans = db.plans.filter(plan => ids.includes(plan.id));
       return json(res, 200, {
+        buildVersion: BUILD_VERSION,
         publishedPlanIds: ids,
         publishedPlanId: ids[0] || "",
         activePlan: publishedPlans[0] ? publicPlan(publishedPlans[0]) : null,
@@ -491,7 +507,7 @@ async function handleApi(req, res, pathname) {
       const db = await readDb();
       const plan = db.plans.find(item => item.id === id);
       if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
-      const issues = plan.issues && plan.issues.length ? plan.issues : shiftIssues(plan.shifts || []);
+      const issues = shiftIssues(plan.shifts || []);
       return json(res, 200, {
         plan: publicPlan(plan, { isPublished: publishedIds(db).includes(plan.id) }),
         shifts: plan.shifts || [],

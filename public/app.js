@@ -535,8 +535,7 @@ function minutesToTime(minutes) {
 function dayPauseText(shifts) {
   const existing = maxBreak(shifts);
   if (existing) return minutesToTime(existing);
-  const legal = legalBreakForMinutes(totalDayMinutes(shifts));
-  return legal || "keine Pause";
+  return totalDayMinutes(shifts) > 360 ? "Keine Pause erkannt" : "keine Pause";
 }
 
 function dayTimeRange(shifts) {

@@ -180,6 +180,8 @@ async function loadAdmin() {
   try {
     const data = await api("/api/admin/overview");
     adminState = data;
+    const buildVersion = document.querySelector("#buildVersion");
+    if (buildVersion) buildVersion.textContent = `Version: ${data.buildVersion || "alt/ohne Pausenfix"}`;
     loginBox.classList.add("hidden");
     adminArea.classList.remove("hidden");
     renderActivePlan(data.publishedPlans || []);
