@@ -1098,8 +1098,11 @@ function extractTimeRanges(text) {
   const flat = String(text || "").replace(/\s+/g, " ");
   const ranges = [];
   const rangeRegex = /(\d{2}:\d{2})\s*(?:-|–|—|â€“|â€”|-)\s*(\d{2}:\d{2})/g;
-  for (const match of flat.matchAll(rangeRegex)) {
-    const context = match.input.slice(match.index, match.index + 180);
+  const matches = Array.from(flat.matchAll(rangeRegex));
+  for (let index = 0; index < matches.length; index++) {
+    const match = matches[index];
+    const nextIndex = matches[index + 1]?.index ?? match.index + 180;
+    const context = match.input.slice(match.index, Math.min(nextIndex + 80, match.index + 180));
     ranges.push({
       start: match[1],
       end: match[2],
@@ -1184,7 +1187,25 @@ function dedupeShifts(shifts) {
     seen.add(key);
     result.push(shift);
   }
-  return result;
+  return removeSummaryRanges(result);
+}
+
+function removeSummaryRanges(shifts) {
+  return shifts.filter((shift, index) => {
+    const start = timeToMinutes(shift.start);
+    const end = timeToMinutes(shift.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return true;
+    const inside = shifts.filter((other, otherIndex) => {
+      if (otherIndex === index) return false;
+      const otherStart = timeToMinutes(other.start);
+      const otherEnd = timeToMinutes(other.end);
+      return Number.isFinite(otherStart) && Number.isFinite(otherEnd) && otherStart >= start && otherEnd <= end;
+    });
+    if (inside.length < 2) return true;
+    const minStart = Math.min(...inside.map(other => timeToMinutes(other.start)));
+    const maxEnd = Math.max(...inside.map(other => timeToMinutes(other.end)));
+    return !(minStart === start && maxEnd === end);
+  });
 }
 
 function fallbackBreak(start, end) {
@@ -1238,14 +1259,16 @@ function normalizeBreakValue(value) {
 }
 
 function detectDepartment(text) {
-  const value = String(text || "");
+  const value = String(text || "").toLowerCase();
   const known = knownDepartments();
-  return known.find(item => value.toLowerCase().includes(item.toLowerCase())) || "";
+  return known
+    .filter(item => value.includes(item.toLowerCase()))
+    .sort((a, b) => b.length - a.length)[0] || "";
 }
 
 function knownDepartments() {
   return [
-    "Marktleitung", "Marktaufsicht", "Kasse", "SCO Kasse", "Food Abteilung",
+    "Marktleitung", "Marktaufsicht", "SCO Kasse", "Backshop", "Kasse", "Food Abteilung",
     "Obst & Gemuese", "Obst & Gem\u00fcse", "Getraenke", "Getr\u00e4nke", "BakeOff",
     "Tiefkuehl", "Tiefk\u00fchl", "Inventur", "Lotto", "Information",
     "Next Kurse", "Notdienst", "B\u00fcro", "Buero", "Zeitung", "Remision",

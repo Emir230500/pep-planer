@@ -1,4 +1,4 @@
-const http = require("http");
+﻿const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "pausenfix-20260708-1605";
+const BUILD_VERSION = "abteilungsfix-20260708-1640";
 let pgPool = null;
 
 const MIME = {
@@ -137,7 +137,7 @@ function employeeKey(name) {
 function canSeeTeamPlan(name) {
   return [
     "Demircan, Emirkan",
-    "Bröckling, Angelina",
+    "BrÃ¶ckling, Angelina",
     "Konxheli, Dafina",
     "Konxhelli, Blerina",
     "Hammer, Pascal",
@@ -250,6 +250,34 @@ function totalDurationMinutes(shifts) {
   return shifts.reduce((sum, shift) => sum + shiftDurationMinutes(shift), 0);
 }
 
+function cleanedDisplayShifts(shifts) {
+  const groups = new Map();
+  for (const shift of shifts || []) {
+    const key = `${employeeKey(shift.name)}|${shift.date}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(shift);
+  }
+  return Array.from(groups.values()).flatMap(removeSummaryRanges);
+}
+
+function removeSummaryRanges(shifts) {
+  return shifts.filter((shift, index) => {
+    if (isStatusShift(shift)) return true;
+    const start = timeToMinutes(shift.start);
+    const end = timeToMinutes(shift.end);
+    const inside = shifts.filter((other, otherIndex) => {
+      if (otherIndex === index || isStatusShift(other)) return false;
+      const otherStart = timeToMinutes(other.start);
+      const otherEnd = timeToMinutes(other.end);
+      return otherStart >= start && otherEnd <= end;
+    });
+    if (inside.length < 2) return true;
+    const minStart = Math.min(...inside.map(other => timeToMinutes(other.start)));
+    const maxEnd = Math.max(...inside.map(other => timeToMinutes(other.end)));
+    return !(minStart === start && maxEnd === end);
+  });
+}
+
 function legalBreakMinutes(minutes) {
   if (minutes > 540) return 45;
   if (minutes > 360) return 30;
@@ -351,14 +379,15 @@ function missingEmployeesForPlan(db, plan) {
 }
 
 function publicPlan(plan, extra = {}) {
-  const issues = shiftIssues(plan.shifts || []);
+  const shifts = cleanedDisplayShifts(plan.shifts || []);
+  const issues = shiftIssues(shifts);
   return {
     id: plan.id,
     title: plan.title,
     uploadedAt: plan.uploadedAt,
     publishedAt: plan.publishedAt || "",
-    range: plan.range || planRange(plan.shifts || []),
-    shiftCount: (plan.shifts || []).length,
+    range: plan.range || planRange(shifts),
+    shiftCount: shifts.length,
     issueCount: issues.length,
     ...extra
   };
@@ -507,10 +536,11 @@ async function handleApi(req, res, pathname) {
       const db = await readDb();
       const plan = db.plans.find(item => item.id === id);
       if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
-      const issues = shiftIssues(plan.shifts || []);
+      const displayShifts = cleanedDisplayShifts(plan.shifts || []);
+      const issues = shiftIssues(displayShifts);
       return json(res, 200, {
         plan: publicPlan(plan, { isPublished: publishedIds(db).includes(plan.id) }),
-        shifts: plan.shifts || [],
+        shifts: displayShifts,
         issues,
         missingEmployees: missingEmployeesForPlan(db, plan)
       });
@@ -539,8 +569,8 @@ async function handleApi(req, res, pathname) {
           title: plan.title,
           uploadedAt: plan.uploadedAt,
           publishedAt: plan.publishedAt || "",
-          range: plan.range || planRange(plan.shifts || []),
-          shifts: teamView ? (plan.shifts || []) : (plan.shifts || []).filter(shift => employeeKey(shift.name) === employeeKey(name))
+          range: plan.range || planRange(cleanedDisplayShifts(plan.shifts || [])),
+          shifts: teamView ? cleanedDisplayShifts(plan.shifts || []) : cleanedDisplayShifts(plan.shifts || []).filter(shift => employeeKey(shift.name) === employeeKey(name))
         }))
         .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
       return json(res, 200, { name, teamView, plans });
@@ -576,3 +606,4 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`Arbeitsplan-App laeuft auf http://localhost:${PORT}`);
 });
+

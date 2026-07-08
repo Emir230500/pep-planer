@@ -330,7 +330,7 @@ function departmentClass(value) {
   if (text.includes("kasse")) return "dept-kasse";
   if (text.includes("food")) return "dept-food";
   if (text.includes("getraenke") || text.includes("getränke")) return "dept-getraenke";
-  if (text.includes("bakeoff")) return "dept-bakeoff";
+  if (text.includes("bakeoff") || text.includes("backshop")) return "dept-bakeoff";
   if (text.includes("auto dispo") || text.includes("autodispo")) return "dept-autodispo";
   if (text.includes("mopro")) return "dept-mopro";
   if (text.includes("tiefkuehl") || text.includes("tiefkühl")) return "dept-tiefkuehl";
