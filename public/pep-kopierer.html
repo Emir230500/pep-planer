@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PEP-Kopierer</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .bookmarklet {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 18px;
+      border-radius: 8px;
+      background: #243044;
+      color: white;
+      font-weight: 700;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <h1>PEP-Kopierer</h1>
+      <p class="hint">Zieh diesen Button einmal mit der Maus in die Favoritenleiste von Edge.</p>
+      <p>
+        <a class="bookmarklet" href="javascript:(async()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));const clickPrint=()=>{const b=[...document.querySelectorAll('button')].find(x=>(x.innerText||x.textContent||'').trim()==='print')||[...document.querySelectorAll('button')].find(x=>(x.innerText||x.textContent||'').includes('Drucken'));if(b){b.click();return true}return false};if(!/Name\\s*\\n/i.test(document.body.innerText||'')){clickPrint();await sleep(2500)}else{clickPrint();await sleep(1800)}const t=String(document.body.innerText||'').trim();const names=(t.match(/[A-ZÄÖÜ][A-Za-zÄÖÜäöüß .'-]+,\\s*[A-ZÄÖÜ][A-Za-zÄÖÜäöüß .'-]+/g)||[]).filter(x=>!/Name|Datum|Summe/.test(x));const unique=[...new Set(names)];try{await navigator.clipboard.writeText(t);alert('PEP-Drucktext kopiert: '+unique.length+' Mitarbeiter, '+t.length+' Zeichen. Wenn weniger Mitarbeiter angezeigt werden als erwartet, bitte in PEP erst auf print/Drucken klicken und erneut kopieren.')}catch(e){prompt('PEP-Drucktext kopieren:',t)}})();">PEP Druck kopieren</a>
+      </p>
+      <ol class="steps">
+        <li>In PEP die richtige Woche oeffnen.</li>
+        <li>In PEP die Einsatzplanung oeffnen.</li>
+        <li>Oben in Edge auf den Favorit PEP Druck kopieren klicken. Der Kopierer nutzt die PEP-Druckansicht, weil dort alle Namen geladen werden.</li>
+        <li>In der Arbeitsplan-App ins Feld PEP-Text einfuegen klicken.</li>
+        <li>Strg + V druecken.</li>
+        <li>PEP-Text erkennen druecken und die erkannte Mitarbeiterzahl pruefen.</li>
+      </ol>
+      <a class="link" href="/admin.html">Zur Admin-Seite</a>
+    </section>
+  </main>
+</body>
+</html>

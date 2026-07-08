@@ -1,0 +1,16 @@
+{
+  "name": "arbeitsplan-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Einfache Dienstplan-Anzeige fuer PEP-Exporte",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

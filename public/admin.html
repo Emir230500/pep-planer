@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin - Arbeitsplan</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell wide">
+    <section class="top">
+      <div>
+        <p class="eyebrow">Admin · Elli SHS</p>
+        <h1>Dienstplan hochladen</h1>
+      </div>
+      <a class="link" href="/">Mitarbeiteransicht</a>
+    </section>
+
+    <section id="adminLogin" class="panel">
+      <h2>Admin-Login</h2>
+      <label>Passwort<input id="adminPassword" type="password" placeholder="Admin-Passwort"></label>
+      <button id="adminLoginBtn">Anmelden</button>
+      <p id="adminLoginMsg" class="msg"></p>
+    </section>
+
+    <section id="adminArea" class="hidden">
+      <section class="panel">
+        <h2>PEP-Plan importieren</h2>
+        <p class="hint">Am zuverlaessigsten: PEP-Einsatzplanung oeffnen und den Favorit PEP Druck kopieren nutzen. Die normale PEP-Ansicht nicht kopieren, weil dort Zeilen fehlen koennen.</p>
+        <p class="hint"><a class="link" href="/pep-kopierer.html">PEP-Kopierer oeffnen</a></p>
+        <label>Titel<input id="planTitle" placeholder="z. B. KW 27"></label>
+        <label>PEP-Text einfuegen<textarea id="pepTextInput" rows="8" placeholder="Hier den kopierten Text aus der PEP-Planseite einfuegen"></textarea></label>
+        <button id="openPepBrowserBtn" class="secondary">PEP-Browser oeffnen</button>
+        <button id="readPepBrowserBtn" class="secondary">PEP direkt aus offenem Browser lesen</button>
+        <button id="parseTextBtn" class="secondary">PEP-Text erkennen</button>
+        <label>Datei<input id="fileInput" type="file" accept=".pdf,.csv,.xlsx,.xls"></label>
+        <div id="preview" class="preview hidden"></div>
+        <div id="mapping" class="mapping hidden"></div>
+        <button id="uploadBtn" disabled>Plan speichern</button>
+        <p id="uploadMsg" class="msg"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Veroeffentlichte Plaene</h2>
+        <div id="activePlan"></div>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <h2>Plaene verwalten</h2>
+          <div id="planList"></div>
+        </div>
+        <div class="panel">
+          <h2>Mitarbeiter-PINs</h2>
+          <p class="hint">Neue Mitarbeiter aus PEP werden automatisch angelegt. Du kannst PINs hier jederzeit aendern.</p>
+          <div class="employee-add">
+            <input id="newEmployeeName" placeholder="Neuer Mitarbeiter, z. B. Nachname, Vorname">
+            <input id="newEmployeePin" inputmode="numeric" placeholder="PIN optional">
+            <button id="addEmployeeBtn" class="secondary">Anlegen</button>
+          </div>
+          <p id="employeeMsg" class="msg"></p>
+          <input id="employeeSearch" type="search" placeholder="Mitarbeiter suchen">
+          <div id="pinList"></div>
+        </div>
+      </section>
+
+      <section id="inspectPanel" class="panel">
+        <h2>Plan pruefen</h2>
+        <div class="filters">
+          <label>Plan<select id="inspectPlan"></select></label>
+          <label>Suche<input id="inspectSearch" type="search" placeholder="Name oder Abteilung"></label>
+          <label>KW<input id="inspectWeek" inputmode="numeric" placeholder="z. B. 31"></label>
+          <label>Monat<input id="inspectMonth" type="month"></label>
+        </div>
+        <p id="inspectMsg" class="msg"></p>
+        <div id="issueList"></div>
+        <div id="inspectList"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Start & Online stellen</h2>
+        <ol class="steps">
+          <li>Im Ordner der App starten: <code>npm start</code></li>
+          <li>Im Browser oeffnen: <code>http://localhost:3000</code></li>
+          <li>Admin-Passwort setzen: <code>$env:ADMIN_PASSWORD="dein-passwort"; npm start</code></li>
+          <li>Online stellen: bei einem Node-Hoster wie Render, Railway oder einem kleinen VPS hochladen und <code>npm start</code> als Startbefehl nutzen.</li>
+        </ol>
+      </section>
+    </section>
+
+    <footer class="site-credit">Created by Demircan</footer>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>
