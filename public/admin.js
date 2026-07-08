@@ -433,6 +433,8 @@ async function loadInspection(id, focusPanel = false) {
       window.setTimeout(() => panel?.classList.remove("flash"), 1200);
     }
   } catch (error) {
+    inspected = { plan: null, shifts: [], issues: [], missingEmployees: [] };
+    renderInspection();
     if (msg) {
       msg.textContent = error.message;
       msg.classList.add("error");
