@@ -85,6 +85,20 @@ fileInput.addEventListener("change", async event => {
   }
 });
 
+document.querySelector("#clearImportBtn")?.addEventListener("click", () => {
+  parsedRows = [];
+  headers = [];
+  currentFileType = "";
+  lastPepTextNames = [];
+  fileInput.value = "";
+  if (pepTextInput) pepTextInput.value = "";
+  renderPreview();
+  renderMapping();
+  uploadBtn.disabled = true;
+  uploadMsg.textContent = "Ausgewaehlte Datei entfernt.";
+  uploadMsg.classList.remove("error");
+});
+
 document.querySelector("#parseTextBtn")?.addEventListener("click", () => {
   parsePepTextInput();
 });
@@ -238,11 +252,7 @@ function pepTextNames(text) {
 
 function importSummary(rows) {
   const names = unique(rows.map(row => row.Mitarbeiter || row.name || row.Name || "").filter(Boolean).map(normalizePersonName));
-  const knownCount = (adminState.employees || []).length;
-  const missingHint = knownCount && names.length < knownCount
-    ? ` Achtung: Im Mitarbeiterstamm sind ${knownCount} Personen, im Import wurden nur ${names.length} Personen gefunden. Bitte PEP-Kopierer/Import pruefen.`
-    : "";
-  return `${rows.length} Schichten erkannt, ${names.length} Mitarbeiter gefunden.${missingHint}`;
+  return `${rows.length} Eintraege erkannt, ${names.length} Mitarbeiter in dieser Datei gefunden.`;
 }
 
 function normalizePersonName(value) {
@@ -543,6 +553,7 @@ function groupInspectionByWeek(shifts) {
 function renderInspectionWeek(group, open) {
   const workCount = group.shifts.filter(shift => !isInspectionStatus(shift)).length;
   const statusCount = group.shifts.length - workCount;
+  const dayBreaks = dailyBreakMap(group.shifts);
   return `
     <section class="inspect-week ${open ? "" : "collapsed"}">
       <button class="inspect-week-head" data-inspect-week-toggle type="button">
@@ -553,7 +564,7 @@ function renderInspectionWeek(group, open) {
         <table>
           <thead><tr><th>Mitarbeiter</th><th>Datum</th><th>Zeit</th><th>Abteilung</th><th>Pause</th></tr></thead>
           <tbody>
-            ${group.shifts.map(shift => renderInspectionRow(shift)).join("")}
+            ${group.shifts.map(shift => renderInspectionRow(shift, dayBreaks)).join("")}
           </tbody>
         </table>
       </div>
@@ -565,13 +576,13 @@ function isInspectionStatus(shift) {
   return Boolean(detectStatusText(`${shift.department || ""} ${shift.start || ""} ${shift.end || ""}`));
 }
 
-function renderInspectionRow(shift) {
+function renderInspectionRow(shift, dayBreaks = new Map()) {
   return `<tr>
     <td>${escapeHtml(shift.name)}</td>
     <td>${escapeHtml(shift.date)}</td>
     <td>${escapeHtml(shift.start)}-${escapeHtml(shift.end)}</td>
     <td>${escapeHtml(shift.department || "Abteilung pruefen")}</td>
-    <td>${renderAdminPause(shift)}</td>
+    <td>${renderAdminPause(shift, dayBreaks)}</td>
   </tr>`;
 }
 
@@ -597,10 +608,28 @@ function monthKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function renderAdminPause(shift) {
+function renderAdminPause(shift, dayBreaks = new Map()) {
+  const day = dayBreaks.get(dailyIssueKey(shift.name, shift.date));
+  if (day?.hasBreak) return escapeHtml(day.breakText || "Tagespause erkannt");
   if (shift.break) return escapeHtml(shift.break);
-  if (needsBreakCheck(shift)) return '<span class="warn-text">Keine Pause erkannt</span>';
-  return "Keine Pause erkannt";
+  if (day && day.totalMinutes > 360) return '<span class="warn-text">Keine Pause erkannt</span>';
+  return "keine Pause";
+}
+
+function dailyBreakMap(shifts) {
+  const map = new Map();
+  for (const shift of shifts || []) {
+    const key = dailyIssueKey(shift.name, shift.date);
+    if (!key) continue;
+    const current = map.get(key) || { hasBreak: false, breakText: "", totalMinutes: 0 };
+    current.totalMinutes += shiftDurationMinutes(shift);
+    if (shift.break) {
+      current.hasBreak = true;
+      current.breakText = current.breakText || shift.break;
+    }
+    map.set(key, current);
+  }
+  return map;
 }
 
 function shiftDurationMinutes(shift) {
@@ -615,11 +644,6 @@ function needsBreakCheck(shift) {
 }
 
 function renderMapping() {
-  if (!headers.length) {
-    mapping.classList.add("hidden");
-    mapping.innerHTML = "";
-    return;
-  }
   const fields = [
     ["col_name", "Mitarbeiter", ["mitarbeiter", "name", "personal", "employee", "person"]],
     ["col_date", "Datum", ["datum", "date", "tag", "arbeitstag"]],
@@ -628,9 +652,13 @@ function renderMapping() {
     ["col_department", "Abteilung/Aufgabe", ["abteilung", "aufgabe", "bereich", "taetigkeit", "tatigkeit", "dienst", "position"]],
     ["col_break", "Pause", ["pause", "break", "pausenzeit"]]
   ];
-  mapping.classList.remove("hidden");
+  mapping.classList.add("hidden");
+  if (!headers.length) {
+    mapping.innerHTML = fields.map(([id]) => `<select id="${id}"></select>`).join("");
+    return;
+  }
   mapping.innerHTML = fields.map(([id, label, guesses]) => `
-    <label>${label}
+    <label class="hidden">${label}
       <select id="${id}">
         ${id === "col_break" ? '<option value="">Keine Angabe</option>' : ""}
         ${headers.map(header => `<option value="${escapeHtml(header)}" ${header === bestHeader(guesses) ? "selected" : ""}>${escapeHtml(header)}</option>`).join("")}
@@ -679,7 +707,6 @@ function renderPreview() {
     <div class="preview-summary">
       <strong>${names.length} Mitarbeiter im Import</strong>
       <p>${names.slice(0, 18).map(name => escapeHtml(name)).join(", ")}${names.length > 18 ? ` ... und ${names.length - 18} weitere` : ""}</p>
-      ${names.includes("Altun, Havin") ? '<p class="ok-text">Altun, Havin wurde erkannt.</p>' : '<p class="warn-text">Altun, Havin wurde in diesem Import nicht erkannt.</p>'}
     </div>
     <table>
       <thead><tr>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
@@ -920,7 +947,7 @@ function rowsFromCopiedEmployeeBlock(employee, block, dates) {
 }
 
 function isTime(value) {
-  return /^\d{2}:\d{2}$/.test(String(value || ""));
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(value || ""));
 }
 
 function orderTimes(first, second) {
@@ -1139,7 +1166,7 @@ function extractTimeRanges(text) {
   for (let index = 0; index < matches.length; index++) {
     const match = matches[index];
     const nextIndex = matches[index + 1]?.index ?? match.index + 180;
-    const context = match.input.slice(match.index, Math.min(nextIndex + 80, match.index + 180));
+    const context = match.input.slice(match.index, Math.min(nextIndex, match.index + 180));
     ranges.push({
       start: match[1],
       end: match[2],
@@ -1181,10 +1208,12 @@ function extractCellShifts(text) {
   }
 
   const explicit = extractTimeRanges(flat)
+    .filter(range => isTime(range.start) && isTime(range.end))
     .filter(range => !isPlaceholderRange(range.start, range.end));
+  const dayBreak = detectBreak(flat);
   const withDepartment = explicit
     .filter(range => range.department)
-    .map(range => ({ ...range, breakTime: range.breakTime || "" }));
+    .map(range => ({ ...range, breakTime: range.breakTime || dayBreak || "" }));
   if (withDepartment.length) return dedupeShifts(withDepartment);
   if (explicit.length) return [];
 
@@ -1268,8 +1297,8 @@ function normalizeBreakValue(value) {
   if (!text) return "";
   const lower = text.toLowerCase().replace(",", ".");
 
-  const time = lower.match(/\b(?:00?|0):([0-5]\d)\b|\b01:00\b/);
-  if (time) return time[0] === "01:00" ? "01:00" : `00:${time[1]}`;
+  const time = lower.match(/\b(?:00?|0):(15|30|45)\b/);
+  if (time) return `00:${time[1]}`;
 
   const compactTime = lower.match(/\b00(15|30|45)\b/);
   if (compactTime) return `00:${compactTime[1]}`;

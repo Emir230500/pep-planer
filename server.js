@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "final-prueffix-20260709-001";
+const BUILD_VERSION = "final-admin-ohne-pausenwarnung-20260709";
 let pgPool = null;
 
 const MIME = {
@@ -223,7 +223,7 @@ function generatePin() {
 }
 
 function isTime(value) {
-  return /^\d{2}:\d{2}$/.test(String(value || ""));
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(value || ""));
 }
 
 function timeToMinutes(value) {
@@ -257,16 +257,24 @@ function cleanedDisplayShifts(shifts) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(shift);
   }
-  return Array.from(groups.values()).flatMap(removeSummaryRanges);
+  return Array.from(groups.values()).flatMap(group => removeSummaryRanges(propagateDailyBreak(group)));
+}
+
+function propagateDailyBreak(shifts) {
+  const dayBreak = shifts.find(shift => !isStatusShift(shift) && shift.break)?.break || "";
+  if (!dayBreak) return shifts;
+  return shifts.map(shift => isStatusShift(shift) || shift.break ? shift : { ...shift, break: dayBreak });
 }
 
 function removeSummaryRanges(shifts) {
   return shifts.filter((shift, index) => {
     if (isStatusShift(shift)) return true;
+    if (!isTime(shift.start) || !isTime(shift.end)) return false;
     const start = timeToMinutes(shift.start);
     const end = timeToMinutes(shift.end);
     const inside = shifts.filter((other, otherIndex) => {
       if (otherIndex === index || isStatusShift(other)) return false;
+      if (!isTime(other.start) || !isTime(other.end)) return false;
       const otherStart = timeToMinutes(other.start);
       const otherEnd = timeToMinutes(other.end);
       return otherStart >= start && otherEnd <= end;
@@ -336,19 +344,16 @@ function shiftIssues(shifts) {
     if (!isTime(shift.start) || !isTime(shift.end)) issues.push({ type: "time", row: index + 1, message: `Zeit pruefen: ${label}` });
     if (isBreakTimeValue(shift.start) || isBreakTimeValue(shift.end)) issues.push({ type: "time", row: index + 1, message: `Pause als Dienst erkannt: ${label}` });
   });
-  for (const info of dailyBreaks.values()) {
-    if (legalBreakMinutes(info.totalMinutes) && !info.hasBreak) {
-      issues.push({ type: "break", row: info.row, message: `Keine Pause erkannt: ${info.label}` });
-    }
-  }
   return issues;
 }
 
 function validateUploadedShifts(shifts) {
   const workShifts = shifts.filter(shift => !isStatusShift(shift));
   const unknown = workShifts.filter(shift => !shift.department || shift.department === "PEP");
+  const badTimes = workShifts.filter(shift => !isTime(shift.start) || !isTime(shift.end));
   const badNames = shifts.filter(shift => isSuspiciousName(shift.name));
   if (badNames.length) return `${badNames.length} Mitarbeiter-Namen wirken abgeschnitten. Import wurde nicht gespeichert. Beispiel: ${badNames[0].name}`;
+  if (badTimes.length) return `${badTimes.length} Schichten haben ungueltige Zeiten. Import wurde nicht gespeichert. Beispiel: ${badTimes[0].name} ${badTimes[0].date} ${badTimes[0].start}-${badTimes[0].end}`;
   if (unknown.length) return `${unknown.length} Schichten haben keine sicher erkannte Abteilung. Import wurde nicht gespeichert.`;
   return "";
 }
@@ -606,5 +611,9 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`Arbeitsplan-App laeuft auf http://localhost:${PORT}`);
 });
+
+
+
+
 
 
