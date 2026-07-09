@@ -283,11 +283,11 @@ function renderTeamWeek(week) {
 function renderTeamDay(dateValue, dayShifts) {
   const date = parseGermanDate(dateValue);
   const sorted = dayShifts.slice().sort((a, b) => {
+    const byTime = timeToMinutes(a.start) - timeToMinutes(b.start);
+    if (byTime) return byTime;
     const byDepartment = departmentLabel(a).localeCompare(departmentLabel(b), "de");
     if (byDepartment) return byDepartment;
-    const byName = a.name.localeCompare(b.name, "de");
-    if (byName) return byName;
-    return timeToMinutes(a.start) - timeToMinutes(b.start);
+    return a.name.localeCompare(b.name, "de");
   });
   const departments = groupTeamDayByDepartment(sorted);
 
@@ -316,12 +316,13 @@ function groupTeamDayByDepartment(shifts) {
     if (!groups.has(department)) groups.set(department, []);
     groups.get(department).push(shift);
   }
-  return Array.from(groups.entries()).map(([department, groupShifts]) => ({
-    department,
-    shifts: department === "Kasse"
-      ? groupShifts.slice().sort((a, b) => a.name.localeCompare(b.name, "de") || timeToMinutes(a.start) - timeToMinutes(b.start))
-      : groupShifts
-  }));
+  return Array.from(groups.entries())
+    .map(([department, groupShifts]) => ({
+      department,
+      start: Math.min(...groupShifts.map(shift => timeToMinutes(shift.start))),
+      shifts: groupShifts.slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start) || a.name.localeCompare(b.name, "de"))
+    }))
+    .sort((a, b) => a.start - b.start || a.department.localeCompare(b.department, "de"));
 }
 
 function departmentLabel(shift) {
