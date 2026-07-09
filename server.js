@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "final-admin-ohne-pausenwarnung-20260709";
+const BUILD_VERSION = "sco-direkt-hinter-kasse-20260709";
 let pgPool = null;
 
 const MIME = {
@@ -611,6 +611,8 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`Arbeitsplan-App laeuft auf http://localhost:${PORT}`);
 });
+
+
 
 
 

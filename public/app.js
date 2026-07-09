@@ -316,16 +316,25 @@ function groupTeamDayByDepartment(shifts) {
     if (!groups.has(department)) groups.set(department, []);
     groups.get(department).push(shift);
   }
-  return Array.from(groups.entries()).map(([department, groupShifts]) => ({ department, shifts: groupShifts }));
+  return Array.from(groups.entries()).map(([department, groupShifts]) => ({
+    department,
+    shifts: department === "Kasse"
+      ? groupShifts.slice().sort((a, b) => a.name.localeCompare(b.name, "de") || timeToMinutes(a.start) - timeToMinutes(b.start))
+      : groupShifts
+  }));
 }
 
 function departmentLabel(shift) {
   const status = detectStatus(shift);
-  return status || shift.department || "Abteilung pruefen";
+  if (status) return status;
+  const department = String(shift.department || "");
+  if (department.toLowerCase().includes("sco kasse")) return "Kasse";
+  return department || "Abteilung pruefen";
 }
 
 function departmentClass(value) {
   const text = String(value || "").toLowerCase();
+  if (text.includes("marktleitung")) return "dept-marktleitung";
   if (text.includes("marktaufsicht")) return "dept-marktaufsicht";
   if (text.includes("kasse")) return "dept-kasse";
   if (text.includes("food")) return "dept-food";
