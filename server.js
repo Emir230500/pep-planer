@@ -11,8 +11,19 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "teamplan-frueh-nach-spaet-20260709";
+const BUILD_VERSION = "push-benachrichtigung-20260709";
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
+const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
 let pgPool = null;
+let webPush = null;
+
+try {
+  webPush = require("web-push");
+  webPush.setVapidDetails(PUSH_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} catch {
+  webPush = null;
+}
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -24,7 +35,16 @@ const MIME = {
 };
 
 function defaultDb() {
-  return { employees: {}, plans: [], publishedPlanIds: [] };
+  return { employees: {}, plans: [], publishedPlanIds: [], pushSubscriptions: [] };
+}
+
+function normalizeDb(db) {
+  const clean = db && typeof db === "object" ? db : defaultDb();
+  clean.employees = clean.employees && typeof clean.employees === "object" ? clean.employees : {};
+  clean.plans = Array.isArray(clean.plans) ? clean.plans : [];
+  clean.publishedPlanIds = Array.isArray(clean.publishedPlanIds) ? clean.publishedPlanIds : [];
+  clean.pushSubscriptions = Array.isArray(clean.pushSubscriptions) ? clean.pushSubscriptions : [];
+  return clean;
 }
 
 function initialDb() {
@@ -68,9 +88,9 @@ async function readDb() {
   const pool = await getPgPool();
   if (pool) {
     const result = await pool.query("SELECT value FROM app_store WHERE key = $1", ["db"]);
-    return result.rows[0]?.value || defaultDb();
+    return normalizeDb(result.rows[0]?.value || defaultDb());
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+  return normalizeDb(JSON.parse(fs.readFileSync(DB_FILE, "utf8")));
 }
 
 async function writeDb(db) {
@@ -398,6 +418,45 @@ function publicPlan(plan, extra = {}) {
   };
 }
 
+function validPushSubscription(subscription) {
+  return subscription
+    && typeof subscription.endpoint === "string"
+    && subscription.keys
+    && typeof subscription.keys.p256dh === "string"
+    && typeof subscription.keys.auth === "string";
+}
+
+async function sendPlanPush(db, plan) {
+  if (!webPush || !Array.isArray(db.pushSubscriptions) || !db.pushSubscriptions.length) {
+    return { sent: 0, removed: 0 };
+  }
+
+  const payload = JSON.stringify({
+    title: "Neuer Arbeitsplan online",
+    body: `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`,
+    url: "/"
+  });
+
+  let sent = 0;
+  let removed = 0;
+  const alive = [];
+  for (const saved of db.pushSubscriptions) {
+    try {
+      await webPush.sendNotification(saved.subscription || saved, payload);
+      sent += 1;
+      alive.push(saved);
+    } catch (error) {
+      if (error.statusCode === 404 || error.statusCode === 410) {
+        removed += 1;
+      } else {
+        alive.push(saved);
+      }
+    }
+  }
+  db.pushSubscriptions = alive;
+  return { sent, removed };
+}
+
 async function handleApi(req, res, pathname) {
   try {
     if (pathname === "/api/admin/login" && req.method === "POST") {
@@ -419,6 +478,26 @@ async function handleApi(req, res, pathname) {
 
     if (pathname === "/api/logout" && req.method === "POST") {
       clearSession(res);
+      return json(res, 200, { ok: true });
+    }
+
+    if (pathname === "/api/push/public-key" && req.method === "GET") {
+      const name = requireEmployee(req, res);
+      if (!name) return;
+      return json(res, 200, { enabled: Boolean(webPush), publicKey: VAPID_PUBLIC_KEY });
+    }
+
+    if (pathname === "/api/push/subscribe" && req.method === "POST") {
+      const name = requireEmployee(req, res);
+      if (!name) return;
+      if (!webPush) return json(res, 503, { error: "Push ist auf diesem Server noch nicht aktiv." });
+      const body = await readBody(req);
+      const subscription = body.subscription || body;
+      if (!validPushSubscription(subscription)) return json(res, 400, { error: "Push-Abo konnte nicht gespeichert werden." });
+      const db = await readDb();
+      db.pushSubscriptions = (db.pushSubscriptions || []).filter(item => (item.subscription || item).endpoint !== subscription.endpoint);
+      db.pushSubscriptions.push({ name, subscription, createdAt: new Date().toISOString() });
+      await writeDb(db);
       return json(res, 200, { ok: true });
     }
 
@@ -522,8 +601,9 @@ async function handleApi(req, res, pathname) {
       if (!ids.includes(id)) ids.unshift(id);
       setPublishedIds(db, ids);
       plan.publishedAt = new Date().toISOString();
+      const push = await sendPlanPush(db, plan);
       await writeDb(db);
-      return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: true }) });
+      return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: true }), push });
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/unpublish$/) && req.method === "POST") {
@@ -611,6 +691,7 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`Arbeitsplan-App laeuft auf http://localhost:${PORT}`);
 });
+
 
 
 

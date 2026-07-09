@@ -252,7 +252,11 @@ function pepTextNames(text) {
 
 function importSummary(rows) {
   const names = unique(rows.map(row => row.Mitarbeiter || row.name || row.Name || "").filter(Boolean).map(normalizePersonName));
-  return `${rows.length} Eintraege erkannt, ${names.length} Mitarbeiter in dieser Datei gefunden.`;
+  const seenCount = lastPepTextNames.length;
+  if (seenCount) {
+    return `${rows.length} Eintraege erkannt, ${seenCount} Mitarbeiter in der Datei, ${names.length} Mitarbeiter mit Eintraegen.`;
+  }
+  return `${rows.length} Eintraege erkannt, ${names.length} Mitarbeiter mit Eintraegen.`;
 }
 
 function normalizePersonName(value) {
@@ -1334,7 +1338,7 @@ function detectDepartment(text) {
 
 function knownDepartments() {
   return [
-    "Marktleitung", "Marktaufsicht", "SCO Kasse", "Backshop", "Kasse", "Food Abteilung",
+    "Marktleitung", "Marktaufsicht", "SCO Kasse", "Backshop", "Einarbeitung intern", "Einarbeitung", "Kasse", "Food Abteilung",
     "Obst & Gemuese", "Obst & Gem\u00fcse", "Getraenke", "Getr\u00e4nke", "BakeOff",
     "Tiefkuehl", "Tiefk\u00fchl", "Inventur", "Lotto", "Information",
     "Next Kurse", "Notdienst", "B\u00fcro", "Buero", "Zeitung", "Remision",

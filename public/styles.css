@@ -43,6 +43,21 @@ body {
   margin-bottom: 16px;
 }
 
+.push-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -4px 0 16px;
+}
+
+.push-box button {
+  width: auto;
+}
+
+.push-box .msg {
+  margin: 0;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: var(--accent-dark);
@@ -520,6 +535,12 @@ button:disabled {
   border-color: #111827;
   border-left-color: #111827;
   box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.18);
+}
+
+.dept-einarbeitung {
+  background: #faf5ff;
+  border-color: #d8b4fe;
+  border-left-color: #a611a6;
 }
 
 .dept-kasse {

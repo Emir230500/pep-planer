@@ -3,6 +3,9 @@ const plans = document.querySelector("#plans");
 const loginMsg = document.querySelector("#loginMsg");
 const shiftList = document.querySelector("#shiftList");
 const hello = document.querySelector("#hello");
+const pushBox = document.querySelector("#pushBox");
+const pushBtn = document.querySelector("#pushBtn");
+const pushMsg = document.querySelector("#pushMsg");
 
 async function api(url, options = {}) {
   const res = await fetch(url, {
@@ -19,6 +22,7 @@ function showShifts(data) {
   login.classList.add("hidden");
   plans.classList.remove("hidden");
   hello.textContent = data.name;
+  setupPushButton();
 
   if (!data.plans.length) {
     shiftList.innerHTML = '<div class="panel empty">Noch kein veroeffentlichter Dienstplan vorhanden.</div>';
@@ -337,6 +341,7 @@ function departmentClass(value) {
   const text = String(value || "").toLowerCase();
   if (text.includes("marktleitung")) return "dept-marktleitung";
   if (text.includes("marktaufsicht")) return "dept-marktaufsicht";
+  if (text.includes("einarbeitung")) return "dept-einarbeitung";
   if (text.includes("kasse")) return "dept-kasse";
   if (text.includes("food")) return "dept-food";
   if (text.includes("getraenke") || text.includes("getränke")) return "dept-getraenke";
@@ -593,3 +598,63 @@ async function loadMine() {
 }
 
 loadMine();
+
+function supportsPush() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+
+function urlBase64ToUint8Array(value) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
+}
+
+async function setupPushButton() {
+  if (!pushBox || !pushBtn || !pushMsg || !supportsPush()) return;
+  pushBox.classList.remove("hidden");
+  pushMsg.textContent = "";
+
+  if (Notification.permission === "granted") {
+    pushBtn.textContent = "Push ist aktiv";
+  } else {
+    pushBtn.textContent = "Push aktivieren";
+  }
+}
+
+async function activatePush() {
+  if (!supportsPush()) {
+    pushMsg.textContent = "Push wird auf diesem Geraet nicht unterstuetzt.";
+    pushMsg.classList.add("error");
+    return;
+  }
+
+  pushMsg.textContent = "";
+  pushMsg.classList.remove("error");
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      pushMsg.textContent = "Push wurde nicht erlaubt.";
+      pushMsg.classList.add("error");
+      return;
+    }
+
+    const keyData = await api("/api/push/public-key");
+    if (!keyData.enabled) throw new Error("Push ist online noch nicht aktiv. Bitte neu deployen.");
+    const registration = await navigator.serviceWorker.register("/sw.js");
+    const oldSubscription = await registration.pushManager.getSubscription();
+    if (oldSubscription) await oldSubscription.unsubscribe();
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+    });
+    await api("/api/push/subscribe", { method: "POST", body: { subscription } });
+    pushBtn.textContent = "Push ist aktiv";
+    pushMsg.textContent = "Du bekommst jetzt eine Meldung, wenn ein Plan veroeffentlicht wird.";
+  } catch (error) {
+    pushMsg.textContent = error.message || "Push konnte nicht aktiviert werden.";
+    pushMsg.classList.add("error");
+  }
+}
+
+pushBtn?.addEventListener("click", activatePush);
