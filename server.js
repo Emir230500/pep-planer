@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "prueffix-20260708-1655";
+const BUILD_VERSION = "final-prueffix-20260709-001";
 let pgPool = null;
 
 const MIME = {

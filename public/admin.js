@@ -451,7 +451,7 @@ function renderInspection() {
     return;
   }
 
-  const issues = inspected.issues || [];
+  const issues = filterDailyBreakIssues(inspected.issues || [], inspected.shifts || []);
   const missingEmployees = inspected.missingEmployees || [];
   issueList.innerHTML = issues.length ? `
     <div class="issue-box">
@@ -490,6 +490,41 @@ function renderInspection() {
       button.closest(".inspect-week")?.classList.toggle("collapsed");
     });
   });
+}
+
+function filterDailyBreakIssues(issues, shifts) {
+  const dayBreaks = new Map();
+  for (const shift of shifts || []) {
+    const key = dailyIssueKey(shift.name, shift.date);
+    if (!key) continue;
+    const current = dayBreaks.get(key) || { hasBreak: false, totalMinutes: 0 };
+    current.hasBreak = current.hasBreak || Boolean(shift.break);
+    current.totalMinutes += shiftDurationMinutes(shift);
+    dayBreaks.set(key, current);
+  }
+
+  return (issues || []).filter(issue => {
+    if (issue.type !== "break" && !String(issue.message || "").toLowerCase().includes("keine pause erkannt")) return true;
+    const parsed = parseDailyIssueMessage(issue.message);
+    const key = dailyIssueKey(parsed.name, parsed.date);
+    const day = key ? dayBreaks.get(key) : null;
+    return !(day && day.hasBreak);
+  });
+}
+
+function parseDailyIssueMessage(message) {
+  const text = String(message || "");
+  const match = text.match(/Keine Pause erkannt:\s*(.+?)\s+(\d{2}\.\d{2}\.\d{4})/i);
+  return {
+    name: match ? match[1].trim() : "",
+    date: match ? match[2] : ""
+  };
+}
+
+function dailyIssueKey(name, date) {
+  const person = normalizeText(name).replace(/\s+,/g, ",");
+  const day = String(date || "").trim();
+  return person && day ? `${person}|${day}` : "";
 }
 
 function groupInspectionByWeek(shifts) {
