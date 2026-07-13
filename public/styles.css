@@ -483,11 +483,41 @@ button:disabled {
 }
 
 .department-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 0;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 7px;
   color: var(--accent-dark);
   font-size: 13px;
   font-weight: 700;
   margin: 0 0 6px;
+  padding: 9px 10px;
+  text-align: left;
   text-transform: uppercase;
+}
+
+.department-head:hover {
+  background: #eef2f6;
+}
+
+.department-head::before {
+  content: "+";
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.department-group:not(.collapsed) .department-head::before {
+  content: "-";
+}
+
+.department-group.collapsed .team-shifts {
+  display: none;
 }
 
 .team-shift {

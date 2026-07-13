@@ -111,6 +111,11 @@ function showTeamShifts(data) {
       button.closest(".week")?.classList.toggle("collapsed");
     });
   });
+  document.querySelectorAll("[data-team-department-toggle]").forEach(button => {
+    button.addEventListener("click", () => {
+      button.closest(".department-group")?.classList.toggle("collapsed");
+    });
+  });
 }
 
 function groupByPlans(plans) {
@@ -302,8 +307,11 @@ function renderTeamDay(dateValue, dayShifts) {
         <span class="badge subtle">${sorted.length} Eintraege</span>
       </div>
       ${departments.map(group => `
-        <div class="department-group">
-          <div class="department-head">${escapeHtml(group.department)}</div>
+        <div class="department-group collapsed">
+          <button class="department-head" data-team-department-toggle type="button">
+            <span>${escapeHtml(group.department)}</span>
+            <span class="badge subtle">${group.shifts.length}</span>
+          </button>
           <div class="team-shifts">
             ${group.shifts.map(renderTeamShift).join("")}
           </div>
