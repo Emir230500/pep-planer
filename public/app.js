@@ -228,7 +228,7 @@ function renderNextWorkDay(nextWorkDay) {
       <p class="next-label">Naechste Schicht</p>
       <div class="next-main">
         <div>
-          <h2>${weekday(nextWorkDay.date)}, ${formatGermanDate(nextWorkDay.date)}</h2>
+          <h2>${weekdayLong(nextWorkDay.date)}, ${formatGermanDate(nextWorkDay.date)}</h2>
           <p>${escapeHtml(dayTimeRange(nextWorkDay.shifts))}${multiDepartment ? " - mehrere Abteilungen" : ""}</p>
         </div>
         <span class="badge">Anstehend</span>
@@ -315,7 +315,7 @@ function renderTeamDay(dateValue, dayShifts) {
     <article class="day team-day ${currentDay ? "today-team-day" : "collapsed"}">
       <button class="day-title team-day-head" data-team-day-toggle type="button">
         <span>
-          <strong>${weekday(date)}, ${formatGermanDate(date)}</strong>
+          <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
           ${currentDay ? '<span class="badge">Heute</span>' : ""}
         </span>
         <span class="team-day-actions">
@@ -383,11 +383,12 @@ function departmentClass(value) {
 function renderTeamShift(shift) {
   const status = detectStatus(shift);
   const statusClass = status ? ` status-row ${statusClassName(status)}` : "";
+  const statusLabel = status === "Abwesenheit" ? "Grund nicht erkannt" : status;
   return `
     <div class="team-shift${statusClass} ${departmentClass(shift.department)}">
       <span class="team-name">${escapeHtml(shift.name)}</span>
-      <span class="team-time">${status ? escapeHtml(status) : `${escapeHtml(shift.start)}-${escapeHtml(shift.end)}`}</span>
-      <span class="team-department">${status ? "Kein Dienst" : escapeHtml(shift.department || "Abteilung pruefen")}</span>
+      <span class="team-time">${status ? "Kein Dienst" : `${escapeHtml(shift.start)}-${escapeHtml(shift.end)}`}</span>
+      <span class="team-department">${status ? escapeHtml(statusLabel) : escapeHtml(shift.department || "Abteilung pruefen")}</span>
       <span class="team-pause">${status ? "" : renderPauseText(shift)}</span>
     </div>
   `;
@@ -395,9 +396,10 @@ function renderTeamShift(shift) {
 
 function renderFreeDay(date) {
   return `
-    <article class="day free-day">
+    <article class="day free-day ${isToday(date) ? "today-day" : ""}">
       <div class="day-title">
-        <strong>${weekday(date)}, ${formatGermanDate(date)}</strong>
+        <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
+        ${isToday(date) ? '<span class="badge">Heute</span>' : ""}
       </div>
       <div class="shift-row status-row">
         <span class="time">X</span>
@@ -409,14 +411,16 @@ function renderFreeDay(date) {
 
 function renderDay(dateValue, dayShifts) {
   const date = parseGermanDate(dateValue);
+  const currentDay = isToday(date);
   const sorted = dayShifts.slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
   const multiDepartment = new Set(sorted.map(shift => shift.department).filter(Boolean)).size > 1;
   const dayPause = dayPauseText(sorted);
 
   return `
-    <article class="day">
+    <article class="day ${currentDay ? "today-day" : ""}">
       <div class="day-title">
-        <strong>${weekday(date)}, ${formatGermanDate(date)}</strong>
+        <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
+        ${currentDay ? '<span class="badge">Heute</span>' : ""}
         ${multiDepartment ? '<span class="badge subtle">Mehrere Abteilungen</span>' : ""}
       </div>
       ${multiDepartment ? `<div class="day-summary">Gesamt: ${escapeHtml(dayTimeRange(sorted))} - Tagespause: ${dayPause}</div>` : ""}
@@ -430,10 +434,11 @@ function renderDay(dateValue, dayShifts) {
 function renderShift(shift, compactPause = false) {
   const status = detectStatus(shift);
   if (status) {
+    const statusLabel = status === "Abwesenheit" ? "Grund nicht erkannt" : status;
     return `
       <div class="shift-row status-row ${statusClassName(status)}">
-        <span class="time">${escapeHtml(status)}</span>
-        <span class="department">Kein Dienst</span>
+        <span class="time">Kein Dienst</span>
+        <span class="department">${escapeHtml(statusLabel)}</span>
       </div>
     `;
   }
@@ -557,6 +562,10 @@ function formatShortDate(date) {
 
 function weekday(date) {
   return ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][date.getDay()];
+}
+
+function weekdayLong(date) {
+  return ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][date.getDay()];
 }
 
 function timeToMinutes(value) {

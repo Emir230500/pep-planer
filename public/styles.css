@@ -376,9 +376,9 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: #dbeafe;
-  border: 1px solid #bfdbfe;
-  border-left: 7px solid #2563eb;
+  background: #ccfbf1;
+  border: 1px solid #5eead4;
+  border-left: 8px solid var(--accent);
   border-radius: 8px;
   color: #0f172a;
   margin-bottom: 12px;
@@ -399,8 +399,8 @@ button:disabled {
 }
 
 .team-day .day-title {
-  background: #dbeafe;
-  border: 1px solid #93c5fd;
+  background: #ccfbf1;
+  border: 1px solid #5eead4;
   border-left: 9px solid #0f766e;
   border-radius: 7px;
   margin-bottom: 16px;
@@ -428,9 +428,9 @@ button:disabled {
 
 .team-day-open-hint {
   background: #fff;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #5eead4;
   border-radius: 999px;
-  color: #075985;
+  color: var(--accent-dark);
   font-size: 12px;
   font-weight: 800;
   padding: 4px 8px;
@@ -467,14 +467,34 @@ button:disabled {
 
 .team-day.today-team-day {
   background: #ecfdf5;
-  border-top: 54px solid #99f6e4;
-  box-shadow: inset 0 0 0 2px rgba(15, 118, 110, 0.18);
+  border: 3px solid var(--accent);
+  border-top: 58px solid #14b8a6;
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.16);
 }
 
 .team-day.today-team-day .day-title {
-  background: #99f6e4;
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 2px rgba(15, 118, 110, 0.32);
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+
+.team-day.today-team-day .team-day-open-hint,
+.team-day.today-team-day .badge.subtle {
+  background: #fff;
+  color: var(--accent-dark);
+}
+
+.today-day {
+  background: #d1fae5;
+  box-shadow: inset 0 0 0 2px rgba(15, 118, 110, 0.22);
+}
+
+.today-day .day-title {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2);
 }
 
 .day-summary {
