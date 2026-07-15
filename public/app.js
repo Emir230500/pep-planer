@@ -331,7 +331,7 @@ function renderTeamDay(dateValue, dayShifts) {
               <span class="badge subtle">${group.shifts.length}</span>
             </button>
             <div class="team-shifts">
-              ${group.shifts.map(renderTeamShift).join("")}
+              ${group.shifts.map(shift => renderTeamShift(shift, sorted)).join("")}
             </div>
           </div>
         `).join("")}
@@ -380,18 +380,37 @@ function departmentClass(value) {
   return "";
 }
 
-function renderTeamShift(shift) {
+function renderTeamShift(shift, dayShifts = []) {
   const status = detectStatus(shift);
   const statusClass = status ? ` status-row ${statusClassName(status)}` : "";
   const statusLabel = status === "Abwesenheit" ? "Grund nicht erkannt" : status;
+  const splitInfo = teamSplitInfo(shift, dayShifts);
+  const splitClass = splitInfo ? " split-shift" : "";
   return `
-    <div class="team-shift${statusClass} ${departmentClass(shift.department)}">
+    <div class="team-shift${statusClass}${splitClass} ${departmentClass(shift.department)}">
       <span class="team-name">${escapeHtml(shift.name)}</span>
       <span class="team-time">${status ? "Kein Dienst" : `${escapeHtml(shift.start)}-${escapeHtml(shift.end)}`}</span>
       <span class="team-department">${status ? escapeHtml(statusLabel) : escapeHtml(shift.department || "Abteilung pruefen")}</span>
-      <span class="team-pause">${status ? "" : renderPauseText(shift)}</span>
+      <span class="team-pause">${status ? "" : splitInfo || renderPauseText(shift)}</span>
     </div>
   `;
+}
+
+function teamSplitInfo(shift, dayShifts) {
+  if (detectStatus(shift)) return "";
+  const samePerson = dayShifts
+    .filter(item => employeeKey(item.name) === employeeKey(shift.name))
+    .filter(isWorkShift)
+    .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+  const departments = new Set(samePerson.map(item => item.department).filter(Boolean));
+  if (samePerson.length < 2 || departments.size < 2) return "";
+  const index = samePerson.findIndex(item =>
+    item.start === shift.start &&
+    item.end === shift.end &&
+    item.department === shift.department
+  );
+  const part = `Teil ${index + 1}/${samePerson.length}`;
+  return index === 0 ? `${part} - Tagespause ${dayPauseText(samePerson)}` : part;
 }
 
 function renderFreeDay(date) {
