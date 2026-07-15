@@ -111,6 +111,11 @@ function showTeamShifts(data) {
       button.closest(".week")?.classList.toggle("collapsed");
     });
   });
+  document.querySelectorAll("[data-team-day-toggle]").forEach(button => {
+    button.addEventListener("click", () => {
+      button.closest(".team-day")?.classList.toggle("collapsed");
+    });
+  });
   document.querySelectorAll("[data-team-department-toggle]").forEach(button => {
     button.addEventListener("click", () => {
       button.closest(".department-group")?.classList.toggle("collapsed");
@@ -178,15 +183,20 @@ function groupTeamByPlans(plans) {
 }
 
 function findNextWorkDay(weeks) {
-  const today = new Date();
+  const now = new Date();
+  const today = new Date(now);
   today.setHours(0, 0, 0, 0);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const days = [];
 
   for (const week of weeks) {
     for (const [dateValue, dayShifts] of week.days.entries()) {
       const date = parseGermanDate(dateValue);
       if (!date || date < today) continue;
-      const workShifts = dayShifts.filter(isWorkShift).sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+      const workShifts = dayShifts
+        .filter(isWorkShift)
+        .filter(shift => date > today || timeToMinutes(shift.start) > currentMinutes)
+        .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
       if (workShifts.length) days.push({ dateValue, date, shifts: workShifts });
     }
   }
@@ -291,6 +301,7 @@ function renderTeamWeek(week) {
 
 function renderTeamDay(dateValue, dayShifts) {
   const date = parseGermanDate(dateValue);
+  const currentDay = isToday(date);
   const sorted = dayShifts.slice().sort((a, b) => {
     const byTime = timeToMinutes(a.start) - timeToMinutes(b.start);
     if (byTime) return byTime;
@@ -301,22 +312,27 @@ function renderTeamDay(dateValue, dayShifts) {
   const departments = groupTeamDayByDepartment(sorted);
 
   return `
-    <article class="day team-day">
-      <div class="day-title">
-        <strong>${weekday(date)}, ${formatGermanDate(date)}</strong>
+    <article class="day team-day ${currentDay ? "today-team-day" : "collapsed"}">
+      <button class="day-title team-day-head" data-team-day-toggle type="button">
+        <span>
+          <strong>${weekday(date)}, ${formatGermanDate(date)}</strong>
+          ${currentDay ? '<span class="badge">Heute</span>' : ""}
+        </span>
         <span class="badge subtle">${sorted.length} Eintraege</span>
-      </div>
-      ${departments.map(group => `
-        <div class="department-group collapsed">
-          <button class="department-head" data-team-department-toggle type="button">
-            <span>${escapeHtml(group.department)}</span>
-            <span class="badge subtle">${group.shifts.length}</span>
-          </button>
-          <div class="team-shifts">
-            ${group.shifts.map(renderTeamShift).join("")}
+      </button>
+      <div class="team-day-body">
+        ${departments.map(group => `
+          <div class="department-group collapsed">
+            <button class="department-head" data-team-department-toggle type="button">
+              <span>${escapeHtml(group.department)}</span>
+              <span class="badge subtle">${group.shifts.length}</span>
+            </button>
+            <div class="team-shifts">
+              ${group.shifts.map(renderTeamShift).join("")}
+            </div>
           </div>
-        </div>
-      `).join("")}
+        `).join("")}
+      </div>
     </article>
   `;
 }
@@ -506,6 +522,14 @@ function isCurrentWeek(date) {
   const a = isoWeekInfo(today);
   const b = isoWeekInfo(date);
   return a.week === b.week && a.year === b.year;
+}
+
+function isToday(date) {
+  const today = new Date();
+  return date
+    && date.getFullYear() === today.getFullYear()
+    && date.getMonth() === today.getMonth()
+    && date.getDate() === today.getDate();
 }
 
 function formatGermanDate(date) {
