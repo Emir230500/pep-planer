@@ -409,12 +409,22 @@ function teamSplitInfo(shift, dayShifts) {
     item.end === shift.end &&
     item.department === shift.department
   );
-  const otherDepartments = unique(samePerson
-    .filter(item => item.department && item.department !== shift.department)
-    .map(item => item.department));
-  const otherText = otherDepartments.length ? ` - auch ${otherDepartments.join(", ")}` : "";
-  const part = `Teil ${index + 1}/${samePerson.length}${otherText}`;
-  return index === 0 ? `${part} - Tagespause ${dayPauseText(samePerson)}` : part;
+  const dayChain = samePerson
+    .map(item => `${shortTime(item.start)}-${shortTime(item.end)} ${shortDepartment(item.department)}`)
+    .join(" | ");
+  const part = `Tag: ${dayChain}`;
+  return index === 0 ? `${part} | Pause ${dayPauseText(samePerson)}` : part;
+}
+
+function shortTime(value) {
+  return String(value || "").replace(/:00\b/g, "");
+}
+
+function shortDepartment(value) {
+  return String(value || "")
+    .replace(/Obst\s*&\s*Gemüse/i, "Obst")
+    .replace(/Getränke Abteilung/i, "Getraenke")
+    .replace(/Food Abteilung/i, "Food");
 }
 
 function renderFreeDay(date) {
