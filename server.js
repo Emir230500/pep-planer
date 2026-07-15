@@ -321,7 +321,7 @@ function isBreakTimeValue(value) {
 }
 
 function isStatusShift(shift) {
-  return /\b(frei|urlaub|krank|krankheit|abwesenheit|sonderurlaub)\b/i.test(`${shift.department || ""} ${shift.start || ""} ${shift.end || ""}`);
+  return /\b(frei|urlaub|krank|krankheit|abwesenheit|sonderurlaub|seminar)\b/i.test(`${shift.department || ""} ${shift.start || ""} ${shift.end || ""}`);
 }
 
 function cleanShift(shift) {

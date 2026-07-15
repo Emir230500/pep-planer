@@ -1240,8 +1240,10 @@ function extractCellShifts(text) {
 
 function detectStatusText(text) {
   const value = String(text || "").toLowerCase();
-  if (value.includes("krank")) return "Krankheit";
   if (value.includes("sonderurlaub")) return "Sonderurlaub";
+  if (value.includes("seminar")) return "Seminar";
+  if (value.includes("krank") && value.includes("aau")) return "Krank angemeldet (aAu)";
+  if (value.includes("krank")) return "Krankheit";
   if (value.includes("urlaub")) return "Urlaub";
   if (value.includes("abwesenheit")) return "Abwesenheit";
   if (value.includes("frei")) return "Frei";

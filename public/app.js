@@ -318,7 +318,10 @@ function renderTeamDay(dateValue, dayShifts) {
           <strong>${weekday(date)}, ${formatGermanDate(date)}</strong>
           ${currentDay ? '<span class="badge">Heute</span>' : ""}
         </span>
-        <span class="badge subtle">${sorted.length} Eintraege</span>
+        <span class="team-day-actions">
+          <span class="team-day-open-hint">${currentDay ? "Heute offen" : "Tag oeffnen"}</span>
+          <span class="badge subtle">${sorted.length} Eintraege</span>
+        </span>
       </button>
       <div class="team-day-body">
         ${departments.map(group => `
@@ -379,7 +382,7 @@ function departmentClass(value) {
 
 function renderTeamShift(shift) {
   const status = detectStatus(shift);
-  const statusClass = status ? ` status-row status-${status.toLowerCase()}` : "";
+  const statusClass = status ? ` status-row ${statusClassName(status)}` : "";
   return `
     <div class="team-shift${statusClass} ${departmentClass(shift.department)}">
       <span class="team-name">${escapeHtml(shift.name)}</span>
@@ -427,9 +430,8 @@ function renderDay(dateValue, dayShifts) {
 function renderShift(shift, compactPause = false) {
   const status = detectStatus(shift);
   if (status) {
-    const statusClass = status.toLowerCase();
     return `
-      <div class="shift-row status-row status-${statusClass}">
+      <div class="shift-row status-row ${statusClassName(status)}">
         <span class="time">${escapeHtml(status)}</span>
         <span class="department">Kein Dienst</span>
       </div>
@@ -459,11 +461,24 @@ function renderPauseText(shift) {
 
 function detectStatus(shift) {
   const text = `${shift.department || ""} ${shift.start || ""} ${shift.end || ""}`.toLowerCase();
+  if (text.includes("sonderurlaub")) return "Sonderurlaub";
+  if (text.includes("seminar")) return "Seminar";
+  if (text.includes("krank") && text.includes("aau")) return "Krank angemeldet (aAu)";
   if (text.includes("urlaub")) return "Urlaub";
   if (text.includes("krank")) return "Krankheit";
   if (text.includes("abwesenheit")) return "Abwesenheit";
   if (text.includes("frei")) return "Frei";
   return "";
+}
+
+function statusClassName(status) {
+  const text = String(status || "").toLowerCase();
+  if (text.includes("urlaub")) return "status-urlaub";
+  if (text.includes("krank")) return "status-krankheit";
+  if (text.includes("seminar")) return "status-seminar";
+  if (text.includes("frei")) return "status-frei";
+  if (text.includes("abwesenheit")) return "status-abwesenheit";
+  return "status-row";
 }
 
 function employeeKey(name) {
