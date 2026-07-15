@@ -409,7 +409,11 @@ function teamSplitInfo(shift, dayShifts) {
     item.end === shift.end &&
     item.department === shift.department
   );
-  const part = `Teil ${index + 1}/${samePerson.length}`;
+  const otherDepartments = unique(samePerson
+    .filter(item => item.department && item.department !== shift.department)
+    .map(item => item.department));
+  const otherText = otherDepartments.length ? ` - auch ${otherDepartments.join(", ")}` : "";
+  const part = `Teil ${index + 1}/${samePerson.length}${otherText}`;
   return index === 0 ? `${part} - Tagespause ${dayPauseText(samePerson)}` : part;
 }
 
@@ -507,6 +511,10 @@ function statusClassName(status) {
 
 function employeeKey(name) {
   return String(name || "").trim().replace(/\s+/g, " ").replace(/\s+,/g, ",").toLowerCase();
+}
+
+function unique(values) {
+  return Array.from(new Set(values.filter(Boolean)));
 }
 
 function parseGermanDate(value) {

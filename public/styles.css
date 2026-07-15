@@ -685,6 +685,7 @@ button:disabled {
   font-weight: 800;
   justify-self: end;
   padding: 4px 8px;
+  white-space: normal;
 }
 
 .team-shift.status-row {
