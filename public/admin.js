@@ -267,11 +267,13 @@ function normalizePersonName(value) {
 }
 
 function renderPlans(plans) {
-  document.querySelector("#planList").innerHTML = plans.length ? plans.map(plan => `
+  const sortedPlans = sortPlansByDate(plans);
+  document.querySelector("#planList").innerHTML = sortedPlans.length ? sortedPlans.map(plan => `
     <div class="item">
       <div>
         <strong>${escapeHtml(plan.title)}</strong> ${plan.isPublished ? '<span class="badge">Veroeffentlicht</span>' : ""}<br>
-        <span class="meta">${escapeHtml(plan.range || "Zeitraum offen")} - ${new Date(plan.uploadedAt).toLocaleString("de-DE")} - ${plan.shiftCount} Schichten</span>
+        <span class="meta">Zeitraum: ${escapeHtml(plan.range || "offen")}</span><br>
+        <span class="meta">Upload: ${formatDateTime(plan.uploadedAt)} - ${plan.shiftCount} Schichten</span>
         ${plan.issueCount ? `<br><span class="warn-text">${plan.issueCount} Hinweise pruefen</span>` : ""}
       </div>
       <div class="actions">
@@ -316,11 +318,12 @@ function renderActivePlan(plans) {
     return;
   }
   box.innerHTML = `
-    ${plans.map(plan => `
+    ${sortPlansByDate(plans).map(plan => `
       <div class="active-card">
         <div>
           <strong>${escapeHtml(plan.title)}</strong><br>
-          <span class="meta">${escapeHtml(plan.range || "Zeitraum offen")} - hochgeladen ${new Date(plan.uploadedAt).toLocaleString("de-DE")}</span>
+          <span class="meta">Zeitraum: ${escapeHtml(plan.range || "offen")}</span><br>
+          <span class="meta">Upload: ${formatDateTime(plan.uploadedAt)}</span>
         </div>
         <span class="badge">Veroeffentlicht</span>
       </div>
@@ -373,7 +376,27 @@ document.querySelectorAll("#inspectSearch, #inspectWeek, #inspectMonth").forEach
 function renderInspectPlanOptions(plans, selectedId) {
   const select = document.querySelector("#inspectPlan");
   if (!select) return;
-  select.innerHTML = plans.map(plan => `<option value="${escapeHtml(plan.id)}" ${plan.id === selectedId ? "selected" : ""}>${escapeHtml(plan.title)} ${plan.range ? `(${escapeHtml(plan.range)})` : ""}</option>`).join("");
+  select.innerHTML = sortPlansByDate(plans).map(plan => `<option value="${escapeHtml(plan.id)}" ${plan.id === selectedId ? "selected" : ""}>${escapeHtml(plan.title)} ${plan.range ? `(${escapeHtml(plan.range)})` : ""}</option>`).join("");
+}
+
+function sortPlansByDate(plans) {
+  return (plans || []).slice().sort((a, b) => {
+    const byStart = planStartDate(a) - planStartDate(b);
+    if (byStart) return byStart;
+    return new Date(a.uploadedAt || 0) - new Date(b.uploadedAt || 0);
+  });
+}
+
+function planStartDate(plan) {
+  const match = String(plan?.range || "").match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  if (!match) return new Date(plan?.uploadedAt || 0).getTime();
+  return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1])).getTime();
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unbekannt";
+  return date.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
 function groupEmployeesByLetter(employees) {
