@@ -360,6 +360,8 @@ function departmentLabel(shift) {
   const status = detectStatus(shift);
   if (status) return status;
   const department = String(shift.department || "");
+  const lower = department.toLowerCase();
+  if (lower.includes("marktleitung") || lower.includes("marktaufsicht")) return "Marktleitung / Marktaufsicht";
   if (department.toLowerCase().includes("sco kasse")) return "Kasse";
   return department || "Abteilung pruefen";
 }
@@ -383,7 +385,7 @@ function departmentClass(value) {
 function renderTeamShift(shift, dayShifts = []) {
   const status = detectStatus(shift);
   const statusClass = status ? ` status-row ${statusClassName(status)}` : "";
-  const statusLabel = status === "Abwesenheit" ? "Grund nicht erkannt" : status;
+  const statusLabel = status;
   const splitInfo = teamSplitInfo(shift, dayShifts);
   const splitClass = splitInfo ? " split-shift" : "";
   return `
@@ -467,7 +469,7 @@ function renderDay(dateValue, dayShifts) {
 function renderShift(shift, compactPause = false) {
   const status = detectStatus(shift);
   if (status) {
-    const statusLabel = status === "Abwesenheit" ? "Grund nicht erkannt" : status;
+    const statusLabel = status;
     return `
       <div class="shift-row status-row ${statusClassName(status)}">
         <span class="time">Kein Dienst</span>
