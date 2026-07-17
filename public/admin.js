@@ -4,6 +4,7 @@ let currentFileType = "";
 let adminState = { plans: [], employees: [], publishedPlans: [] };
 let inspected = { plan: null, shifts: [], issues: [], missingEmployees: [] };
 let lastPepTextNames = [];
+let lastCoverageWarning = "";
 
 const loginBox = document.querySelector("#adminLogin");
 const adminArea = document.querySelector("#adminArea");
@@ -176,12 +177,13 @@ uploadBtn.addEventListener("click", async () => {
       break: cols.break ? normalizeBreakValue(row[cols.break]) : ""
     })).filter(shift => !isNoiseShift(shift));
     validateShiftsBeforeSave(shifts);
-    validateEmployeeCoverage(shifts);
+    lastCoverageWarning = employeeCoverageWarning(shifts);
     const result = await api("/api/admin/upload", {
       method: "POST",
       body: { title: document.querySelector("#planTitle").value || "Wochenplan", shifts, seenEmployees: lastPepTextNames }
     });
     uploadMsg.textContent = `Gespeichert: ${result.plan.shiftCount} Schichten. Bitte pruefen und danach veroeffentlichen.`;
+    if (lastCoverageWarning) uploadMsg.textContent += ` Hinweis: ${lastCoverageWarning}`;
     await loadAdmin();
     await loadInspection(result.plan.id);
   } catch (error) {
@@ -232,16 +234,17 @@ function isNoiseShift(shift) {
   return false;
 }
 
-function validateEmployeeCoverage(shifts) {
+function employeeCoverageWarning(shifts) {
   const knownNames = (adminState.employees || []).map(employee => normalizePersonName(employee.name));
-  if (knownNames.length < 10) return;
+  if (knownNames.length < 10) return "";
   const imported = new Set(shifts.map(shift => normalizePersonName(shift.name)).filter(Boolean));
   const seenInPepText = new Set(lastPepTextNames.map(normalizePersonName));
   const covered = new Set([...imported, ...seenInPepText]);
   const missing = knownNames.filter(name => !covered.has(name));
   if (missing.length >= 4 || covered.size < knownNames.length * 0.85) {
-    throw new Error(`Import wirkt unvollstaendig: ${missing.length} bekannte Mitarbeiter fehlen, z. B. ${missing.slice(0, 8).join(", ")}. Bitte HTML/Datei aus der PEP-Druckansicht neu hochladen oder pruefen, ob diese Mitarbeiter dort enthalten sind.`);
+    return `${missing.length} bekannte Mitarbeiter fehlen, z. B. ${missing.slice(0, 8).join(", ")}. Wenn du sie bewusst rausgenommen hast, ist das okay.`;
   }
+  return "";
 }
 
 function pepTextNames(text) {
