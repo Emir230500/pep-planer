@@ -73,7 +73,7 @@ function showTeamShifts(data) {
   const nextWorkDay = findNextWorkDay(ownWeeks);
   const otherPlans = data.plans.map(plan => ({
     ...plan,
-    shifts: plan.shifts.filter(shift => employeeKey(shift.name) !== employeeKey(data.name))
+    shifts: plan.shifts
   }));
   const teamWeeks = groupTeamByPlans(otherPlans);
   if (!teamWeeks.some(week => week.isCurrent) && teamWeeks.length) {
