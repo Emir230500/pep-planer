@@ -1106,6 +1106,17 @@ function renderInspectCalendar() {
         renderInspection();
       }
     });
+    button.addEventListener("dblclick", async () => {
+      input.value = button.dataset.inspectCalendarDay;
+      inspectCalendarMonth = monthKey(parseGermanDate(input.value)) || inspectCalendarMonth;
+      inspectCalendarOpen = false;
+      const targetPlan = planForDate(input.value);
+      if (targetPlan && targetPlan.id !== inspected.plan?.id) {
+        await loadInspection(targetPlan.id, false);
+      } else {
+        renderInspection();
+      }
+    });
   });
   document.querySelectorAll("[data-clear-inspect-day]").forEach(button => {
     button.addEventListener("click", () => {
