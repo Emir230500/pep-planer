@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "calendar-clean-manual-pause-20260721";
+const BUILD_VERSION = "calendar-all-plans-departments-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -261,6 +261,11 @@ function minutesToBreak(minutes) {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
+function breakToMinutes(value) {
+  if (!isTime(value)) return 0;
+  return timeToMinutes(value);
+}
+
 function shiftDurationMinutes(shift) {
   if (!isTime(shift.start) || !isTime(shift.end)) return 0;
   const start = timeToMinutes(shift.start);
@@ -279,13 +284,7 @@ function cleanedDisplayShifts(shifts) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(shift);
   }
-  return Array.from(groups.values()).flatMap(group => removeSummaryRanges(propagateDailyBreak(group)));
-}
-
-function propagateDailyBreak(shifts) {
-  const dayBreak = shifts.find(shift => !isStatusShift(shift) && shift.break)?.break || "";
-  if (!dayBreak) return shifts;
-  return shifts.map(shift => isStatusShift(shift) || shift.break ? shift : { ...shift, break: dayBreak });
+  return Array.from(groups.values()).flatMap(group => removeSummaryRanges(group));
 }
 
 function removeSummaryRanges(shifts) {
@@ -341,10 +340,23 @@ function applyDailyBreaks(shifts) {
   return shifts;
 }
 
-function applyLegalBreakForManualShift(shift) {
-  if (!shift || isStatusShift(shift) || shift.break) return shift;
-  const minutes = legalBreakMinutes(shiftDurationMinutes(shift));
-  return minutes ? { ...shift, break: minutesToBreak(minutes) } : shift;
+function applyLegalBreakForManualDay(shifts, name, date) {
+  const dayShifts = (shifts || [])
+    .filter(shift => employeeKey(shift.name) === employeeKey(name) && String(shift.date || "") === String(date || ""))
+    .filter(shift => !isStatusShift(shift))
+    .sort((a, b) => timeToMinutesSafe(a.start) - timeToMinutesSafe(b.start));
+  if (!dayShifts.length) return;
+
+  const legalMinutes = legalBreakMinutes(totalDurationMinutes(dayShifts));
+  if (!legalMinutes) return;
+
+  const existingMinutes = Math.max(0, ...dayShifts.map(shift => breakToMinutes(shift.break)));
+  const breakMinutes = Math.max(legalMinutes, existingMinutes);
+  const target = dayShifts.find(shift => breakToMinutes(shift.break)) || dayShifts[0];
+
+  for (const shift of dayShifts) {
+    shift.break = shift === target ? minutesToBreak(breakMinutes) : "";
+  }
 }
 
 function isSuspiciousName(name) {
@@ -697,7 +709,7 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected")
   const addShift = !before && Boolean(after);
   const cleanBefore = addShift ? null : cleanShift(before || {});
   const deleteShift = !after;
-  const cleanAfter = deleteShift ? null : applyLegalBreakForManualShift(cleanShift(after || {}));
+  const cleanAfter = deleteShift ? null : cleanShift(after || {});
   if (!deleteShift) {
     const validationError = validateUploadedShifts([cleanAfter]);
     if (validationError) return { error: validationError, status: 400 };
@@ -724,6 +736,8 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected")
   } else {
     plan.shifts[index] = cleanAfter;
   }
+  if (cleanBefore) applyLegalBreakForManualDay(plan.shifts, cleanBefore.name, cleanBefore.date);
+  if (cleanAfter) applyLegalBreakForManualDay(plan.shifts, cleanAfter.name, cleanAfter.date);
   plan.updatedAt = new Date().toISOString();
   plan.range = planRange(plan.shifts || []);
   const change = changeFromShifts(oldShift, cleanAfter, "Haendisch");

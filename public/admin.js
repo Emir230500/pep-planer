@@ -686,11 +686,6 @@ document.querySelector("#inspectPlan")?.addEventListener("change", event => load
 document.querySelectorAll("#inspectEmployee, #inspectDepartment, #inspectDay").forEach(input => {
   input.addEventListener("change", renderInspection);
 });
-document.querySelector("#inspectMonth")?.addEventListener("change", () => {
-  const dayInput = document.querySelector("#inspectDay");
-  if (dayInput) dayInput.value = "";
-  renderInspection();
-});
 
 function renderInspectPlanOptions(plans, selectedId) {
   const select = document.querySelector("#inspectPlan");
@@ -846,13 +841,11 @@ function renderInspection() {
 
   const employee = document.querySelector("#inspectEmployee")?.value || "";
   const department = document.querySelector("#inspectDepartment")?.value || "";
-  const month = document.querySelector("#inspectMonth")?.value || "";
-  renderInspectCalendar(month);
+  renderInspectCalendar();
   const day = document.querySelector("#inspectDay")?.value || "";
   const filtered = inspected.shifts
     .filter(shift => !employee || normalizePersonName(shift.name) === employee)
     .filter(shift => !department || (shift.department || "") === department)
-    .filter(shift => !month || monthKey(parseGermanDate(shift.date)) === month)
     .filter(shift => !day || shift.date === day)
     .sort((a, b) => (parseGermanDate(a.date) - parseGermanDate(b.date)) || a.name.localeCompare(b.name, "de") || timeToMinutes(a.start) - timeToMinutes(b.start));
 
@@ -910,11 +903,8 @@ function updateInspectFilterOptions() {
     .sort((a, b) => a.localeCompare(b, "de"));
   const departments = unique(shifts.map(shift => shift.department || "").filter(Boolean))
     .sort((a, b) => a.localeCompare(b, "de"));
-  const months = unique(shifts.map(shift => monthKey(parseGermanDate(shift.date))).filter(Boolean)).sort();
-
   updateSelectOptions("#inspectEmployee", "Alle Mitarbeiter", employees, value => value);
   updateSelectOptions("#inspectDepartment", "Alle Abteilungen", departments, value => value);
-  updateSelectOptions("#inspectMonth", "Alle Monate", months, inspectMonthLabel);
 }
 
 function updateSelectOptions(selector, emptyLabel, values, labelFn) {
@@ -950,18 +940,44 @@ function inspectDayOptions(selectedMonth) {
     .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
 }
 
-function renderInspectCalendar(selectedMonth) {
+function renderInspectCalendar() {
   const box = document.querySelector("#inspectCalendar");
   const input = document.querySelector("#inspectDay");
   if (!box || !input) return;
-  const month = selectedMonth || (inspectMonthOptions()[0] || "");
-  if (!month) {
+  const months = inspectMonthOptions();
+  if (!months.length) {
     input.value = "";
     box.innerHTML = "";
     return;
   }
+  const allDates = months.flatMap(month => inspectDayOptions(month));
+  if (input.value && !allDates.includes(input.value)) input.value = "";
+  box.innerHTML = `
+    <div class="calendar-months">
+      ${months.map(month => renderInspectCalendarMonth(month, input.value)).join("")}
+    </div>
+  `;
+  document.querySelectorAll("[data-inspect-calendar-day]").forEach(button => {
+    button.addEventListener("click", async () => {
+      input.value = button.dataset.inspectCalendarDay;
+      const targetPlan = planForDate(input.value);
+      if (targetPlan && targetPlan.id !== inspected.plan?.id) {
+        await loadInspection(targetPlan.id, false);
+      } else {
+        renderInspection();
+      }
+    });
+  });
+  document.querySelectorAll("[data-clear-inspect-day]").forEach(button => {
+    button.addEventListener("click", () => {
+      input.value = "";
+      renderInspection();
+    });
+  });
+}
+
+function renderInspectCalendarMonth(month, selectedDate) {
   const dates = inspectDayOptions(month);
-  if (input.value && !dates.includes(input.value)) input.value = "";
   const [year, monthNumber] = month.split("-").map(Number);
   const first = new Date(year, monthNumber - 1, 1);
   const startOffset = (first.getDay() + 6) % 7;
@@ -969,23 +985,22 @@ function renderInspectCalendar(selectedMonth) {
   for (let i = 0; i < startOffset; i += 1) cells.push({ muted: true, label: "" });
   for (const dateValue of dates) {
     const parsed = parseGermanDate(dateValue);
-    const count = (inspected.shifts || []).filter(shift => shift.date === dateValue).length;
     cells.push({
       date: dateValue,
       label: parsed ? String(parsed.getDate()) : dateValue,
-      selected: input.value === dateValue,
+      selected: selectedDate === dateValue,
       today: isSameGermanDate(parsed, new Date()),
-      count
+      hasPlan: Boolean(planForDate(dateValue))
     });
   }
-  box.innerHTML = `
+  return `
     <div class="calendar-card">
       <div class="calendar-card-head">
         <div>
           <strong>${escapeHtml(inspectMonthLabel(month))}</strong>
-          <p>${input.value ? escapeHtml(`${weekdayLong(parseGermanDate(input.value))}, ${input.value}`) : "Alle Tage"}</p>
+          <p>${selectedDate && monthKey(parseGermanDate(selectedDate)) === month ? escapeHtml(`${weekdayLong(parseGermanDate(selectedDate))}, ${selectedDate}`) : "Monat"}</p>
         </div>
-        ${input.value ? '<button id="clearInspectDay" class="mini-button secondary" type="button">Alle Tage</button>' : ""}
+        ${selectedDate && monthKey(parseGermanDate(selectedDate)) === month ? '<button data-clear-inspect-day class="mini-button secondary" type="button">Alle Tage</button>' : ""}
       </div>
       <div class="calendar-weekdays">
         ${["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(day => `<span>${day}</span>`).join("")}
@@ -993,27 +1008,29 @@ function renderInspectCalendar(selectedMonth) {
       <div class="calendar-days">
         ${cells.map(cell => cell.muted
           ? '<span class="calendar-empty"></span>'
-          : `<button class="calendar-day ${cell.selected ? "selected" : ""} ${cell.today ? "today" : ""}" data-inspect-calendar-day="${escapeHtml(cell.date)}" type="button">
+          : `<button class="calendar-day ${cell.selected ? "selected" : ""} ${cell.today ? "today" : ""} ${cell.hasPlan ? "" : "no-plan"}" data-inspect-calendar-day="${escapeHtml(cell.date)}" type="button" ${cell.hasPlan ? "" : "disabled"}>
               <span>${escapeHtml(cell.label)}</span>
-              <small>${cell.count}</small>
             </button>`
         ).join("")}
       </div>
     </div>
   `;
-  document.querySelectorAll("[data-inspect-calendar-day]").forEach(button => {
-    button.addEventListener("click", () => {
-      input.value = button.dataset.inspectCalendarDay;
-      renderInspection();
-    });
-  });
-  document.querySelector("#clearInspectDay")?.addEventListener("click", () => {
-    input.value = "";
-    renderInspection();
-  });
 }
 
 function inspectMonthOptions() {
+  const ranges = (adminState.plans || []).map(planDateRange).filter(Boolean);
+  if (ranges.length) {
+    const start = new Date(Math.min(...ranges.map(range => range.start.getTime())));
+    const end = new Date(Math.max(...ranges.map(range => range.end.getTime())));
+    const months = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cursor <= last) {
+      months.push(monthKey(cursor));
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return months;
+  }
   return unique((inspected.shifts || []).map(shift => monthKey(parseGermanDate(shift.date))).filter(Boolean)).sort();
 }
 
@@ -1021,9 +1038,31 @@ function isSameGermanDate(a, b) {
   return Boolean(a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate());
 }
 
+function planDateRange(plan) {
+  const dates = Array.from(String(plan?.range || "").matchAll(/(\d{1,2}\.\d{1,2}\.\d{4})/g))
+    .map(match => parseLooseGermanDate(match[1]))
+    .filter(Boolean);
+  if (!dates.length) return null;
+  return { start: dates[0], end: dates[1] || dates[0] };
+}
+
+function planForDate(dateValue) {
+  const date = parseGermanDate(dateValue);
+  if (!date) return null;
+  if (inspected.plan) {
+    const currentRange = planDateRange(inspected.plan);
+    if (currentRange && date >= currentRange.start && date <= currentRange.end) return inspected.plan;
+  }
+  return sortPlansByDate(adminState.plans || []).find(plan => {
+    const range = planDateRange(plan);
+    return range && date >= range.start && date <= range.end;
+  }) || null;
+}
+
 function newInspectionShift() {
   const selectedDay = document.querySelector("#inspectDay")?.value || "";
-  const date = selectedDay || inspectDayOptions(document.querySelector("#inspectMonth")?.value || "")[0] || inspected.shifts[0]?.date || formatGermanDate(new Date());
+  const planRange = planDateRange(inspected.plan);
+  const date = selectedDay || inspected.shifts[0]?.date || (planRange ? formatGermanDate(planRange.start) : "") || formatGermanDate(new Date());
   return {
     isNew: true,
     name: document.querySelector("#inspectEmployee")?.value || (inspected.shifts[0]?.name || ""),
@@ -1061,10 +1100,9 @@ function renderShiftEditForm() {
         <label>Start<input id="editStart" value="${escapeHtml(editShift.start)}" placeholder="06:00"></label>
         <label>Ende<input id="editEnd" value="${escapeHtml(editShift.end)}" placeholder="14:00"></label>
         <label>Abteilung
-          <input id="editDepartment" list="editDepartmentOptions" value="${escapeHtml(editShift.department)}" placeholder="Abteilung eingeben">
-          <datalist id="editDepartmentOptions">
-            ${departmentOptions.map(department => `<option value="${escapeHtml(department)}"></option>`).join("")}
-          </datalist>
+          <select id="editDepartment">
+            ${departmentOptions.map(department => `<option value="${escapeHtml(department)}" ${department === editShift.department ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}
+          </select>
         </label>
         <label>Pause<input id="editBreak" value="${escapeHtml(editShift.break || "")}" placeholder="00:30"></label>
         <label>Benachrichtigung

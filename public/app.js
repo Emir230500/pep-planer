@@ -494,10 +494,9 @@ function renderTeamEditForm() {
         <label>Start<input id="teamEditStart" value="${escapeHtml(teamEditShift.start)}" placeholder="06:00"></label>
         <label>Ende<input id="teamEditEnd" value="${escapeHtml(teamEditShift.end)}" placeholder="14:00"></label>
         <label>Abteilung
-          <input id="teamEditDepartment" list="teamEditDepartmentOptions" value="${escapeHtml(teamEditShift.department)}" placeholder="Abteilung eingeben">
-          <datalist id="teamEditDepartmentOptions">
-            ${departments.map(department => `<option value="${escapeHtml(department)}"></option>`).join("")}
-          </datalist>
+          <select id="teamEditDepartment">
+            ${departments.map(department => `<option value="${escapeHtml(department)}" ${department === teamEditShift.department ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}
+          </select>
         </label>
         <label>Pause<input id="teamEditBreak" value="${escapeHtml(teamEditShift.break || "")}" placeholder="00:30"></label>
         <label>Benachrichtigung
