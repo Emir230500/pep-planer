@@ -237,6 +237,7 @@ uploadBtn.addEventListener("click", async () => {
     });
     uploadMsg.textContent = `Gespeichert: ${result.plan.shiftCount} Schichten. ${result.plan.changeCount ? `${result.plan.changeCount} Aenderungen erkannt. ` : ""}${result.pepCorrections?.length ? `${result.pepCorrections.length} PEP-Korrekturen offen. ` : ""}Bitte pruefen und danach veroeffentlichen.`;
     if (lastCoverageWarning) uploadMsg.textContent += ` Hinweis: ${lastCoverageWarning}`;
+    clearUploadDraftAfterSave();
     await loadAdmin();
     await loadInspection(result.plan.id);
   } catch (error) {
@@ -406,7 +407,7 @@ function parseLooseGermanDate(value) {
 
 function matchingUploadedPlan(info) {
   return (adminState.plans || [])
-    .filter(plan => planRangeKey(plan) === info.rangeKey || (info.weekKey && planWeekKey(plan) === info.weekKey))
+    .filter(plan => planRangeKey(plan) === info.rangeKey)
     .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0))[0] || null;
 }
 
@@ -435,8 +436,8 @@ function refreshUploadModeChoice() {
 
   uploadModeBox.classList.remove("hidden");
   uploadModeBox.innerHTML = `
-    <strong>Diese KW ist schon hochgeladen</strong>
-    <p>${escapeHtml(info.title || "Plan")} (${escapeHtml(info.rangeText)}) gibt es bereits: ${escapeHtml(existing.title || "ohne Titel")}.</p>
+    <strong>Dieser Zeitraum ist schon gespeichert</strong>
+    <p>${escapeHtml(info.title || "Plan")} (${escapeHtml(info.rangeText)}) gibt es bereits als: ${escapeHtml(existing.title || "ohne Titel")}${existing.isPublished ? " und ist veroeffentlicht" : ", aber noch nicht veroeffentlicht"}.</p>
     <label class="choice-line">
       <input type="radio" name="uploadMode" value="correction" checked>
       <span><b>Plan-Korrektur</b> - mit vorhandener Woche vergleichen und offene PEP-Korrekturen anlegen.</span>
@@ -445,7 +446,20 @@ function refreshUploadModeChoice() {
       <input type="radio" name="uploadMode" value="normal">
       <span><b>Nur neuer Upload</b> - speichern, aber keine Korrektur-Aufgaben erzeugen.</span>
     </label>
-  `;
+`;
+}
+
+function clearUploadDraftAfterSave() {
+  parsedRows = [];
+  headers = [];
+  currentFileType = "";
+  lastPepTextNames = [];
+  if (fileInput) fileInput.value = "";
+  if (pepTextInput) pepTextInput.value = "";
+  renderPreview();
+  renderMapping();
+  refreshUploadModeChoice();
+  uploadBtn.disabled = true;
 }
 
 function finalUploadTitle(info) {

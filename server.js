@@ -12,7 +12,7 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "schichtdatum-kalender-20260721";
+const BUILD_VERSION = "upload-doppelt-exakt-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -489,11 +489,10 @@ function rangeKeyFromShifts(shifts) {
 
 function matchingPlans(db, rangeKey, excludeId = "") {
   if (!rangeKey) return [];
-  const weekKey = weekKeyFromRange(rangeKey.split("|")[0] || "");
   return (db.plans || []).filter(plan => {
     if (plan.id === excludeId) return false;
     const planRangeText = plan.range || planRange(plan.shifts || []);
-    return rangeKeyFromRange(planRangeText) === rangeKey || (weekKey && weekKeyFromRange(planRangeText) === weekKey);
+    return rangeKeyFromRange(planRangeText) === rangeKey;
   });
 }
 
