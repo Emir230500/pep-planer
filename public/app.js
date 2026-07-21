@@ -142,6 +142,7 @@ function showTeamShifts(data) {
     showTeamShifts(currentTeamData);
   });
   document.querySelector("#saveTeamEdit")?.addEventListener("click", saveTeamEdit);
+  document.querySelector("#deleteTeamEdit")?.addEventListener("click", deleteTeamEdit);
 }
 
 function groupByPlans(plans) {
@@ -466,6 +467,7 @@ function renderTeamEditForm() {
         <label>Pause<input id="teamEditBreak" value="${escapeHtml(teamEditShift.break || "")}" placeholder="00:30"></label>
       </div>
       <div class="actions">
+        <button id="deleteTeamEdit" class="danger" type="button">Schicht loeschen</button>
         <button id="saveTeamEdit" type="button">Speichern</button>
         <button id="cancelTeamEdit" class="secondary" type="button">Abbrechen</button>
       </div>
@@ -498,6 +500,24 @@ function editDepartmentOptions() {
     .map(shift => shift.department || "")
     .filter(Boolean);
   return unique([...knownDepartments(), ...fromPlans]).sort((a, b) => a.localeCompare(b, "de"));
+}
+
+async function deleteTeamEdit() {
+  if (!teamEditShift?.planId) return;
+  if (!window.confirm("Diese Schicht wirklich loeschen?")) return;
+  try {
+    await api(`/api/me/plans/${encodeURIComponent(teamEditShift.planId)}/shifts/edit`, {
+      method: "POST",
+      body: { before: teamEditShift, after: null }
+    });
+    teamEditShift = null;
+    await loadMine();
+  } catch (error) {
+    const box = document.querySelector("#teamEditBox");
+    if (box && !box.querySelector(".team-edit-error")) {
+      box.insertAdjacentHTML("beforeend", `<p class="msg error team-edit-error">${escapeHtml(error.message)}</p>`);
+    }
+  }
 }
 
 async function saveTeamEdit() {

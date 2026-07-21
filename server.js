@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "publish-push-auswahl-20260721";
+const BUILD_VERSION = "schicht-loeschen-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -689,9 +689,12 @@ function publishNotifyMode(db, plan, requestedMode) {
 
 async function editPlanShift(db, planId, before, after) {
   const cleanBefore = cleanShift(before || {});
-  const cleanAfter = cleanShift(after || {});
-  const validationError = validateUploadedShifts([cleanAfter]);
-  if (validationError) return { error: validationError, status: 400 };
+  const deleteShift = !after;
+  const cleanAfter = deleteShift ? null : cleanShift(after || {});
+  if (!deleteShift) {
+    const validationError = validateUploadedShifts([cleanAfter]);
+    if (validationError) return { error: validationError, status: 400 };
+  }
 
   const plan = db.plans.find(item => item.id === planId);
   if (!plan) return { error: "Plan nicht gefunden.", status: 404 };
@@ -706,7 +709,11 @@ async function editPlanShift(db, planId, before, after) {
   if (index < 0) return { error: "Schicht wurde im gespeicherten Plan nicht gefunden.", status: 404 };
 
   const oldShift = cleanShift(plan.shifts[index]);
-  plan.shifts[index] = cleanAfter;
+  if (deleteShift) {
+    plan.shifts.splice(index, 1);
+  } else {
+    plan.shifts[index] = cleanAfter;
+  }
   plan.updatedAt = new Date().toISOString();
   plan.range = planRange(plan.shifts || []);
   const change = changeFromShifts(oldShift, cleanAfter, "Haendisch");

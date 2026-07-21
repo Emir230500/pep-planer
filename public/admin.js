@@ -789,6 +789,7 @@ function renderInspection() {
     renderInspection();
   });
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
+  document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
 }
 
 function renderShiftEditForm() {
@@ -818,6 +819,7 @@ function renderShiftEditForm() {
         <label>Pause<input id="editBreak" value="${escapeHtml(editShift.break || "")}" placeholder="00:30"></label>
       </div>
       <div class="actions">
+        <button id="deleteShiftEdit" class="danger" type="button">Schicht loeschen</button>
         <button id="saveShiftEdit" type="button">Speichern</button>
         <button id="cancelShiftEdit" class="secondary" type="button">Abbrechen</button>
       </div>
@@ -849,6 +851,32 @@ function editDepartmentOptions() {
     .filter(Boolean);
   return unique([...knownDepartments(), ...fromPlan])
     .sort((a, b) => a.localeCompare(b, "de"));
+}
+
+async function deleteShiftEdit() {
+  if (!editShift || !inspected.plan?.id) return;
+  if (!window.confirm("Diese Schicht wirklich loeschen?")) return;
+  const planId = inspected.plan.id;
+  const msg = document.querySelector("#inspectMsg");
+  if (msg) {
+    msg.textContent = "Schicht wird geloescht...";
+    msg.classList.remove("error");
+  }
+  try {
+    await api(`/api/admin/plans/${encodeURIComponent(planId)}/shifts/edit`, {
+      method: "POST",
+      body: { before: editShift, after: null }
+    });
+    editShift = null;
+    await loadAdmin();
+    await loadInspection(planId, true);
+    if (msg) msg.textContent = "Schicht geloescht. PEP-Korrektur wurde angelegt.";
+  } catch (error) {
+    if (msg) {
+      msg.textContent = error.message;
+      msg.classList.add("error");
+    }
+  }
 }
 
 async function saveShiftEdit() {
