@@ -1155,6 +1155,11 @@ button:disabled {
   overflow: hidden;
 }
 
+.inspect-week.current-inspect-week {
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+}
+
 .inspect-week-head {
   display: flex;
   align-items: center;
@@ -1169,6 +1174,18 @@ button:disabled {
   text-align: left;
 }
 
+.current-inspect-week .inspect-week-head {
+  background: #d1fae5;
+}
+
+.inspect-week-badges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .inspect-week-head:hover {
   background: #f8fafc;
 }
@@ -1178,10 +1195,39 @@ button:disabled {
   border-top: 1px solid var(--line);
   border-radius: 0;
   margin: 0;
+  padding: 12px;
 }
 
 .inspect-week.collapsed .inspect-week-body {
   display: none;
+}
+
+.inspect-day {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.inspect-day:last-child {
+  margin-bottom: 0;
+}
+
+.inspect-day-head {
+  align-items: center;
+  background: #e0f2fe;
+  border-left: 6px solid var(--accent);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.inspect-day-table {
+  border: 0;
+  border-radius: 0;
+  margin: 0;
 }
 
 code {

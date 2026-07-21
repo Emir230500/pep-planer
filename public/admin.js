@@ -6,6 +6,7 @@ let inspected = { plan: null, shifts: [], issues: [], missingEmployees: [], chan
 let lastPepTextNames = [];
 let lastCoverageWarning = "";
 let editShift = null;
+let inspectionEditMap = new Map();
 
 const loginBox = document.querySelector("#adminLogin");
 const adminArea = document.querySelector("#adminArea");
@@ -768,8 +769,9 @@ function renderInspection() {
     .sort((a, b) => (parseGermanDate(a.date) - parseGermanDate(b.date)) || a.name.localeCompare(b.name, "de") || timeToMinutes(a.start) - timeToMinutes(b.start));
 
   const groupedWeeks = groupInspectionByWeek(filtered);
+  inspectionEditMap = new Map();
   inspectList.innerHTML = groupedWeeks.length
-    ? groupedWeeks.map((group, index) => renderInspectionWeek(group, week ? index === 0 : false)).join("")
+    ? groupedWeeks.map((group, index) => renderInspectionWeek(group, group.isCurrent || (week ? index === 0 : false))).join("")
     : '<p class="hint">Keine Schichten fuer diese Filter.</p>';
 
   document.querySelectorAll("[data-inspect-week-toggle]").forEach(button => {
@@ -779,7 +781,7 @@ function renderInspection() {
   });
   document.querySelectorAll("[data-edit-shift]").forEach(button => {
     button.addEventListener("click", () => {
-      editShift = inspected.shifts.find(shift => shiftEditKey(shift) === button.dataset.editShift) || null;
+      editShift = inspectionEditMap.get(button.dataset.editShift) || null;
       renderInspection();
       document.querySelector("#shiftEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -957,11 +959,20 @@ function dailyIssueKey(name, date) {
 
 function groupInspectionByWeek(shifts) {
   const groups = new Map();
+  const todayInfo = isoWeekInfo(new Date());
   for (const shift of shifts) {
     const date = parseGermanDate(shift.date);
     const info = isoWeekInfo(date);
     const key = `${info?.year || "0000"}-${String(info?.week || 0).padStart(2, "0")}`;
-    if (!groups.has(key)) groups.set(key, { key, week: info?.week || "-", year: info?.year || "", shifts: [] });
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        week: info?.week || "-",
+        year: info?.year || "",
+        isCurrent: Boolean(info && todayInfo && info.week === todayInfo.week && info.year === todayInfo.year),
+        shifts: []
+      });
+    }
     groups.get(key).shifts.push(shift);
   }
 
@@ -972,22 +983,50 @@ function renderInspectionWeek(group, open) {
   const workCount = group.shifts.filter(shift => !isInspectionStatus(shift)).length;
   const statusCount = group.shifts.length - workCount;
   const dayBreaks = dailyBreakMap(group.shifts);
+  const days = groupInspectionDays(group.shifts);
   return `
-    <section class="inspect-week ${open ? "" : "collapsed"}">
+    <section class="inspect-week ${group.isCurrent ? "current-inspect-week" : ""} ${open ? "" : "collapsed"}">
       <button class="inspect-week-head" data-inspect-week-toggle type="button">
         <span><strong>KW ${group.week}</strong>${group.year ? ` / ${group.year}` : ""}</span>
-        <span class="badge subtle">${workCount} Dienste${statusCount ? `, ${statusCount} Abwesenheiten` : ""}</span>
+        <span class="inspect-week-badges">
+          ${group.isCurrent ? '<span class="badge">Aktuelle KW</span>' : ""}
+          <span class="badge subtle">${workCount} Dienste${statusCount ? `, ${statusCount} Abwesenheiten` : ""}</span>
+        </span>
       </button>
-      <div class="inspect-week-body preview admin-preview">
-        <table>
-          <thead><tr><th>Mitarbeiter</th><th>Datum</th><th>Zeit</th><th>Abteilung</th><th>Pause</th><th>Aktion</th></tr></thead>
-          <tbody>
-            ${group.shifts.map(shift => renderInspectionRow(shift, dayBreaks)).join("")}
-          </tbody>
-        </table>
+      <div class="inspect-week-body admin-preview">
+        ${days.map(day => `
+          <section class="inspect-day">
+            <div class="inspect-day-head">
+              <strong>${escapeHtml(weekdayLong(parseGermanDate(day.date)) || "")}, ${escapeHtml(day.date)}</strong>
+              <span class="badge subtle">${day.shifts.length} Eintraege</span>
+            </div>
+            <div class="preview inspect-day-table">
+              <table>
+                <thead><tr><th>Mitarbeiter</th><th>Zeit</th><th>Abteilung</th><th>Pause</th><th>Aktion</th></tr></thead>
+                <tbody>
+                  ${day.shifts.map(shift => renderInspectionRow(shift, dayBreaks)).join("")}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        `).join("")}
       </div>
     </section>
   `;
+}
+
+function groupInspectionDays(shifts) {
+  const groups = new Map();
+  for (const shift of shifts) {
+    if (!groups.has(shift.date)) groups.set(shift.date, []);
+    groups.get(shift.date).push(shift);
+  }
+  return Array.from(groups.entries())
+    .map(([date, dayShifts]) => ({
+      date,
+      shifts: dayShifts.slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start) || a.name.localeCompare(b.name, "de"))
+    }))
+    .sort((a, b) => parseGermanDate(a.date) - parseGermanDate(b.date));
 }
 
 function isInspectionStatus(shift) {
@@ -995,13 +1034,14 @@ function isInspectionStatus(shift) {
 }
 
 function renderInspectionRow(shift, dayBreaks = new Map()) {
+  const key = String(inspectionEditMap.size);
+  inspectionEditMap.set(key, shift);
   return `<tr>
     <td>${escapeHtml(shift.name)}</td>
-    <td>${escapeHtml(shift.date)}</td>
     <td>${escapeHtml(shift.start)}-${escapeHtml(shift.end)}</td>
     <td>${escapeHtml(shift.department || "Abteilung pruefen")}</td>
     <td>${renderAdminPause(shift, dayBreaks)}</td>
-    <td><button class="mini-button secondary" data-edit-shift="${escapeHtml(shiftEditKey(shift))}" type="button">Bearbeiten</button></td>
+    <td><button class="mini-button secondary" data-edit-shift="${escapeHtml(key)}" type="button">Bearbeiten</button></td>
   </tr>`;
 }
 
@@ -1575,6 +1615,11 @@ function parseGermanDate(value) {
 
 function formatGermanDate(date) {
   return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
+}
+
+function weekdayLong(date) {
+  if (!date) return "";
+  return ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][date.getDay()];
 }
 
 function splitEmployeeBlocks(text) {
