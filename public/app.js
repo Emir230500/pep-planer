@@ -184,6 +184,13 @@ function showTeamShifts(data) {
       input.value = normalizeTimeValue(input.value);
     });
   });
+  document.querySelectorAll("[data-team-edit-date-choice]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (!teamEditShift) return;
+      teamEditShift.date = button.dataset.teamEditDateChoice;
+      showTeamShifts(currentTeamData);
+    });
+  });
   document.querySelector("#saveTeamEdit")?.addEventListener("click", saveTeamEdit);
   document.querySelector("#deleteTeamEdit")?.addEventListener("click", deleteTeamEdit);
 }
@@ -489,7 +496,7 @@ function teamShiftKey(shift) {
 
 function renderTeamEditForm() {
   if (!teamEditShift) return "";
-  const dateOptions = teamEditDateOptions(teamEditShift);
+  const dateValues = teamEditDateValues(teamEditShift);
   const departments = editDepartmentOptions();
   const employees = editEmployeeOptions();
   const isNew = Boolean(teamEditShift.isNew);
@@ -505,9 +512,8 @@ function renderTeamEditForm() {
           </datalist>
         </label>
         <label>Datum
-          <select id="teamEditDate">
-            ${dateOptions.map(option => `<option value="${escapeHtml(option.value)}" ${option.value === teamEditShift.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
-          </select>
+          <input id="teamEditDate" type="hidden" value="${escapeHtml(teamEditShift.date)}">
+          ${renderTeamEditDatePicker(dateValues, teamEditShift.date)}
         </label>
         <label>Start<input id="teamEditStart" value="${escapeHtml(teamEditShift.start)}" placeholder="06:00"></label>
         <label>Ende<input id="teamEditEnd" value="${escapeHtml(teamEditShift.end)}" placeholder="14:00"></label>
@@ -529,6 +535,38 @@ function renderTeamEditForm() {
         ${isNew ? "" : '<button id="deleteTeamEdit" class="danger" type="button">Schicht loeschen</button>'}
         <button id="saveTeamEdit" type="button">Speichern</button>
         <button id="cancelTeamEdit" class="secondary" type="button">Abbrechen</button>
+      </div>
+    </div>
+  `;
+}
+
+function teamEditDateValues(shift) {
+  const range = datesFromPlanRange(shift.planRange || "");
+  if (range.start) {
+    const end = range.end || range.start;
+    const values = [];
+    const cursor = new Date(range.start);
+    while (cursor <= end) {
+      values.push(formatGermanDate(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return values;
+  }
+  return teamEditDateOptions(shift).map(option => option.value);
+}
+
+function renderTeamEditDatePicker(values, selectedDate) {
+  return `
+    <div class="edit-date-picker">
+      <div class="edit-date-selected">${escapeHtml(weekdayLong(parseGermanDate(selectedDate)) || "")}, ${escapeHtml(selectedDate)}</div>
+      <div class="edit-date-grid">
+        ${values.map(value => {
+          const parsed = parseGermanDate(value);
+          return `<button class="edit-date-chip ${value === selectedDate ? "selected" : ""}" data-team-edit-date-choice="${escapeHtml(value)}" type="button">
+            <span>${escapeHtml(weekdayShort(parsed))}</span>
+            <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
+          </button>`;
+        }).join("")}
       </div>
     </div>
   `;
@@ -905,6 +943,11 @@ function weekday(date) {
 
 function weekdayLong(date) {
   return ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][date.getDay()];
+}
+
+function weekdayShort(date) {
+  if (!date) return "";
+  return ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][date.getDay()];
 }
 
 function timeToMinutes(value) {

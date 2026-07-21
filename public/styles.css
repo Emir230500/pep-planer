@@ -97,6 +97,22 @@ h2 {
   box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.16);
 }
 
+.panel-title-row {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.panel-title-row h2 {
+  margin-bottom: 4px;
+}
+
+.panel-title-row button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1720,6 +1736,60 @@ button:disabled {
 .shift-edit-grid input,
 .shift-edit-grid select {
   margin-top: 4px;
+}
+
+.edit-date-picker {
+  background: #fbfbfd;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 4px;
+  padding: 8px;
+}
+
+.edit-date-selected {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 7px;
+}
+
+.edit-date-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.edit-date-chip {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+  color: var(--text);
+  display: grid;
+  gap: 1px;
+  min-height: 46px;
+  padding: 5px 3px;
+  text-align: center;
+}
+
+.edit-date-chip span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.edit-date-chip strong {
+  font-size: 15px;
+}
+
+.edit-date-chip.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.edit-date-chip.selected span {
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .issue-box p {

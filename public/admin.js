@@ -806,6 +806,11 @@ document.querySelector("#inspectPlan")?.addEventListener("change", event => load
 document.querySelectorAll("#inspectEmployee, #inspectDepartment, #inspectDay").forEach(input => {
   input.addEventListener("change", renderInspection);
 });
+document.querySelector("#closeInspectPanel")?.addEventListener("click", () => {
+  inspectPanelVisible = false;
+  editShift = null;
+  renderAdminViewSwitch();
+});
 
 function renderInspectPlanOptions(plans, selectedId) {
   const select = document.querySelector("#inspectPlan");
@@ -933,6 +938,7 @@ async function loadInspection(id, focusPanel = false) {
 function renderInspection() {
   const issueList = document.querySelector("#issueList");
   const inspectList = document.querySelector("#inspectList");
+  renderInspectPanelHeader();
   if (!inspected.plan) {
     issueList.innerHTML = "";
     inspectList.innerHTML = '<p class="hint">Bitte einen Plan auswaehlen.</p>';
@@ -1012,8 +1018,26 @@ function renderInspection() {
       input.value = normalizeTimeValue(input.value);
     });
   });
+  document.querySelectorAll("[data-edit-date-choice]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (!editShift) return;
+      editShift.date = button.dataset.editDateChoice;
+      renderInspection();
+    });
+  });
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
   document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
+}
+
+function renderInspectPanelHeader() {
+  const title = document.querySelector("#inspectPanelTitle");
+  const subtitle = document.querySelector("#inspectPanelHint");
+  if (title) title.textContent = inspected.plan ? `Plan bearbeiten: ${inspected.plan.title}` : "Plan kontrollieren & bearbeiten";
+  if (subtitle) {
+    subtitle.textContent = inspected.plan?.range
+      ? `${inspected.plan.range} - Filter setzen, Tag im Kalender waehlen und Schichten korrigieren.`
+      : "Plan waehlen, optional Mitarbeiter oder Abteilung filtern und den Tag im Kalender auswaehlen.";
+  }
 }
 
 function renderInspectActions() {
@@ -1300,6 +1324,7 @@ function renderShiftEditForm() {
   const departmentOptions = editDepartmentOptions();
   const employeeOptions = editEmployeeOptions();
   const isNew = Boolean(editShift.isNew);
+  const dateValues = editDateValues(editShift.date);
   return `
     <div id="shiftEditBox" class="shift-edit-box">
       <strong>${isNew ? "Schicht hinzufuegen" : "Schicht bearbeiten"}</strong>
@@ -1312,11 +1337,8 @@ function renderShiftEditForm() {
           </datalist>
         </label>
         <label>Datum
-          <select id="editDate">
-            ${editDateOptions(editShift.date).map(option => `
-              <option value="${escapeHtml(option.value)}" ${option.value === editShift.date ? "selected" : ""}>${escapeHtml(option.label)}</option>
-            `).join("")}
-          </select>
+          <input id="editDate" type="hidden" value="${escapeHtml(editShift.date)}">
+          ${renderEditDatePicker(dateValues, editShift.date, "data-edit-date-choice")}
         </label>
         <label>Start<input id="editStart" value="${escapeHtml(editShift.start)}" placeholder="06:00"></label>
         <label>Ende<input id="editEnd" value="${escapeHtml(editShift.end)}" placeholder="14:00"></label>
@@ -1338,6 +1360,37 @@ function renderShiftEditForm() {
         ${isNew ? "" : '<button id="deleteShiftEdit" class="danger" type="button">Schicht loeschen</button>'}
         <button id="saveShiftEdit" type="button">Speichern</button>
         <button id="cancelShiftEdit" class="secondary" type="button">Abbrechen</button>
+      </div>
+    </div>
+  `;
+}
+
+function editDateValues(selectedDate) {
+  const range = planDateRange(inspected.plan);
+  if (range) {
+    const values = [];
+    const cursor = new Date(range.start);
+    while (cursor <= range.end) {
+      values.push(formatGermanDate(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return values;
+  }
+  return editDateOptions(selectedDate).map(option => option.value);
+}
+
+function renderEditDatePicker(values, selectedDate, dataAttr) {
+  return `
+    <div class="edit-date-picker">
+      <div class="edit-date-selected">${escapeHtml(weekdayLong(parseGermanDate(selectedDate)) || "")}, ${escapeHtml(selectedDate)}</div>
+      <div class="edit-date-grid">
+        ${values.map(value => {
+          const parsed = parseGermanDate(value);
+          return `<button class="edit-date-chip ${value === selectedDate ? "selected" : ""}" ${dataAttr}="${escapeHtml(value)}" type="button">
+            <span>${escapeHtml(weekdayShort(parsed))}</span>
+            <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
+          </button>`;
+        }).join("")}
       </div>
     </div>
   `;
@@ -2254,6 +2307,11 @@ function formatGermanDate(date) {
 function weekdayLong(date) {
   if (!date) return "";
   return ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][date.getDay()];
+}
+
+function weekdayShort(date) {
+  if (!date) return "";
+  return ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][date.getDay()];
 }
 
 function splitEmployeeBlocks(text) {
