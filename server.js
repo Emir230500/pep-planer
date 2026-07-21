@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "login-fix-premium-2-20260721";
+const BUILD_VERSION = "calendar-clean-manual-pause-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -339,6 +339,12 @@ function cleanShift(shift) {
 
 function applyDailyBreaks(shifts) {
   return shifts;
+}
+
+function applyLegalBreakForManualShift(shift) {
+  if (!shift || isStatusShift(shift) || shift.break) return shift;
+  const minutes = legalBreakMinutes(shiftDurationMinutes(shift));
+  return minutes ? { ...shift, break: minutesToBreak(minutes) } : shift;
 }
 
 function isSuspiciousName(name) {
@@ -691,7 +697,7 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected")
   const addShift = !before && Boolean(after);
   const cleanBefore = addShift ? null : cleanShift(before || {});
   const deleteShift = !after;
-  const cleanAfter = deleteShift ? null : cleanShift(after || {});
+  const cleanAfter = deleteShift ? null : applyLegalBreakForManualShift(cleanShift(after || {}));
   if (!deleteShift) {
     const validationError = validateUploadedShifts([cleanAfter]);
     if (validationError) return { error: validationError, status: 400 };

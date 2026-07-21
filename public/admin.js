@@ -683,8 +683,13 @@ function renderPins(employees) {
 document.querySelector("#employeeSearch")?.addEventListener("input", () => renderPins(adminState.employees || []));
 document.querySelector("#addEmployeeBtn")?.addEventListener("click", addEmployee);
 document.querySelector("#inspectPlan")?.addEventListener("change", event => loadInspection(event.target.value, false));
-document.querySelectorAll("#inspectEmployee, #inspectDepartment, #inspectWeek, #inspectMonth, #inspectDay").forEach(input => {
+document.querySelectorAll("#inspectEmployee, #inspectDepartment, #inspectDay").forEach(input => {
   input.addEventListener("change", renderInspection);
+});
+document.querySelector("#inspectMonth")?.addEventListener("change", () => {
+  const dayInput = document.querySelector("#inspectDay");
+  if (dayInput) dayInput.value = "";
+  renderInspection();
 });
 
 function renderInspectPlanOptions(plans, selectedId) {
@@ -841,14 +846,12 @@ function renderInspection() {
 
   const employee = document.querySelector("#inspectEmployee")?.value || "";
   const department = document.querySelector("#inspectDepartment")?.value || "";
-  const week = document.querySelector("#inspectWeek")?.value || "";
   const month = document.querySelector("#inspectMonth")?.value || "";
-  updateInspectDayOptions(month);
+  renderInspectCalendar(month);
   const day = document.querySelector("#inspectDay")?.value || "";
   const filtered = inspected.shifts
     .filter(shift => !employee || normalizePersonName(shift.name) === employee)
     .filter(shift => !department || (shift.department || "") === department)
-    .filter(shift => !week || String(isoWeekInfo(parseGermanDate(shift.date))?.week || "") === week)
     .filter(shift => !month || monthKey(parseGermanDate(shift.date)) === month)
     .filter(shift => !day || shift.date === day)
     .sort((a, b) => (parseGermanDate(a.date) - parseGermanDate(b.date)) || a.name.localeCompare(b.name, "de") || timeToMinutes(a.start) - timeToMinutes(b.start));
@@ -856,7 +859,7 @@ function renderInspection() {
   const groupedWeeks = groupInspectionByWeek(filtered);
   inspectionEditMap = new Map();
   inspectList.innerHTML = groupedWeeks.length
-    ? groupedWeeks.map((group, index) => renderInspectionWeek(group, group.isCurrent || (week ? index === 0 : false))).join("")
+    ? groupedWeeks.map(group => renderInspectionWeek(group, group.isCurrent)).join("")
     : '<p class="hint">Keine Schichten fuer diese Filter.</p>';
 
   document.querySelectorAll("[data-inspect-week-toggle]").forEach(button => {
@@ -907,15 +910,10 @@ function updateInspectFilterOptions() {
     .sort((a, b) => a.localeCompare(b, "de"));
   const departments = unique(shifts.map(shift => shift.department || "").filter(Boolean))
     .sort((a, b) => a.localeCompare(b, "de"));
-  const weeks = unique(shifts.map(shift => {
-    const info = isoWeekInfo(parseGermanDate(shift.date));
-    return info?.week ? String(info.week) : "";
-  }).filter(Boolean)).sort((a, b) => Number(a) - Number(b));
   const months = unique(shifts.map(shift => monthKey(parseGermanDate(shift.date))).filter(Boolean)).sort();
 
   updateSelectOptions("#inspectEmployee", "Alle Mitarbeiter", employees, value => value);
   updateSelectOptions("#inspectDepartment", "Alle Abteilungen", departments, value => value);
-  updateSelectOptions("#inspectWeek", "Alle KWs", weeks, value => `KW ${value}`);
   updateSelectOptions("#inspectMonth", "Alle Monate", months, inspectMonthLabel);
 }
 
@@ -935,19 +933,6 @@ function inspectMonthLabel(value) {
   return new Date(year, month - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
 }
 
-function updateInspectDayOptions(selectedMonth) {
-  const select = document.querySelector("#inspectDay");
-  if (!select) return;
-  const current = select.value;
-  const dates = inspectDayOptions(selectedMonth);
-  select.innerHTML = `<option value="">Alle Tage</option>${dates.map(date => {
-    const parsed = parseGermanDate(date);
-    const label = parsed ? `${weekdayLong(parsed)}, ${date}` : date;
-    return `<option value="${escapeHtml(date)}" ${date === current ? "selected" : ""}>${escapeHtml(label)}</option>`;
-  }).join("")}`;
-  if (current && !dates.includes(current)) select.value = "";
-}
-
 function inspectDayOptions(selectedMonth) {
   if (selectedMonth) {
     const [year, month] = selectedMonth.split("-").map(Number);
@@ -963,6 +948,77 @@ function inspectDayOptions(selectedMonth) {
   }
   return unique((inspected.shifts || []).map(shift => shift.date).filter(Boolean))
     .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+}
+
+function renderInspectCalendar(selectedMonth) {
+  const box = document.querySelector("#inspectCalendar");
+  const input = document.querySelector("#inspectDay");
+  if (!box || !input) return;
+  const month = selectedMonth || (inspectMonthOptions()[0] || "");
+  if (!month) {
+    input.value = "";
+    box.innerHTML = "";
+    return;
+  }
+  const dates = inspectDayOptions(month);
+  if (input.value && !dates.includes(input.value)) input.value = "";
+  const [year, monthNumber] = month.split("-").map(Number);
+  const first = new Date(year, monthNumber - 1, 1);
+  const startOffset = (first.getDay() + 6) % 7;
+  const cells = [];
+  for (let i = 0; i < startOffset; i += 1) cells.push({ muted: true, label: "" });
+  for (const dateValue of dates) {
+    const parsed = parseGermanDate(dateValue);
+    const count = (inspected.shifts || []).filter(shift => shift.date === dateValue).length;
+    cells.push({
+      date: dateValue,
+      label: parsed ? String(parsed.getDate()) : dateValue,
+      selected: input.value === dateValue,
+      today: isSameGermanDate(parsed, new Date()),
+      count
+    });
+  }
+  box.innerHTML = `
+    <div class="calendar-card">
+      <div class="calendar-card-head">
+        <div>
+          <strong>${escapeHtml(inspectMonthLabel(month))}</strong>
+          <p>${input.value ? escapeHtml(`${weekdayLong(parseGermanDate(input.value))}, ${input.value}`) : "Alle Tage"}</p>
+        </div>
+        ${input.value ? '<button id="clearInspectDay" class="mini-button secondary" type="button">Alle Tage</button>' : ""}
+      </div>
+      <div class="calendar-weekdays">
+        ${["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(day => `<span>${day}</span>`).join("")}
+      </div>
+      <div class="calendar-days">
+        ${cells.map(cell => cell.muted
+          ? '<span class="calendar-empty"></span>'
+          : `<button class="calendar-day ${cell.selected ? "selected" : ""} ${cell.today ? "today" : ""}" data-inspect-calendar-day="${escapeHtml(cell.date)}" type="button">
+              <span>${escapeHtml(cell.label)}</span>
+              <small>${cell.count}</small>
+            </button>`
+        ).join("")}
+      </div>
+    </div>
+  `;
+  document.querySelectorAll("[data-inspect-calendar-day]").forEach(button => {
+    button.addEventListener("click", () => {
+      input.value = button.dataset.inspectCalendarDay;
+      renderInspection();
+    });
+  });
+  document.querySelector("#clearInspectDay")?.addEventListener("click", () => {
+    input.value = "";
+    renderInspection();
+  });
+}
+
+function inspectMonthOptions() {
+  return unique((inspected.shifts || []).map(shift => monthKey(parseGermanDate(shift.date))).filter(Boolean)).sort();
+}
+
+function isSameGermanDate(a, b) {
+  return Boolean(a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate());
 }
 
 function newInspectionShift() {

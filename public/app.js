@@ -371,13 +371,15 @@ function renderTeamDay(dateValue, dayShifts, week) {
           <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
           ${currentDay ? '<span class="badge">Heute</span>' : ""}
         </span>
-        <span class="team-day-actions">
+          <span class="team-day-actions">
           <span class="team-day-open-hint">${currentDay ? "Heute offen" : "Tag oeffnen"}</span>
           <span class="badge subtle">${sorted.length} Eintraege</span>
-          <span class="mini-button add-shift-inline" data-team-add data-plan-id="${escapeHtml(sorted[0]?.planId || "")}" data-date="${escapeHtml(dateValue)}">+ Schicht</span>
         </span>
       </button>
       <div class="team-day-body">
+        <div class="team-day-add-row">
+          <button class="mini-button add-shift-inline" data-team-add data-plan-id="${escapeHtml(sorted[0]?.planId || "")}" data-date="${escapeHtml(dateValue)}" type="button">+ Schicht hinzufuegen</button>
+        </div>
         ${departments.map(group => `
           <div class="department-group collapsed">
             <button class="department-head" data-team-department-toggle type="button">
