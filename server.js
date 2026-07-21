@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "push-benachrichtigung-20260709";
+const BUILD_VERSION = "uploadmodus-push-logik-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -35,7 +35,7 @@ const MIME = {
 };
 
 function defaultDb() {
-  return { employees: {}, plans: [], publishedPlanIds: [], pushSubscriptions: [] };
+  return { employees: {}, plans: [], publishedPlanIds: [], pushSubscriptions: [], pepCorrections: [] };
 }
 
 function normalizeDb(db) {
@@ -44,6 +44,7 @@ function normalizeDb(db) {
   clean.plans = Array.isArray(clean.plans) ? clean.plans : [];
   clean.publishedPlanIds = Array.isArray(clean.publishedPlanIds) ? clean.publishedPlanIds : [];
   clean.pushSubscriptions = Array.isArray(clean.pushSubscriptions) ? clean.pushSubscriptions : [];
+  clean.pepCorrections = Array.isArray(clean.pepCorrections) ? clean.pepCorrections : [];
   return clean;
 }
 
@@ -94,6 +95,7 @@ async function readDb() {
 }
 
 async function writeDb(db) {
+  cleanupPepCorrections(db);
   const pool = await getPgPool();
   if (pool) {
     await ensureDb();
@@ -403,6 +405,204 @@ function missingEmployeesForPlan(db, plan) {
     .map(employee => employee.name);
 }
 
+function rangeKeyFromRange(range) {
+  const matches = Array.from(String(range || "").matchAll(/(\d{1,2})\.(\d{1,2})\.(\d{4})/g)).map(match => formatGermanDate(parseGermanDate(match[0])));
+  return matches.length ? matches.join("|") : "";
+}
+
+function isoWeekKey(date) {
+  if (!date) return "";
+  const current = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = current.getDay() || 7;
+  current.setDate(current.getDate() + 4 - day);
+  const yearStart = new Date(current.getFullYear(), 0, 1);
+  const week = Math.ceil((((current - yearStart) / 86400000) + 1) / 7);
+  return `${current.getFullYear()}-${String(week).padStart(2, "0")}`;
+}
+
+function weekKeyFromRange(range) {
+  const firstDate = String(range || "").match(/(\d{1,2}\.\d{1,2}\.\d{4})/)?.[1];
+  return isoWeekKey(parseGermanDate(firstDate));
+}
+
+function rangeKeyFromShifts(shifts) {
+  return rangeKeyFromRange(planRange(shifts));
+}
+
+function matchingPlans(db, rangeKey, excludeId = "") {
+  if (!rangeKey) return [];
+  const weekKey = weekKeyFromRange(rangeKey.split("|")[0] || "");
+  return (db.plans || []).filter(plan => {
+    if (plan.id === excludeId) return false;
+    const planRangeText = plan.range || planRange(plan.shifts || []);
+    return rangeKeyFromRange(planRangeText) === rangeKey || (weekKey && weekKeyFromRange(planRangeText) === weekKey);
+  });
+}
+
+function latestPublishedMatchingPlan(db, rangeKey) {
+  const ids = publishedIds(db);
+  return matchingPlans(db, rangeKey)
+    .filter(plan => ids.includes(plan.id))
+    .sort((a, b) => new Date(b.publishedAt || b.uploadedAt || 0) - new Date(a.publishedAt || a.uploadedAt || 0))[0] || null;
+}
+
+function latestMatchingPlan(db, rangeKey) {
+  return matchingPlans(db, rangeKey)
+    .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0))[0] || null;
+}
+
+function nextPlanVersion(db, rangeKey) {
+  const versions = matchingPlans(db, rangeKey).map(plan => Number(plan.version || 1)).filter(Number.isFinite);
+  return Math.max(0, ...versions) + 1;
+}
+
+function daySignatureItems(shifts) {
+  return (shifts || [])
+    .map(shift => cleanShift(shift))
+    .map(shift => ({
+      name: shift.name,
+      date: shift.date,
+      start: shift.start,
+      end: shift.end,
+      department: shift.department,
+      break: shift.break
+    }))
+    .sort((a, b) => timeToMinutesSafe(a.start) - timeToMinutesSafe(b.start) || a.department.localeCompare(b.department, "de"));
+}
+
+function daySignature(shifts) {
+  return daySignatureItems(shifts).map(shift => `${shift.start}-${shift.end}|${shift.department}|${shift.break}`).join(" / ");
+}
+
+function changeGroupKey(shift) {
+  return `${employeeKey(shift.name)}|${shift.date}`;
+}
+
+function comparePlans(basePlan, newShifts) {
+  if (!basePlan) return [];
+  const before = cleanedDisplayShifts(basePlan.shifts || []);
+  const after = cleanedDisplayShifts(newShifts || []);
+  const beforeMap = new Map();
+  const afterMap = new Map();
+  for (const shift of before) {
+    const key = changeGroupKey(shift);
+    if (!beforeMap.has(key)) beforeMap.set(key, []);
+    beforeMap.get(key).push(shift);
+  }
+  for (const shift of after) {
+    const key = changeGroupKey(shift);
+    if (!afterMap.has(key)) afterMap.set(key, []);
+    afterMap.get(key).push(shift);
+  }
+
+  const keys = Array.from(new Set([...beforeMap.keys(), ...afterMap.keys()])).sort();
+  return keys.flatMap(key => {
+    const oldItems = beforeMap.get(key) || [];
+    const newItems = afterMap.get(key) || [];
+    const sample = newItems[0] || oldItems[0] || {};
+    const oldText = daySignature(oldItems);
+    const newText = daySignature(newItems);
+    if (oldText === newText) return [];
+    const type = oldItems.length && newItems.length ? "changed" : oldItems.length ? "removed" : "added";
+    return [{
+      type,
+      name: sample.name || "",
+      date: sample.date || "",
+      before: oldText || "Keine Schicht",
+      after: newText || "Keine Schicht"
+    }];
+  });
+}
+
+function changesForEmployee(plan, name) {
+  const key = employeeKey(name);
+  return (plan.changes || []).filter(change => employeeKey(change.name) === key);
+}
+
+function correctionKey(planId, change) {
+  return `${planId}|${employeeKey(change.name)}|${change.date}|${change.type}|${change.before}|${change.after}`;
+}
+
+function changeFromShifts(before, after, source = "Import") {
+  return {
+    type: before && after ? "changed" : before ? "removed" : "added",
+    source,
+    name: (after || before)?.name || "",
+    date: (after || before)?.date || "",
+    before: before ? daySignature([before]) : "Keine Schicht",
+    after: after ? daySignature([after]) : "Keine Schicht"
+  };
+}
+
+function createPepCorrections(db, plan) {
+  const existing = new Set((db.pepCorrections || []).map(item => item.key).filter(Boolean));
+  const createdAt = new Date().toISOString();
+  const corrections = (plan.changes || []).map(change => {
+    const key = correctionKey(plan.id, change);
+    return {
+      id: crypto.randomUUID(),
+      key,
+      planId: plan.id,
+      planTitle: plan.title,
+      range: plan.range,
+      type: change.type,
+      name: change.name,
+      date: change.date,
+      before: change.before,
+      after: change.after,
+      source: change.source || "Import",
+      createdAt,
+      done: false,
+      doneAt: ""
+    };
+  }).filter(item => !existing.has(item.key));
+  db.pepCorrections = [...corrections, ...(db.pepCorrections || [])];
+  return corrections;
+}
+
+function createManualPepCorrection(db, plan, change) {
+  const key = correctionKey(plan.id, change);
+  const existing = (db.pepCorrections || []).some(item => item.key === key);
+  if (existing) return null;
+  const correction = {
+    id: crypto.randomUUID(),
+    key,
+    planId: plan.id,
+    planTitle: plan.title,
+    range: plan.range,
+    type: change.type,
+    source: "Haendisch",
+    name: change.name,
+    date: change.date,
+    before: change.before,
+    after: change.after,
+    createdAt: new Date().toISOString(),
+    done: false,
+    doneAt: ""
+  };
+  db.pepCorrections = [correction, ...(db.pepCorrections || [])];
+  return correction;
+}
+
+function cleanupPepCorrections(db) {
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  db.pepCorrections = (db.pepCorrections || []).filter(item => {
+    if (!item.done) return true;
+    const doneAt = new Date(item.doneAt || 0).getTime();
+    return !Number.isFinite(doneAt) || doneAt >= cutoff;
+  });
+}
+
+function publicPepCorrections(db) {
+  cleanupPepCorrections(db);
+  return (db.pepCorrections || []).slice().sort((a, b) => {
+    if (Boolean(a.done) !== Boolean(b.done)) return a.done ? 1 : -1;
+    const byDate = parseGermanDate(a.date) - parseGermanDate(b.date);
+    if (byDate) return byDate;
+    return a.name.localeCompare(b.name, "de");
+  });
+}
+
 function publicPlan(plan, extra = {}) {
   const shifts = cleanedDisplayShifts(plan.shifts || []);
   const issues = shiftIssues(shifts);
@@ -411,6 +611,10 @@ function publicPlan(plan, extra = {}) {
     title: plan.title,
     uploadedAt: plan.uploadedAt,
     publishedAt: plan.publishedAt || "",
+    updatedAt: plan.updatedAt || plan.uploadedAt,
+    version: Number(plan.version || 1),
+    basePlanId: plan.basePlanId || "",
+    changeCount: Array.isArray(plan.changes) ? plan.changes.length : 0,
     range: plan.range || planRange(shifts),
     shiftCount: shifts.length,
     issueCount: issues.length,
@@ -430,17 +634,22 @@ async function sendPlanPush(db, plan) {
   if (!webPush || !Array.isArray(db.pushSubscriptions) || !db.pushSubscriptions.length) {
     return { sent: 0, removed: 0 };
   }
+  const changedNames = new Set((plan.changes || []).map(change => employeeKey(change.name)).filter(Boolean));
+  const subscriptions = changedNames.size
+    ? db.pushSubscriptions.filter(saved => changedNames.has(employeeKey(saved.name)))
+    : db.pushSubscriptions;
 
   const payload = JSON.stringify({
-    title: "Neuer Arbeitsplan online",
-    body: `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`,
+    title: changedNames.size ? "Arbeitsplan geaendert" : "Neuer Arbeitsplan online",
+    body: changedNames.size ? `${plan.title || "Dein Plan"} hat Aenderungen.` : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`,
     url: "/"
   });
 
   let sent = 0;
   let removed = 0;
-  const alive = [];
-  for (const saved of db.pushSubscriptions) {
+  const targetEndpoints = new Set(subscriptions.map(saved => (saved.subscription || saved).endpoint).filter(Boolean));
+  const alive = db.pushSubscriptions.filter(saved => !targetEndpoints.has((saved.subscription || saved).endpoint));
+  for (const saved of subscriptions) {
     try {
       await webPush.sendNotification(saved.subscription || saved, payload);
       sent += 1;
@@ -455,6 +664,15 @@ async function sendPlanPush(db, plan) {
   }
   db.pushSubscriptions = alive;
   return { sent, removed };
+}
+
+function shouldNotifyOnPublish(db, plan) {
+  if (!plan) return false;
+  if (plan.uploadMode === "correction") return Array.isArray(plan.changes) && plan.changes.length > 0;
+  const ids = publishedIds(db).filter(id => id !== plan.id);
+  const rangeKey = rangeKeyFromRange(plan.range || planRange(plan.shifts || []));
+  const alreadyPublishedSameWeek = matchingPlans(db, rangeKey, plan.id).some(item => ids.includes(item.id));
+  return !alreadyPublishedSameWeek;
 }
 
 async function handleApi(req, res, pathname) {
@@ -504,6 +722,7 @@ async function handleApi(req, res, pathname) {
     if (pathname === "/api/admin/overview" && req.method === "GET") {
       if (!requireAdmin(req, res)) return;
       const db = await readDb();
+      cleanupPepCorrections(db);
       const ids = publishedIds(db);
       const publishedPlans = db.plans.filter(plan => ids.includes(plan.id));
       return json(res, 200, {
@@ -513,7 +732,8 @@ async function handleApi(req, res, pathname) {
         activePlan: publishedPlans[0] ? publicPlan(publishedPlans[0]) : null,
         publishedPlans: publishedPlans.map(plan => publicPlan(plan)),
         plans: db.plans.map(plan => publicPlan(plan, { isPublished: ids.includes(plan.id) })),
-        employees: employeePublic(db)
+        employees: employeePublic(db),
+        pepCorrections: publicPepCorrections(db)
       });
     }
 
@@ -566,6 +786,13 @@ async function handleApi(req, res, pathname) {
       if (validationError) return json(res, 400, { error: validationError });
 
       const db = await readDb();
+      const rangeKey = rangeKeyFromShifts(shifts);
+      const uploadMode = body.uploadMode === "correction" ? "correction" : "normal";
+      const basePlan = uploadMode === "correction"
+        ? latestPublishedMatchingPlan(db, rangeKey) || latestMatchingPlan(db, rangeKey)
+        : null;
+      const changes = uploadMode === "correction" ? comparePlans(basePlan, shifts) : [];
+      const version = uploadMode === "correction" ? nextPlanVersion(db, rangeKey) : 1;
       const newPins = [];
       for (const shift of shifts) {
         const key = employeeKey(shift.name);
@@ -580,15 +807,66 @@ async function handleApi(req, res, pathname) {
         id: crypto.randomUUID(),
         title: String(body.title || "Wochenplan").trim(),
         uploadedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         publishedAt: "",
+        version,
+        uploadMode,
+        basePlanId: basePlan?.id || "",
+        changes,
         range: planRange(shifts),
         issues: shiftIssues(shifts),
         seenEmployees: Array.from(new Set((body.seenEmployees || []).map(normalizeName).filter(Boolean))),
         shifts
       };
       db.plans.unshift(plan);
+      const pepCorrections = uploadMode === "correction" ? createPepCorrections(db, plan) : [];
       await writeDb(db);
-      return json(res, 200, { ok: true, plan: publicPlan(plan), newPins });
+      return json(res, 200, { ok: true, plan: publicPlan(plan), newPins, changes, pepCorrections });
+    }
+
+    if (pathname.match(/^\/api\/admin\/pep-corrections\/[^/]+\/done$/) && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const id = decodeURIComponent(pathname.split("/")[4]);
+      const body = await readBody(req);
+      const db = await readDb();
+      const item = (db.pepCorrections || []).find(correction => correction.id === id);
+      if (!item) return json(res, 404, { error: "Korrektur nicht gefunden." });
+      item.done = body.done !== false;
+      item.doneAt = item.done ? new Date().toISOString() : "";
+      cleanupPepCorrections(db);
+      await writeDb(db);
+      return json(res, 200, { ok: true, pepCorrections: publicPepCorrections(db) });
+    }
+
+    if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/shifts\/edit$/) && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const id = decodeURIComponent(pathname.split("/")[4]);
+      const body = await readBody(req);
+      const before = cleanShift(body.before || {});
+      const after = cleanShift(body.after || {});
+      const validationError = validateUploadedShifts([after]);
+      if (validationError) return json(res, 400, { error: validationError });
+      const db = await readDb();
+      const plan = db.plans.find(item => item.id === id);
+      if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
+      const index = (plan.shifts || []).findIndex(shift =>
+        employeeKey(shift.name) === employeeKey(before.name) &&
+        String(shift.date || "") === before.date &&
+        String(shift.start || "") === before.start &&
+        String(shift.end || "") === before.end &&
+        String(shift.department || "") === before.department
+      );
+      if (index < 0) return json(res, 404, { error: "Schicht wurde im gespeicherten Plan nicht gefunden." });
+      const oldShift = cleanShift(plan.shifts[index]);
+      plan.shifts[index] = after;
+      plan.updatedAt = new Date().toISOString();
+      plan.range = planRange(plan.shifts || []);
+      const change = changeFromShifts(oldShift, after, "Haendisch");
+      plan.changes = [change, ...(plan.changes || [])];
+      const correction = createManualPepCorrection(db, plan, change);
+      const push = publishedIds(db).includes(plan.id) ? await sendPlanPush(db, plan) : { sent: 0, removed: 0 };
+      await writeDb(db);
+      return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: publishedIds(db).includes(plan.id) }), correction, push });
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/publish$/) && req.method === "POST") {
@@ -599,9 +877,10 @@ async function handleApi(req, res, pathname) {
       if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
       const ids = publishedIds(db);
       if (!ids.includes(id)) ids.unshift(id);
+      const notify = shouldNotifyOnPublish(db, plan);
       setPublishedIds(db, ids);
       plan.publishedAt = new Date().toISOString();
-      const push = await sendPlanPush(db, plan);
+      const push = notify ? await sendPlanPush(db, plan) : { sent: 0, removed: 0, skipped: true };
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: true }), push });
     }
@@ -627,7 +906,8 @@ async function handleApi(req, res, pathname) {
         plan: publicPlan(plan, { isPublished: publishedIds(db).includes(plan.id) }),
         shifts: displayShifts,
         issues,
-        missingEmployees: missingEmployeesForPlan(db, plan)
+        missingEmployees: missingEmployeesForPlan(db, plan),
+        changes: plan.changes || []
       });
     }
 
@@ -636,6 +916,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/").pop());
       const db = await readDb();
       db.plans = db.plans.filter(plan => plan.id !== id);
+      db.pepCorrections = (db.pepCorrections || []).filter(item => item.planId !== id);
       setPublishedIds(db, publishedIds(db).filter(item => item !== id));
       await writeDb(db);
       return json(res, 200, { ok: true });
@@ -654,6 +935,10 @@ async function handleApi(req, res, pathname) {
           title: plan.title,
           uploadedAt: plan.uploadedAt,
           publishedAt: plan.publishedAt || "",
+          updatedAt: plan.updatedAt || plan.uploadedAt,
+          version: Number(plan.version || 1),
+          changeCount: changesForEmployee(plan, name).length,
+          changes: teamView ? (plan.changes || []) : changesForEmployee(plan, name),
           range: plan.range || planRange(cleanedDisplayShifts(plan.shifts || [])),
           shifts: teamView ? cleanedDisplayShifts(plan.shifts || []) : cleanedDisplayShifts(plan.shifts || []).filter(shift => employeeKey(shift.name) === employeeKey(name))
         }))

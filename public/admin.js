@@ -2,9 +2,10 @@
 let headers = [];
 let currentFileType = "";
 let adminState = { plans: [], employees: [], publishedPlans: [] };
-let inspected = { plan: null, shifts: [], issues: [], missingEmployees: [] };
+let inspected = { plan: null, shifts: [], issues: [], missingEmployees: [], changes: [] };
 let lastPepTextNames = [];
 let lastCoverageWarning = "";
+let editShift = null;
 
 const loginBox = document.querySelector("#adminLogin");
 const adminArea = document.querySelector("#adminArea");
@@ -13,6 +14,7 @@ const uploadBtn = document.querySelector("#uploadBtn");
 const uploadMsg = document.querySelector("#uploadMsg");
 const fileInput = document.querySelector("#fileInput");
 const pepTextInput = document.querySelector("#pepTextInput");
+const uploadModeBox = document.querySelector("#uploadModeBox");
 
 async function api(url, options = {}) {
   const res = await fetch(url, {
@@ -56,6 +58,7 @@ pepTextInput?.addEventListener("input", () => {
   fileInput.value = "";
   renderPreview();
   renderMapping();
+  refreshUploadModeChoice();
   uploadBtn.disabled = true;
   uploadMsg.textContent = "Text eingefuegt. Jetzt PEP-Text erkennen druecken.";
   uploadMsg.classList.remove("error");
@@ -73,6 +76,7 @@ fileInput.addEventListener("change", async event => {
     headers = Object.keys(parsedRows[0] || {});
     renderPreview();
     renderMapping();
+    refreshUploadModeChoice();
     uploadBtn.disabled = !parsedRows.length;
     uploadMsg.textContent = parsedRows.length ? importSummary(parsedRows) : "";
   } catch (error) {
@@ -80,6 +84,7 @@ fileInput.addEventListener("change", async event => {
     headers = [];
     renderPreview();
     renderMapping();
+    refreshUploadModeChoice();
     uploadBtn.disabled = true;
     uploadMsg.textContent = error.message;
     uploadMsg.classList.add("error");
@@ -95,6 +100,7 @@ document.querySelector("#clearImportBtn")?.addEventListener("click", () => {
   if (pepTextInput) pepTextInput.value = "";
   renderPreview();
   renderMapping();
+  refreshUploadModeChoice();
   uploadBtn.disabled = true;
   uploadMsg.textContent = "Ausgewaehlte Datei entfernt.";
   uploadMsg.classList.remove("error");
@@ -141,6 +147,7 @@ function parsePepTextInput() {
     headers = Object.keys(parsedRows[0] || {});
     renderPreview();
     renderMapping();
+    refreshUploadModeChoice();
     uploadBtn.disabled = !parsedRows.length;
     uploadMsg.textContent = parsedRows.length ? importSummary(parsedRows) : "";
     if (!parsedRows.length) throw new Error("Aus dem eingefuegten PEP-Text wurden keine Schichten erkannt.");
@@ -149,6 +156,7 @@ function parsePepTextInput() {
     headers = [];
     renderPreview();
     renderMapping();
+    refreshUploadModeChoice();
     uploadBtn.disabled = true;
     uploadMsg.textContent = error.message;
     uploadMsg.classList.add("error");
@@ -159,30 +167,17 @@ uploadBtn.addEventListener("click", async () => {
   uploadMsg.textContent = "";
   uploadMsg.classList.remove("error");
   try {
-    const pick = id => document.querySelector(`#${id}`).value;
-    const cols = {
-      name: pick("col_name"),
-      date: pick("col_date"),
-      start: pick("col_start"),
-      end: pick("col_end"),
-      department: pick("col_department"),
-      break: pick("col_break")
-    };
-    const shifts = parsedRows.map(row => normalizeShiftTimes({
-      name: row[cols.name],
-      date: row[cols.date],
-      start: row[cols.start],
-      end: row[cols.end],
-      department: row[cols.department],
-      break: cols.break ? normalizeBreakValue(row[cols.break]) : ""
-    })).filter(shift => !isNoiseShift(shift));
+    const shifts = shiftsFromParsedRows();
     validateShiftsBeforeSave(shifts);
     lastCoverageWarning = employeeCoverageWarning(shifts);
+    const info = planInfoFromShifts(shifts);
+    const title = finalUploadTitle(info);
+    const uploadMode = document.querySelector("input[name='uploadMode']:checked")?.value || "normal";
     const result = await api("/api/admin/upload", {
       method: "POST",
-      body: { title: document.querySelector("#planTitle").value || "Wochenplan", shifts, seenEmployees: lastPepTextNames }
+      body: { title, uploadMode, shifts, seenEmployees: lastPepTextNames }
     });
-    uploadMsg.textContent = `Gespeichert: ${result.plan.shiftCount} Schichten. Bitte pruefen und danach veroeffentlichen.`;
+    uploadMsg.textContent = `Gespeichert: ${result.plan.shiftCount} Schichten. ${result.plan.changeCount ? `${result.plan.changeCount} Aenderungen erkannt. ` : ""}${result.pepCorrections?.length ? `${result.pepCorrections.length} PEP-Korrekturen offen. ` : ""}Bitte pruefen und danach veroeffentlichen.`;
     if (lastCoverageWarning) uploadMsg.textContent += ` Hinweis: ${lastCoverageWarning}`;
     await loadAdmin();
     await loadInspection(result.plan.id);
@@ -201,8 +196,10 @@ async function loadAdmin() {
     loginBox.classList.add("hidden");
     adminArea.classList.remove("hidden");
     renderActivePlan(data.publishedPlans || []);
+    renderPepCorrections(data.pepCorrections || []);
     renderPlans(data.plans);
     renderPins(data.employees);
+    refreshUploadModeChoice();
     const firstPlan = (data.publishedPlans || [])[0] || data.plans[0];
     renderInspectPlanOptions(data.plans, firstPlan?.id || "");
     if (firstPlan?.id) await loadInspection(firstPlan.id);
@@ -262,6 +259,117 @@ function importSummary(rows) {
   return `${rows.length} Eintraege erkannt, ${names.length} Mitarbeiter mit Eintraegen.`;
 }
 
+function shiftsFromParsedRows() {
+  const pick = id => document.querySelector(`#${id}`)?.value || "";
+  const cols = {
+    name: pick("col_name"),
+    date: pick("col_date"),
+    start: pick("col_start"),
+    end: pick("col_end"),
+    department: pick("col_department"),
+    break: pick("col_break")
+  };
+  return parsedRows.map(row => normalizeShiftTimes({
+    name: row[cols.name],
+    date: row[cols.date],
+    start: row[cols.start],
+    end: row[cols.end],
+    department: row[cols.department],
+    break: cols.break ? normalizeBreakValue(row[cols.break]) : ""
+  })).filter(shift => !isNoiseShift(shift));
+}
+
+function planInfoFromShifts(shifts) {
+  const dates = shifts
+    .map(shift => parseGermanDate(shift.date))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  if (!dates.length) return null;
+  const start = dates[0];
+  const end = dates[dates.length - 1];
+  const info = isoWeekInfo(start);
+  return {
+    week: info?.week || "",
+    year: info?.year || start.getFullYear(),
+    title: info?.week ? `KW ${info.week}` : "",
+    weekKey: info ? `${info.year}-${String(info.week).padStart(2, "0")}` : "",
+    rangeKey: `${formatGermanDate(start)}|${formatGermanDate(end)}`,
+    rangeText: `${formatGermanDate(start)} bis ${formatGermanDate(end)}`
+  };
+}
+
+function planRangeKey(plan) {
+  const dates = Array.from(String(plan?.range || "").matchAll(/(\d{1,2}\.\d{1,2}\.\d{4})/g))
+    .map(match => parseLooseGermanDate(match[1]))
+    .filter(Boolean);
+  if (!dates.length) return "";
+  const start = dates[0];
+  const end = dates[1] || dates[0];
+  return `${formatGermanDate(start)}|${formatGermanDate(end)}`;
+}
+
+function planWeekKey(plan) {
+  const startText = String(plan?.range || "").match(/(\d{1,2}\.\d{1,2}\.\d{4})/)?.[1];
+  const info = isoWeekInfo(parseLooseGermanDate(startText));
+  return info ? `${info.year}-${String(info.week).padStart(2, "0")}` : "";
+}
+
+function parseLooseGermanDate(value) {
+  const match = String(value || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) return null;
+  return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+}
+
+function matchingUploadedPlan(info) {
+  return (adminState.plans || [])
+    .filter(plan => planRangeKey(plan) === info.rangeKey || (info.weekKey && planWeekKey(plan) === info.weekKey))
+    .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0))[0] || null;
+}
+
+function refreshUploadModeChoice() {
+  if (!uploadModeBox) return;
+  if (!parsedRows.length || !headers.length) {
+    uploadModeBox.classList.add("hidden");
+    uploadModeBox.innerHTML = "";
+    return;
+  }
+
+  const shifts = shiftsFromParsedRows();
+  const info = planInfoFromShifts(shifts);
+  const titleInput = document.querySelector("#planTitle");
+  if (titleInput && info?.title) {
+    const current = titleInput.value.trim();
+    if (!current || !/^kw\s*\d+/i.test(current)) titleInput.value = info.title;
+  }
+
+  const existing = info?.rangeKey ? matchingUploadedPlan(info) : null;
+  if (!existing) {
+    uploadModeBox.classList.add("hidden");
+    uploadModeBox.innerHTML = "";
+    return;
+  }
+
+  uploadModeBox.classList.remove("hidden");
+  uploadModeBox.innerHTML = `
+    <strong>Diese KW ist schon hochgeladen</strong>
+    <p>${escapeHtml(info.title || "Plan")} (${escapeHtml(info.rangeText)}) gibt es bereits: ${escapeHtml(existing.title || "ohne Titel")}.</p>
+    <label class="choice-line">
+      <input type="radio" name="uploadMode" value="correction" checked>
+      <span><b>Plan-Korrektur</b> - mit vorhandener Woche vergleichen und offene PEP-Korrekturen anlegen.</span>
+    </label>
+    <label class="choice-line">
+      <input type="radio" name="uploadMode" value="normal">
+      <span><b>Nur neuer Upload</b> - speichern, aber keine Korrektur-Aufgaben erzeugen.</span>
+    </label>
+  `;
+}
+
+function finalUploadTitle(info) {
+  const typed = document.querySelector("#planTitle")?.value.trim() || "";
+  if (typed && /^kw\s*\d+/i.test(typed)) return typed;
+  return info?.title || typed || "Wochenplan";
+}
+
 function normalizePersonName(value) {
   return String(value || "").trim().replace(/\s+/g, " ").replace(/\s+,/g, ",");
 }
@@ -271,9 +379,10 @@ function renderPlans(plans) {
   document.querySelector("#planList").innerHTML = sortedPlans.length ? sortedPlans.map(plan => `
     <div class="item">
       <div>
-        <strong>${escapeHtml(plan.title)}</strong> ${plan.isPublished ? '<span class="badge">Veroeffentlicht</span>' : ""}<br>
+        <strong>${escapeHtml(plan.title)}</strong> ${plan.isPublished ? '<span class="badge">Veroeffentlicht</span>' : ""} ${plan.version > 1 ? `<span class="badge subtle">Version ${plan.version}</span>` : ""}<br>
         <span class="meta">Zeitraum: ${escapeHtml(plan.range || "offen")}</span><br>
         <span class="meta">Upload: ${formatDateTime(plan.uploadedAt)} - ${plan.shiftCount} Schichten</span>
+        ${plan.changeCount ? `<br><span class="warn-text">${plan.changeCount} Aenderungen zum alten Plan</span>` : ""}
         ${plan.issueCount ? `<br><span class="warn-text">${plan.issueCount} Hinweise pruefen</span>` : ""}
       </div>
       <div class="actions">
@@ -321,14 +430,90 @@ function renderActivePlan(plans) {
     ${sortPlansByDate(plans).map(plan => `
       <div class="active-card">
         <div>
-          <strong>${escapeHtml(plan.title)}</strong><br>
+          <strong>${escapeHtml(plan.title)}</strong> ${plan.version > 1 ? `<span class="badge subtle">Version ${plan.version}</span>` : ""}<br>
           <span class="meta">Zeitraum: ${escapeHtml(plan.range || "offen")}</span><br>
           <span class="meta">Upload: ${formatDateTime(plan.uploadedAt)}</span>
+          ${plan.changeCount ? `<br><span class="warn-text">${plan.changeCount} Aenderungen veroeffentlicht</span>` : ""}
         </div>
         <span class="badge">Veroeffentlicht</span>
       </div>
     `).join("")}
   `;
+}
+
+function renderPepCorrections(corrections) {
+  const box = document.querySelector("#pepCorrections");
+  if (!box) return;
+  const open = corrections.filter(item => !item.done);
+  const done = corrections.filter(item => item.done);
+  if (!corrections.length) {
+    box.innerHTML = '<p class="ok-text">Keine offenen PEP-Korrekturen.</p>';
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="correction-summary">
+      <span class="badge warn-badge">${open.length} offen</span>
+      ${done.length ? `<span class="badge subtle">${done.length} erledigt</span>` : ""}
+    </div>
+    ${open.length ? `
+      <div class="correction-list">
+        ${open.map(item => renderPepCorrection(item)).join("")}
+      </div>
+    ` : '<p class="ok-text">Alles fuer PEP abgehakt.</p>'}
+    ${done.length ? `
+      <details class="done-corrections">
+        <summary>Erledigte Korrekturen anzeigen (${done.length})</summary>
+        <div class="correction-list done-list">
+          ${done.map(item => renderPepCorrection(item)).join("")}
+        </div>
+      </details>
+    ` : ""}
+  `;
+
+  document.querySelectorAll("[data-correction-done]").forEach(button => {
+    button.addEventListener("click", async () => {
+      await api(`/api/admin/pep-corrections/${encodeURIComponent(button.dataset.correctionDone)}/done`, {
+        method: "POST",
+        body: { done: true }
+      });
+      await loadAdmin();
+    });
+  });
+  document.querySelectorAll("[data-correction-open]").forEach(button => {
+    button.addEventListener("click", async () => {
+      await api(`/api/admin/pep-corrections/${encodeURIComponent(button.dataset.correctionOpen)}/done`, {
+        method: "POST",
+        body: { done: false }
+      });
+      await loadAdmin();
+    });
+  });
+}
+
+function renderPepCorrection(item) {
+  return `
+    <div class="correction-item ${item.done ? "done" : ""}">
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <span class="meta">${escapeHtml(item.date)} - ${changeTypeLabel(item.type)} - Quelle: ${escapeHtml(item.source || "Import")}</span>
+        <p><span class="meta">Alt:</span> ${escapeHtml(item.before)}</p>
+        <p><span class="meta">Neu:</span> ${escapeHtml(item.after)}</p>
+        <p class="correction-note">In PEP korrigieren: ${escapeHtml(correctionShortInstruction(item))}</p>
+      </div>
+      <div class="actions">
+        ${item.done
+          ? `<button class="secondary" data-correction-open="${escapeHtml(item.id)}">Wieder offen</button>`
+          : `<button data-correction-done="${escapeHtml(item.id)}">Erledigt</button>`}
+      </div>
+    </div>
+  `;
+}
+
+function correctionShortInstruction(item) {
+  if (item.type === "removed") return "Dienst entfernen";
+  if (item.type === "added") return "Dienst eintragen";
+  return "Zeit/Abteilung/Pause anpassen";
 }
 
 function renderPins(employees) {
@@ -473,7 +658,7 @@ async function loadInspection(id, focusPanel = false) {
       window.setTimeout(() => panel?.classList.remove("flash"), 1200);
     }
   } catch (error) {
-    inspected = { plan: null, shifts: [], issues: [], missingEmployees: [] };
+    inspected = { plan: null, shifts: [], issues: [], missingEmployees: [], changes: [] };
     renderInspection();
     if (msg) {
       msg.textContent = error.message;
@@ -493,13 +678,13 @@ function renderInspection() {
 
   const issues = filterDailyBreakIssues(inspected.issues || [], inspected.shifts || []);
   const missingEmployees = inspected.missingEmployees || [];
-  issueList.innerHTML = issues.length ? `
+  issueList.innerHTML = `${renderShiftEditForm()}${issues.length ? `
     <div class="issue-box">
       <strong>${issues.length} Hinweise im Plan</strong>
       ${issues.slice(0, 12).map(issue => `<p>${escapeHtml(issue.message)}</p>`).join("")}
       ${issues.length > 12 ? `<p>... ${issues.length - 12} weitere Hinweise</p>` : ""}
     </div>
-  ` : '<p class="ok-text">Keine Importfehler gefunden.</p>';
+  ` : '<p class="ok-text">Keine Importfehler gefunden.</p>'}`;
 
   if (missingEmployees.length) {
     issueList.innerHTML += `
@@ -507,6 +692,21 @@ function renderInspection() {
         <strong>${missingEmployees.length} Mitarbeiter fehlen in diesem Plan</strong>
         <p>Wenn diese Personen laut PEP Schichten haben, ist der Import unvollstaendig und der Plan sollte neu importiert werden.</p>
         <p>${missingEmployees.map(name => escapeHtml(name)).join(", ")}</p>
+      </div>
+    `;
+  }
+
+  const changes = inspected.changes || [];
+  if (changes.length) {
+    issueList.innerHTML += `
+      <div class="issue-box change-box">
+        <strong>${changes.length} Aenderungen zum vorher veroeffentlichten Plan</strong>
+        ${changes.slice(0, 20).map(change => `
+          <p><strong>${escapeHtml(change.name)}</strong> ${escapeHtml(change.date)}: ${changeTypeLabel(change.type)}<br>
+          <span class="meta">Alt: ${escapeHtml(change.before)}</span><br>
+          <span class="meta">Neu: ${escapeHtml(change.after)}</span></p>
+        `).join("")}
+        ${changes.length > 20 ? `<p>... ${changes.length - 20} weitere Aenderungen</p>` : ""}
       </div>
     `;
   }
@@ -530,6 +730,75 @@ function renderInspection() {
       button.closest(".inspect-week")?.classList.toggle("collapsed");
     });
   });
+  document.querySelectorAll("[data-edit-shift]").forEach(button => {
+    button.addEventListener("click", () => {
+      editShift = inspected.shifts.find(shift => shiftEditKey(shift) === button.dataset.editShift) || null;
+      renderInspection();
+      document.querySelector("#shiftEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  document.querySelector("#cancelShiftEdit")?.addEventListener("click", () => {
+    editShift = null;
+    renderInspection();
+  });
+  document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
+}
+
+function renderShiftEditForm() {
+  if (!editShift) return "";
+  return `
+    <div id="shiftEditBox" class="shift-edit-box">
+      <strong>Schicht bearbeiten</strong>
+      <p class="hint">${escapeHtml(editShift.name)} - ${escapeHtml(editShift.date)}. Nach dem Speichern wird automatisch eine PEP-Korrektur mit Quelle Haendisch angelegt.</p>
+      <div class="shift-edit-grid">
+        <label>Mitarbeiter<input id="editName" value="${escapeHtml(editShift.name)}"></label>
+        <label>Datum<input id="editDate" value="${escapeHtml(editShift.date)}"></label>
+        <label>Start<input id="editStart" value="${escapeHtml(editShift.start)}" placeholder="06:00"></label>
+        <label>Ende<input id="editEnd" value="${escapeHtml(editShift.end)}" placeholder="14:00"></label>
+        <label>Abteilung<input id="editDepartment" value="${escapeHtml(editShift.department)}"></label>
+        <label>Pause<input id="editBreak" value="${escapeHtml(editShift.break || "")}" placeholder="00:30"></label>
+      </div>
+      <div class="actions">
+        <button id="saveShiftEdit" type="button">Speichern</button>
+        <button id="cancelShiftEdit" class="secondary" type="button">Abbrechen</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveShiftEdit() {
+  if (!editShift || !inspected.plan?.id) return;
+  const planId = inspected.plan.id;
+  const msg = document.querySelector("#inspectMsg");
+  if (msg) {
+    msg.textContent = "Schicht wird gespeichert...";
+    msg.classList.remove("error");
+  }
+  try {
+    await api(`/api/admin/plans/${encodeURIComponent(planId)}/shifts/edit`, {
+      method: "POST",
+      body: {
+        before: editShift,
+        after: {
+          name: document.querySelector("#editName").value,
+          date: document.querySelector("#editDate").value,
+          start: document.querySelector("#editStart").value,
+          end: document.querySelector("#editEnd").value,
+          department: document.querySelector("#editDepartment").value,
+          break: normalizeBreakValue(document.querySelector("#editBreak").value)
+        }
+      }
+    });
+    editShift = null;
+    await loadAdmin();
+    await loadInspection(planId, true);
+    if (msg) msg.textContent = "Schicht gespeichert. PEP-Korrektur wurde angelegt.";
+  } catch (error) {
+    if (msg) {
+      msg.textContent = error.message;
+      msg.classList.add("error");
+    }
+  }
 }
 
 function filterDailyBreakIssues(issues, shifts) {
@@ -550,6 +819,12 @@ function filterDailyBreakIssues(issues, shifts) {
     const day = key ? dayBreaks.get(key) : null;
     return !(day && day.hasBreak);
   });
+}
+
+function changeTypeLabel(type) {
+  if (type === "added") return "neue Schicht";
+  if (type === "removed") return "Schicht entfernt";
+  return "Schicht geaendert";
 }
 
 function parseDailyIssueMessage(message) {
@@ -592,7 +867,7 @@ function renderInspectionWeek(group, open) {
       </button>
       <div class="inspect-week-body preview admin-preview">
         <table>
-          <thead><tr><th>Mitarbeiter</th><th>Datum</th><th>Zeit</th><th>Abteilung</th><th>Pause</th></tr></thead>
+          <thead><tr><th>Mitarbeiter</th><th>Datum</th><th>Zeit</th><th>Abteilung</th><th>Pause</th><th>Aktion</th></tr></thead>
           <tbody>
             ${group.shifts.map(shift => renderInspectionRow(shift, dayBreaks)).join("")}
           </tbody>
@@ -613,7 +888,19 @@ function renderInspectionRow(shift, dayBreaks = new Map()) {
     <td>${escapeHtml(shift.start)}-${escapeHtml(shift.end)}</td>
     <td>${escapeHtml(shift.department || "Abteilung pruefen")}</td>
     <td>${renderAdminPause(shift, dayBreaks)}</td>
+    <td><button class="mini-button secondary" data-edit-shift="${escapeHtml(shiftEditKey(shift))}" type="button">Bearbeiten</button></td>
   </tr>`;
+}
+
+function shiftEditKey(shift) {
+  return [
+    normalizePersonName(shift.name),
+    shift.date || "",
+    shift.start || "",
+    shift.end || "",
+    shift.department || "",
+    shift.break || ""
+  ].join("|");
 }
 
 function normalizeText(value) {
@@ -695,6 +982,7 @@ function renderMapping() {
       </select>
     </label>
   `).join("");
+  mapping.querySelectorAll("select").forEach(select => select.addEventListener("change", refreshUploadModeChoice));
 }
 
 function bestHeader(words) {

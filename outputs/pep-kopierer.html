@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PEP-Kopierer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; line-height: 1.45; color: #172033; }
+    main { max-width: 760px; margin: 0 auto; }
+    a.bookmarklet { display: inline-block; padding: 14px 18px; background: #243044; color: white; border-radius: 8px; text-decoration: none; font-weight: 700; }
+    li { margin: 10px 0; }
+    code { background: #eef1f5; padding: 2px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>PEP-Kopierer</h1>
+    <p>Zieh diesen Button einmal mit der Maus in die Favoritenleiste von Edge:</p>
+    <p>
+      <a class="bookmarklet" href="javascript:(async()=>{const t=document.body.innerText;try{await navigator.clipboard.writeText(t);alert('PEP-Text kopiert: '+t.length+' Zeichen. Jetzt in der Arbeitsplan-App einfuegen.')}catch(e){prompt('PEP-Text kopieren:',t)}})();">PEP kopieren</a>
+    </p>
+    <h2>Danach jede Woche so:</h2>
+    <ol>
+      <li>In PEP die richtige Woche oeffnen.</li>
+      <li>Oben in Edge auf den Favorit <strong>PEP kopieren</strong> klicken.</li>
+      <li>In der Arbeitsplan-App ins Feld <strong>PEP-Text einfuegen</strong> klicken.</li>
+      <li><code>Strg + V</code> druecken.</li>
+      <li><strong>PEP-Text erkennen</strong> druecken und Vorschau pruefen.</li>
+    </ol>
+  </main>
+</body>
+</html>

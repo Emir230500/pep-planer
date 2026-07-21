@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=20260721-uploadmodus-push-logik">
 </head>
 <body>
   <main class="shell wide">
@@ -27,12 +27,12 @@
       <section class="panel">
         <h2>PEP-Plan importieren</h2>
         <p id="buildVersion" class="hint">Version: einarbeitung-intern-fix-20260709</p>
-        <p id="importHint" class="hint">Am zuverlaessigsten: In PEP die Druckansicht als HTML/Webseite speichern und diese Datei hier hochladen. Copy & Paste bitte nicht nutzen, weil dabei Zeilen fehlen koennen.</p>
         <label>Titel<input id="planTitle" placeholder="z. B. KW 27"></label>
         <label>PEP-Datei hochladen<input id="fileInput" type="file" accept=".html,.htm,.pdf,.csv,.xlsx,.xls"></label>
         <button id="clearImportBtn" class="secondary" type="button">Ausgewaehlte Datei entfernen</button>
         <div id="preview" class="preview hidden"></div>
         <div id="mapping" class="mapping hidden"></div>
+        <div id="uploadModeBox" class="upload-choice hidden"></div>
         <button id="uploadBtn" disabled>Plan speichern</button>
         <p id="uploadMsg" class="msg"></p>
       </section>
@@ -40,6 +40,12 @@
       <section class="panel">
         <h2>Veroeffentlichte Plaene</h2>
         <div id="activePlan"></div>
+      </section>
+
+      <section class="panel correction-panel">
+        <h2>PEP-Korrekturen</h2>
+        <p class="hint">Offene Aenderungen, die du montags in PEP nachziehen kannst. Erledigte Punkte verschwinden nach 14 Tagen aus der Liste.</p>
+        <div id="pepCorrections"></div>
       </section>
 
       <section class="grid">
@@ -89,7 +95,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js?v=20260717-planliste-datum-upload"></script>
+  <script src="/admin.js?v=20260721-uploadmodus-push-logik"></script>
 </body>
 </html>
 

@@ -64,6 +64,8 @@ function showShifts(data) {
 function showTeamShifts(data) {
   const ownPlans = data.plans.map(plan => ({
     ...plan,
+    changes: (plan.changes || []).filter(change => employeeKey(change.name) === employeeKey(data.name)),
+    changeCount: (plan.changes || []).filter(change => employeeKey(change.name) === employeeKey(data.name)).length,
     shifts: plan.shifts.filter(shift => employeeKey(shift.name) === employeeKey(data.name))
   }));
   const ownWeeks = groupByPlans(ownPlans);
@@ -127,28 +129,32 @@ function groupByPlans(plans) {
   const grouped = new Map();
   for (const plan of plans) {
     const rangeDates = datesFromPlanRange(plan.range);
+    const changedDates = new Set((plan.changes || []).map(change => change.date).filter(Boolean));
     if (!plan.shifts.length) {
       const date = rangeDates.start;
       if (!date) continue;
       const info = isoWeekInfo(date);
       const key = `${info.year}-${String(info.week).padStart(2, "0")}`;
       if (!grouped.has(key)) {
-        grouped.set(key, { ...info, shifts: [], days: new Map(), isCurrent: isCurrentWeek(date), planTitle: plan.title, range: plan.range, displayStart: rangeDates.start, displayEnd: rangeDates.end });
+        grouped.set(key, { ...info, shifts: [], days: new Map(), changedDates: new Set(), isCurrent: isCurrentWeek(date), planTitle: plan.title, range: plan.range, displayStart: rangeDates.start, displayEnd: rangeDates.end, version: plan.version || 1, updatedAt: plan.updatedAt || plan.uploadedAt, changeCount: plan.changeCount || 0 });
       }
+      const week = grouped.get(key);
+      changedDates.forEach(day => week.changedDates.add(day));
       continue;
     }
     for (const original of plan.shifts) {
-      const shift = { ...original, planTitle: plan.title };
+      const shift = { ...original, planTitle: plan.title, changed: (plan.changes || []).some(change => employeeKey(change.name) === employeeKey(original.name) && change.date === original.date) };
       const date = parseGermanDate(shift.date);
       if (!date) continue;
       const info = isoWeekInfo(date);
       const key = `${info.year}-${String(info.week).padStart(2, "0")}`;
       if (!grouped.has(key)) {
-        grouped.set(key, { ...info, shifts: [], days: new Map(), isCurrent: isCurrentWeek(date), planTitle: plan.title, range: plan.range });
+        grouped.set(key, { ...info, shifts: [], days: new Map(), changedDates: new Set(), isCurrent: isCurrentWeek(date), planTitle: plan.title, range: plan.range, version: plan.version || 1, updatedAt: plan.updatedAt || plan.uploadedAt, changeCount: plan.changeCount || 0 });
       }
       const week = grouped.get(key);
       week.displayStart = earlierDate(week.displayStart, rangeDates.start || date);
       week.displayEnd = laterDate(week.displayEnd, rangeDates.end || date);
+      changedDates.forEach(day => week.changedDates.add(day));
       week.shifts.push(shift);
       if (!week.days.has(shift.date)) week.days.set(shift.date, []);
       week.days.get(shift.date).push(shift);
@@ -163,13 +169,13 @@ function groupTeamByPlans(plans) {
   for (const plan of plans) {
     const rangeDates = datesFromPlanRange(plan.range);
     for (const original of plan.shifts) {
-      const shift = { ...original, planTitle: plan.title };
+      const shift = { ...original, planTitle: plan.title, changed: (plan.changes || []).some(change => employeeKey(change.name) === employeeKey(original.name) && change.date === original.date) };
       const date = parseGermanDate(shift.date);
       if (!date) continue;
       const info = isoWeekInfo(date);
       const key = `${info.year}-${String(info.week).padStart(2, "0")}`;
       if (!grouped.has(key)) {
-        grouped.set(key, { ...info, shifts: [], days: new Map(), isCurrent: isCurrentWeek(date), planTitle: plan.title, range: plan.range });
+        grouped.set(key, { ...info, shifts: [], days: new Map(), isCurrent: isCurrentWeek(date), planTitle: plan.title, range: plan.range, version: plan.version || 1, updatedAt: plan.updatedAt || plan.uploadedAt, changeCount: plan.changeCount || 0 });
       }
       const week = grouped.get(key);
       week.displayStart = earlierDate(week.displayStart, rangeDates.start || date);
@@ -249,7 +255,8 @@ function renderWeek(week) {
     .map(date => {
       const dateValue = formatGermanDate(date);
       const dayShifts = week.days.get(dateValue) || [];
-      return dayShifts.length ? renderDay(dateValue, dayShifts) : renderFreeDay(date);
+      const changed = week.changedDates?.has(dateValue);
+      return dayShifts.length ? renderDay(dateValue, dayShifts, changed) : renderFreeDay(date, changed);
     })
     .join("");
 
@@ -258,10 +265,11 @@ function renderWeek(week) {
       <button class="week-head" data-week-toggle type="button">
         <div>
           <h2>KW ${week.week} - ${formatShortDate(startDate)} bis ${formatGermanDate(endDate)}</h2>
-          <p>${escapeHtml(week.shifts[0]?.planTitle || week.planTitle || "")}</p>
+          <p>${escapeHtml(week.shifts[0]?.planTitle || week.planTitle || "")}${week.version > 1 ? ` - Version ${week.version}` : ""}${week.updatedAt ? ` - aktualisiert ${formatDateTime(week.updatedAt)}` : ""}</p>
         </div>
         <span class="week-actions">
           ${week.isCurrent ? '<span class="badge">Aktuelle Woche</span>' : '<span class="badge subtle">Anzeigen</span>'}
+          ${week.changeCount ? `<span class="badge warn-badge">${week.changeCount} geaendert</span>` : ""}
         </span>
       </button>
       <div class="week-body">
@@ -429,12 +437,13 @@ function shortDepartment(value) {
     .replace(/Food Abteilung/i, "Food");
 }
 
-function renderFreeDay(date) {
+function renderFreeDay(date, changed = false) {
   return `
-    <article class="day free-day ${isToday(date) ? "today-day" : ""}">
+    <article class="day free-day ${isToday(date) ? "today-day" : ""} ${changed ? "changed-day" : ""}">
       <div class="day-title">
         <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
         ${isToday(date) ? '<span class="badge">Heute</span>' : ""}
+        ${changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
       </div>
       <div class="shift-row status-row">
         <span class="time">X</span>
@@ -444,7 +453,7 @@ function renderFreeDay(date) {
   `;
 }
 
-function renderDay(dateValue, dayShifts) {
+function renderDay(dateValue, dayShifts, changed = false) {
   const date = parseGermanDate(dateValue);
   const currentDay = isToday(date);
   const sorted = dayShifts.slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
@@ -452,10 +461,11 @@ function renderDay(dateValue, dayShifts) {
   const dayPause = dayPauseText(sorted);
 
   return `
-    <article class="day ${currentDay ? "today-day" : ""}">
+    <article class="day ${currentDay ? "today-day" : ""} ${changed ? "changed-day" : ""}">
       <div class="day-title">
         <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
         ${currentDay ? '<span class="badge">Heute</span>' : ""}
+        ${changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
         ${multiDepartment ? '<span class="badge subtle">Mehrere Abteilungen</span>' : ""}
       </div>
       ${multiDepartment ? `<div class="day-summary">Gesamt: ${escapeHtml(dayTimeRange(sorted))} - Tagespause: ${dayPause}</div>` : ""}
@@ -479,9 +489,10 @@ function renderShift(shift, compactPause = false) {
   }
 
   return `
-    <div class="shift-row ${departmentClass(shift.department)}">
+    <div class="shift-row ${departmentClass(shift.department)} ${shift.changed ? "changed-shift" : ""}">
       <span class="time">${escapeHtml(shift.start)}-${escapeHtml(shift.end)}</span>
       <span class="department">${escapeHtml(shift.department || "Abteilung pruefen")}</span>
+      ${shift.changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
       ${compactPause ? '<span class="pause">Teilblock</span>' : renderPause(shift)}
     </div>
   `;
@@ -593,6 +604,12 @@ function isToday(date) {
 
 function formatGermanDate(date) {
   return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
 function formatShortDate(date) {
