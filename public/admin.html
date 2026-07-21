@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260721-login-stabil">
+  <link rel="stylesheet" href="/styles.css?v=20260721-admin-bereiche">
 </head>
 <body>
   <main class="shell wide">
@@ -26,67 +26,70 @@
     <section id="adminArea" class="hidden">
       <nav class="view-switch admin-view-switch" aria-label="Admin-Bereich wechseln">
         <button class="active" data-admin-view="plans" type="button">Dienstplan</button>
+        <button data-admin-view="manage" type="button">Plaene verwalten</button>
         <button data-admin-view="employees" type="button">Mitarbeiter/PINs</button>
       </nav>
 
       <section class="admin-view-panel" data-admin-view-content="plans">
-      <section class="panel">
-        <h2>PEP-Plan importieren</h2>
-        <p id="buildVersion" class="hint">Version: login-stabil-20260721</p>
-        <label>Titel<input id="planTitle" placeholder="z. B. KW 27"></label>
-        <label>PEP-Datei hochladen<input id="fileInput" type="file" accept=".html,.htm,.pdf,.csv,.xlsx,.xls"></label>
-        <button id="clearImportBtn" class="secondary" type="button">Ausgewaehlte Datei entfernen</button>
-        <div id="preview" class="preview hidden"></div>
-        <div id="mapping" class="mapping hidden"></div>
-        <div id="uploadModeBox" class="upload-choice hidden"></div>
-        <button id="uploadBtn" disabled>Plan speichern</button>
-        <p id="uploadMsg" class="msg"></p>
+        <section class="panel">
+          <h2>PEP-Plan importieren</h2>
+          <p id="buildVersion" class="hint">Version: admin-bereiche-20260721</p>
+          <label>Titel<input id="planTitle" placeholder="z. B. KW 27"></label>
+          <label>PEP-Datei hochladen<input id="fileInput" type="file" accept=".html,.htm,.pdf,.csv,.xlsx,.xls"></label>
+          <button id="clearImportBtn" class="secondary" type="button">Ausgewaehlte Datei entfernen</button>
+          <div id="preview" class="preview hidden"></div>
+          <div id="mapping" class="mapping hidden"></div>
+          <div id="uploadModeBox" class="upload-choice hidden"></div>
+          <button id="uploadBtn" disabled>Plan speichern</button>
+          <p id="uploadMsg" class="msg"></p>
+        </section>
+
+        <section id="publishChoice" class="panel publish-choice hidden"></section>
+
+        <section class="panel">
+          <h2>Veroeffentlichte Plaene</h2>
+          <div id="activePlan"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Start & Online stellen</h2>
+          <ol class="steps">
+            <li>Im Ordner der App starten: <code>npm start</code></li>
+            <li>Im Browser oeffnen: <code>http://localhost:3000</code></li>
+            <li>Admin-Passwort setzen: <code>$env:ADMIN_PASSWORD="dein-passwort"; npm start</code></li>
+            <li>Online stellen: bei einem Node-Hoster wie Render, Railway oder einem kleinen VPS hochladen und <code>npm start</code> als Startbefehl nutzen.</li>
+          </ol>
+        </section>
       </section>
 
-      <section id="publishChoice" class="panel publish-choice hidden"></section>
+      <section class="admin-view-panel hidden" data-admin-view-content="manage">
+        <section class="panel correction-panel">
+          <h2>PEP-Korrekturen</h2>
+          <p class="hint">Offene Aenderungen, die du montags in PEP nachziehen kannst. Erledigte Punkte verschwinden nach 14 Tagen aus der Liste.</p>
+          <div id="pepCorrections"></div>
+        </section>
 
-      <section class="panel">
-        <h2>Veroeffentlichte Plaene</h2>
-        <div id="activePlan"></div>
-      </section>
+        <section class="grid">
+          <div class="panel">
+            <h2>Plaene verwalten</h2>
+            <div id="planList"></div>
+          </div>
+        </section>
 
-      <section class="panel correction-panel">
-        <h2>PEP-Korrekturen</h2>
-        <p class="hint">Offene Aenderungen, die du montags in PEP nachziehen kannst. Erledigte Punkte verschwinden nach 14 Tagen aus der Liste.</p>
-        <div id="pepCorrections"></div>
-      </section>
-
-      <section class="grid">
-        <div class="panel">
-          <h2>Plaene verwalten</h2>
-          <div id="planList"></div>
-        </div>
-      </section>
-
-      <section id="inspectPanel" class="panel">
-        <h2>Plan kontrollieren & bearbeiten</h2>
-        <p class="hint">Plan waehlen, optional Mitarbeiter oder Abteilung filtern und den Tag im Kalender auswaehlen.</p>
-        <div class="filters">
-          <label>Plan<select id="inspectPlan"></select></label>
-          <label>Mitarbeiter<select id="inspectEmployee"><option value="">Alle Mitarbeiter</option></select></label>
-          <label>Abteilung<select id="inspectDepartment"><option value="">Alle Abteilungen</option></select></label>
-        </div>
-        <div id="inspectCalendar" class="inspect-calendar"></div>
-        <input id="inspectDay" type="hidden" value="">
-        <p id="inspectMsg" class="msg"></p>
-        <div id="issueList"></div>
-        <div id="inspectList"></div>
-      </section>
-
-      <section class="panel">
-        <h2>Start & Online stellen</h2>
-        <ol class="steps">
-          <li>Im Ordner der App starten: <code>npm start</code></li>
-          <li>Im Browser oeffnen: <code>http://localhost:3000</code></li>
-          <li>Admin-Passwort setzen: <code>$env:ADMIN_PASSWORD="dein-passwort"; npm start</code></li>
-          <li>Online stellen: bei einem Node-Hoster wie Render, Railway oder einem kleinen VPS hochladen und <code>npm start</code> als Startbefehl nutzen.</li>
-        </ol>
-      </section>
+        <section id="inspectPanel" class="panel">
+          <h2>Plan kontrollieren & bearbeiten</h2>
+          <p class="hint">Plan waehlen, optional Mitarbeiter oder Abteilung filtern und den Tag im Kalender auswaehlen.</p>
+          <div class="filters">
+            <label>Plan<select id="inspectPlan"></select></label>
+            <label>Mitarbeiter<select id="inspectEmployee"><option value="">Alle Mitarbeiter</option></select></label>
+            <label>Abteilung<select id="inspectDepartment"><option value="">Alle Abteilungen</option></select></label>
+          </div>
+          <div id="inspectCalendar" class="inspect-calendar"></div>
+          <input id="inspectDay" type="hidden" value="">
+          <p id="inspectMsg" class="msg"></p>
+          <div id="issueList"></div>
+          <div id="inspectList"></div>
+        </section>
       </section>
 
       <section class="admin-view-panel hidden" data-admin-view-content="employees">
@@ -109,7 +112,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js?v=20260721-login-stabil"></script>
+  <script src="/admin.js?v=20260721-admin-bereiche"></script>
 </body>
 </html>
 

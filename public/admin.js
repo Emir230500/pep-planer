@@ -30,9 +30,16 @@ async function api(url, options = {}) {
   if (!res.ok) {
     const error = new Error(res.status === 401 ? "Sitzung abgelaufen. Bitte neu anmelden." : (data.error || "Fehler"));
     error.status = res.status;
+    if (res.status === 401) reloadOnceAfterExpiredSession();
     throw error;
   }
   return data;
+}
+
+function reloadOnceAfterExpiredSession() {
+  if (sessionStorage.getItem("adminSessionReloadedAfter401")) return;
+  sessionStorage.setItem("adminSessionReloadedAfter401", "1");
+  window.setTimeout(() => window.location.reload(), 500);
 }
 
 function escapeHtml(value) {
@@ -240,6 +247,7 @@ uploadBtn.addEventListener("click", async () => {
 async function loadAdmin() {
   try {
     const data = await api("/api/admin/overview");
+    sessionStorage.removeItem("adminSessionReloadedAfter401");
     adminState = data;
     const buildVersion = document.querySelector("#buildVersion");
     if (buildVersion) buildVersion.textContent = `Version: ${data.buildVersion || "alt/ohne Pausenfix"}`;
@@ -630,7 +638,7 @@ function renderPepCorrectionGroups(corrections, doneList) {
             ${week.days.map(day => {
               const parsed = parseGermanDate(day.date);
               return `
-                <details class="correction-day" open>
+                <details class="correction-day">
                   <summary>
                     <span><strong>${escapeHtml(weekdayLong(parsed))}</strong>, ${escapeHtml(day.date)}</span>
                     <span class="badge subtle">${day.changes.length}</span>
@@ -666,33 +674,42 @@ function groupCorrectionsByPerson(corrections) {
 function renderPepCorrectionPerson(group, doneList) {
   const ids = group.items.map(item => item.id).filter(Boolean).join("|");
   const latest = group.items.find(item => item.isLatestForPersonDay) || group.items[0];
+  const older = group.items.filter(item => item !== latest);
   return `
-    <div class="correction-person ${doneList ? "done" : ""}">
-      <div class="correction-person-head">
-        <div>
+    <details class="correction-person ${doneList ? "done" : ""}">
+      <summary class="correction-person-head">
+        <span>
           <strong>${escapeHtml(group.name)}</strong>
           <span class="badge subtle">${group.items.length} ${group.items.length === 1 ? "Aenderung" : "Aenderungen"}</span>
           ${latest?.isLatestForPersonDay ? '<span class="badge">Aktuell gueltig</span>' : ""}
-        </div>
+        </span>
+      </summary>
+      <div class="correction-person-body">
         <div class="actions">
           ${doneList
             ? `<button class="secondary" data-correction-open-many="${escapeHtml(ids)}">Wieder offen</button>`
             : `<button data-correction-done-many="${escapeHtml(ids)}">Erledigt</button>`}
         </div>
+        <div class="correction-mini-list">
+          ${latest ? renderPepCorrectionMini(latest, true) : ""}
+          ${older.length ? `
+            <details class="older-corrections">
+              <summary>${older.length} vorherige ${older.length === 1 ? "Aenderung" : "Aenderungen"} anzeigen</summary>
+              ${older.map(item => renderPepCorrectionMini(item, false)).join("")}
+            </details>
+          ` : ""}
+        </div>
       </div>
-      <div class="correction-mini-list">
-        ${group.items.map(item => renderPepCorrectionMini(item)).join("")}
-      </div>
-    </div>
+    </details>
   `;
 }
 
-function renderPepCorrectionMini(item) {
+function renderPepCorrectionMini(item, prominent = false) {
   return `
-    <div class="correction-mini ${item.isLatestForPersonDay ? "latest-correction-mini" : ""}">
+    <div class="correction-mini ${prominent || item.isLatestForPersonDay ? "latest-correction-mini" : ""}">
       <div>
         <span class="badge subtle">${changeTypeLabel(item.type)}</span>
-        ${item.isLatestForPersonDay ? '<span class="badge">neueste</span>' : ""}
+        ${prominent || item.isLatestForPersonDay ? '<span class="badge">Diese Schicht ist aktuell</span>' : ""}
         <span class="meta">Quelle: ${escapeHtml(item.source || "Import")}</span>
       </div>
       <p><span class="meta">Alt:</span> ${escapeHtml(item.before)}</p>

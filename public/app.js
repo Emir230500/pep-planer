@@ -21,12 +21,20 @@ async function api(url, options = {}) {
   if (!res.ok) {
     const error = new Error(res.status === 401 ? "Sitzung abgelaufen. Bitte neu anmelden." : (data.error || "Fehler"));
     error.status = res.status;
+    if (res.status === 401) reloadOnceAfterExpiredSession();
     throw error;
   }
   return data;
 }
 
+function reloadOnceAfterExpiredSession() {
+  if (sessionStorage.getItem("sessionReloadedAfter401")) return;
+  sessionStorage.setItem("sessionReloadedAfter401", "1");
+  window.setTimeout(() => window.location.reload(), 500);
+}
+
 function showShifts(data) {
+  sessionStorage.removeItem("sessionReloadedAfter401");
   login.classList.add("hidden");
   plans.classList.remove("hidden");
   hello.textContent = data.name;

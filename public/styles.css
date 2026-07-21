@@ -1497,6 +1497,19 @@ button:disabled {
   gap: 10px;
   justify-content: space-between;
   padding: 10px 12px;
+  cursor: pointer;
+}
+
+.correction-person-body {
+  border-top: 1px solid rgba(255, 214, 10, 0.55);
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.correction-person-body > .actions {
+  justify-content: flex-end;
+  padding: 0 12px;
 }
 
 .correction-mini-list {
@@ -1514,10 +1527,31 @@ button:disabled {
 
 .correction-mini.latest-correction-mini {
   background: #eef5ff;
-  border-left: 4px solid var(--accent);
+  border: 2px solid var(--accent);
+  border-left: 7px solid var(--accent);
+  border-radius: 8px;
+  margin: 8px;
+  padding: 12px;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.12);
 }
 
 .correction-mini p {
+  margin: 0;
+}
+
+.older-corrections {
+  border-top: 1px solid rgba(255, 214, 10, 0.55);
+  margin-top: 2px;
+}
+
+.older-corrections summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 800;
+  padding: 9px 12px;
+}
+
+.older-corrections .correction-mini {
   margin: 0;
 }
 
