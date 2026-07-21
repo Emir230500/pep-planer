@@ -466,6 +466,14 @@ button:disabled {
   white-space: nowrap;
 }
 
+.add-shift-inline {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .team-day-head::before {
   content: "+";
   background: #0f766e;

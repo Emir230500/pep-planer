@@ -9,6 +9,7 @@ const pushMsg = document.querySelector("#pushMsg");
 let currentTeamData = null;
 let teamEditShift = null;
 let teamEditMap = new Map();
+let activeViewPanel = "own";
 
 async function api(url, options = {}) {
   const res = await fetch(url, {
@@ -90,17 +91,17 @@ function showTeamShifts(data) {
   shiftList.innerHTML = `
     ${renderNextWorkDay(nextWorkDay)}
     <nav class="view-switch" aria-label="Ansicht wechseln">
-      <button class="active" data-view-panel="own" type="button">Mein Plan</button>
-      <button data-view-panel="team" type="button">Teamplan</button>
+      <button class="${activeViewPanel === "own" ? "active" : ""}" data-view-panel="own" type="button">Mein Plan</button>
+      <button class="${activeViewPanel === "team" ? "active" : ""}" data-view-panel="team" type="button">Teamplan</button>
     </nav>
-    <section class="own-plan-block view-panel" data-view-content="own">
+    <section class="own-plan-block view-panel ${activeViewPanel === "own" ? "" : "hidden"}" data-view-content="own">
       <h2>Mein Plan</h2>
       <nav class="week-nav">
         ${ownWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
       </nav>
       ${ownWeeks.map(week => renderWeek(week)).join("")}
     </section>
-    <section class="team-plan-block view-panel hidden" data-view-content="team">
+    <section class="team-plan-block view-panel ${activeViewPanel === "team" ? "" : "hidden"}" data-view-content="team">
       <h2>Teamplan</h2>
       ${renderTeamEditForm()}
       <nav class="week-nav">
@@ -113,6 +114,7 @@ function showTeamShifts(data) {
   document.querySelectorAll("[data-view-panel]").forEach(button => {
     button.addEventListener("click", () => {
       const target = button.dataset.viewPanel;
+      activeViewPanel = target;
       document.querySelectorAll("[data-view-panel]").forEach(item => item.classList.toggle("active", item === button));
       document.querySelectorAll("[data-view-content]").forEach(panel => {
         panel.classList.toggle("hidden", panel.dataset.viewContent !== target);
@@ -145,6 +147,17 @@ function showTeamShifts(data) {
     button.addEventListener("click", event => {
       event.stopPropagation();
       teamEditShift = teamEditMap.get(button.dataset.teamEdit) || null;
+      activeViewPanel = "team";
+      showTeamShifts(currentTeamData);
+      document.querySelector("#teamEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  document.querySelectorAll("[data-team-add]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      const plan = (currentTeamData?.plans || []).find(item => item.id === button.dataset.planId);
+      teamEditShift = newTeamShift(button.dataset.planId, button.dataset.date, plan);
+      activeViewPanel = "team";
       showTeamShifts(currentTeamData);
       document.querySelector("#teamEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -317,7 +330,7 @@ function renderTeamWeek(week) {
   const endDate = week.displayEnd || week.endDate;
   const days = Array.from(week.days.entries())
     .sort(([a], [b]) => parseGermanDate(a) - parseGermanDate(b))
-    .map(([date, dayShifts]) => renderTeamDay(date, dayShifts))
+    .map(([date, dayShifts]) => renderTeamDay(date, dayShifts, week))
     .join("");
 
   return `
@@ -339,7 +352,7 @@ function renderTeamWeek(week) {
   `;
 }
 
-function renderTeamDay(dateValue, dayShifts) {
+function renderTeamDay(dateValue, dayShifts, week) {
   const date = parseGermanDate(dateValue);
   const currentDay = isToday(date);
   const sorted = dayShifts.slice().sort((a, b) => {
@@ -361,6 +374,7 @@ function renderTeamDay(dateValue, dayShifts) {
         <span class="team-day-actions">
           <span class="team-day-open-hint">${currentDay ? "Heute offen" : "Tag oeffnen"}</span>
           <span class="badge subtle">${sorted.length} Eintraege</span>
+          <span class="mini-button add-shift-inline" data-team-add data-plan-id="${escapeHtml(sorted[0]?.planId || "")}" data-date="${escapeHtml(dateValue)}">+ Schicht</span>
         </span>
       </button>
       <div class="team-day-body">
@@ -457,12 +471,19 @@ function renderTeamEditForm() {
   if (!teamEditShift) return "";
   const dateOptions = teamEditDateOptions(teamEditShift);
   const departments = editDepartmentOptions();
+  const employees = editEmployeeOptions();
+  const isNew = Boolean(teamEditShift.isNew);
   return `
     <div id="teamEditBox" class="shift-edit-box team-edit-box">
-      <strong>Teamplan-Schicht bearbeiten</strong>
-      <p class="hint">${escapeHtml(teamEditShift.name)} - ${escapeHtml(teamEditShift.date)}. Nach dem Speichern landet es als haendische PEP-Korrektur in der Admin-Liste.</p>
+      <strong>${isNew ? "Teamplan-Schicht hinzufuegen" : "Teamplan-Schicht bearbeiten"}</strong>
+      <p class="hint">${isNew ? "Neue Schicht" : `${escapeHtml(teamEditShift.name)} - ${escapeHtml(teamEditShift.date)}`}. Nach dem Speichern landet es als haendische PEP-Korrektur in der Admin-Liste.</p>
       <div class="shift-edit-grid">
-        <label>Mitarbeiter<input id="teamEditName" value="${escapeHtml(teamEditShift.name)}"></label>
+        <label>Mitarbeiter
+          <input id="teamEditName" list="teamEditEmployeeOptions" value="${escapeHtml(teamEditShift.name)}" placeholder="Mitarbeiter auswaehlen">
+          <datalist id="teamEditEmployeeOptions">
+            ${employees.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
+          </datalist>
+        </label>
         <label>Datum
           <select id="teamEditDate">
             ${dateOptions.map(option => `<option value="${escapeHtml(option.value)}" ${option.value === teamEditShift.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
@@ -477,14 +498,36 @@ function renderTeamEditForm() {
           </datalist>
         </label>
         <label>Pause<input id="teamEditBreak" value="${escapeHtml(teamEditShift.break || "")}" placeholder="00:30"></label>
+        <label>Benachrichtigung
+          <select id="teamEditNotifyMode">
+            <option value="affected" selected>Nur betroffene Person</option>
+            <option value="none">Niemand</option>
+            <option value="all">Alle Mitarbeiter</option>
+          </select>
+        </label>
       </div>
       <div class="actions">
-        <button id="deleteTeamEdit" class="danger" type="button">Schicht loeschen</button>
+        ${isNew ? "" : '<button id="deleteTeamEdit" class="danger" type="button">Schicht loeschen</button>'}
         <button id="saveTeamEdit" type="button">Speichern</button>
         <button id="cancelTeamEdit" class="secondary" type="button">Abbrechen</button>
       </div>
     </div>
   `;
+}
+
+function newTeamShift(planId, date, plan) {
+  return {
+    isNew: true,
+    planId,
+    planRange: plan?.range || "",
+    planTitle: plan?.title || "",
+    name: "",
+    date,
+    start: "06:00",
+    end: "14:00",
+    department: "Kasse",
+    break: "00:30"
+  };
 }
 
 function teamEditDateOptions(shift) {
@@ -514,13 +557,21 @@ function editDepartmentOptions() {
   return unique([...knownDepartments(), ...fromPlans]).sort((a, b) => a.localeCompare(b, "de"));
 }
 
+function editEmployeeOptions() {
+  const fromPlans = (currentTeamData?.plans || [])
+    .flatMap(plan => plan.shifts || [])
+    .map(shift => shift.name || "")
+    .filter(Boolean);
+  return unique(fromPlans).sort((a, b) => a.localeCompare(b, "de"));
+}
+
 async function deleteTeamEdit() {
   if (!teamEditShift?.planId) return;
   if (!window.confirm("Diese Schicht wirklich loeschen?")) return;
   try {
     await api(`/api/me/plans/${encodeURIComponent(teamEditShift.planId)}/shifts/edit`, {
       method: "POST",
-      body: { before: teamEditShift, after: null }
+      body: { before: teamEditShift, after: null, notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected" }
     });
     teamEditShift = null;
     await loadMine();
@@ -538,7 +589,7 @@ async function saveTeamEdit() {
     await api(`/api/me/plans/${encodeURIComponent(teamEditShift.planId)}/shifts/edit`, {
       method: "POST",
       body: {
-        before: teamEditShift,
+        before: teamEditShift.isNew ? null : teamEditShift,
         after: {
           name: document.querySelector("#teamEditName").value,
           date: document.querySelector("#teamEditDate").value,
@@ -546,7 +597,8 @@ async function saveTeamEdit() {
           end: document.querySelector("#teamEditEnd").value,
           department: document.querySelector("#teamEditDepartment").value,
           break: normalizeBreakValue(document.querySelector("#teamEditBreak").value)
-        }
+        },
+        notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected"
       }
     });
     teamEditShift = null;

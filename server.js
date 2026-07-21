@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "teamplan-tabs-edit-fix-admin-kw-20260721";
+const BUILD_VERSION = "teamplan-add-shift-notify-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -687,8 +687,9 @@ function publishNotifyMode(db, plan, requestedMode) {
   return defaultPublishNotifyMode(db, plan);
 }
 
-async function editPlanShift(db, planId, before, after) {
-  const cleanBefore = cleanShift(before || {});
+async function editPlanShift(db, planId, before, after, notifyMode = "affected") {
+  const addShift = !before && Boolean(after);
+  const cleanBefore = addShift ? null : cleanShift(before || {});
   const deleteShift = !after;
   const cleanAfter = deleteShift ? null : cleanShift(after || {});
   if (!deleteShift) {
@@ -699,17 +700,20 @@ async function editPlanShift(db, planId, before, after) {
   const plan = db.plans.find(item => item.id === planId);
   if (!plan) return { error: "Plan nicht gefunden.", status: 404 };
 
-  const index = (plan.shifts || []).findIndex(shift =>
+  plan.shifts = Array.isArray(plan.shifts) ? plan.shifts : [];
+  const index = addShift ? -1 : plan.shifts.findIndex(shift =>
     employeeKey(shift.name) === employeeKey(cleanBefore.name) &&
     String(shift.date || "") === cleanBefore.date &&
     String(shift.start || "") === cleanBefore.start &&
     String(shift.end || "") === cleanBefore.end &&
     String(shift.department || "") === cleanBefore.department
   );
-  if (index < 0) return { error: "Schicht wurde im gespeicherten Plan nicht gefunden.", status: 404 };
+  if (!addShift && index < 0) return { error: "Schicht wurde im gespeicherten Plan nicht gefunden.", status: 404 };
 
-  const oldShift = cleanShift(plan.shifts[index]);
-  if (deleteShift) {
+  const oldShift = addShift ? null : cleanShift(plan.shifts[index]);
+  if (addShift) {
+    plan.shifts.push(cleanAfter);
+  } else if (deleteShift) {
     plan.shifts.splice(index, 1);
   } else {
     plan.shifts[index] = cleanAfter;
@@ -719,7 +723,10 @@ async function editPlanShift(db, planId, before, after) {
   const change = changeFromShifts(oldShift, cleanAfter, "Haendisch");
   plan.changes = [change, ...(plan.changes || [])];
   const correction = createManualPepCorrection(db, plan, change);
-  const push = publishedIds(db).includes(plan.id) ? await sendPlanPush(db, plan) : { sent: 0, removed: 0 };
+  const mode = ["all", "affected", "none"].includes(notifyMode) ? notifyMode : "affected";
+  const push = publishedIds(db).includes(plan.id) && mode !== "none"
+    ? await sendPlanPush(db, plan, mode)
+    : { sent: 0, removed: 0, skipped: true, mode };
   return { plan, correction, push };
 }
 
@@ -891,7 +898,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
@@ -904,7 +911,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
