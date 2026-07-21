@@ -903,14 +903,30 @@ function escapeHtml(value) {
 }
 
 async function submitLogin() {
-  loginMsg.textContent = "";
-  loginMsg.classList.remove("error");
+  const button = document.querySelector("#loginBtn");
+  if (button?.disabled) return;
+  loginMsg.textContent = "Anmeldung laeuft...";
+  loginMsg.classList.remove("error", "success-msg");
+  button?.classList.remove("login-tap");
+  void button?.offsetWidth;
+  button?.classList.add("login-tap");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Anmelden...";
+  }
   try {
     await api("/api/employee/login", { method: "POST", body: { name: document.querySelector("#name").value, pin: document.querySelector("#pin").value } });
+    loginMsg.textContent = "Angemeldet.";
+    loginMsg.classList.add("success-msg");
     await loadMine();
   } catch (error) {
     loginMsg.textContent = error.message;
     loginMsg.classList.add("error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Anmelden";
+    }
   }
 }
 

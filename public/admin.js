@@ -239,16 +239,30 @@ async function loadAdmin() {
     if (buildVersion) buildVersion.textContent = `Version: ${data.buildVersion || "alt/ohne Pausenfix"}`;
     loginBox.classList.add("hidden");
     adminArea.classList.remove("hidden");
-    renderAdminViewSwitch();
-    renderActivePlan(data.publishedPlans || []);
-    renderPepCorrections(data.pepCorrections || []);
-    renderPlans(data.plans);
-    renderPins(data.employees);
-    refreshUploadModeChoice();
-    const firstPlan = (data.publishedPlans || [])[0] || data.plans[0];
-    renderInspectPlanOptions(data.plans, firstPlan?.id || "");
-    if (firstPlan?.id) await loadInspection(firstPlan.id);
-  } catch {
+    try {
+      renderAdminViewSwitch();
+      renderActivePlan(data.publishedPlans || []);
+      renderPepCorrections(data.pepCorrections || []);
+      renderPlans(data.plans);
+      renderPins(data.employees);
+      refreshUploadModeChoice();
+      const firstPlan = (data.publishedPlans || [])[0] || data.plans[0];
+      renderInspectPlanOptions(data.plans, firstPlan?.id || "");
+      if (firstPlan?.id) await loadInspection(firstPlan.id);
+    } catch (renderError) {
+      const msg = document.querySelector("#inspectMsg") || document.querySelector("#uploadMsg");
+      if (msg) {
+        msg.textContent = `Admin geladen, aber ein Bereich hat einen Fehler: ${renderError.message}`;
+        msg.classList.add("error");
+      }
+    }
+  } catch (error) {
+    const msg = document.querySelector("#adminLoginMsg");
+    if (msg) {
+      msg.textContent = error.message || "Bitte neu anmelden.";
+      msg.classList.add("error");
+      msg.classList.remove("success-msg");
+    }
     loginBox.classList.remove("hidden");
     adminArea.classList.add("hidden");
   }
