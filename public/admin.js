@@ -7,6 +7,7 @@ let lastPepTextNames = [];
 let lastCoverageWarning = "";
 let editShift = null;
 let inspectionEditMap = new Map();
+let activeAdminViewPanel = "plans";
 
 const loginBox = document.querySelector("#adminLogin");
 const adminArea = document.querySelector("#adminArea");
@@ -38,6 +39,13 @@ document.querySelector("#adminLoginBtn").addEventListener("click", async () => {
 
 document.querySelector("#adminPassword").addEventListener("keydown", event => {
   if (event.key === "Enter") submitAdminLogin();
+});
+
+document.querySelectorAll("[data-admin-view]").forEach(button => {
+  button.addEventListener("click", () => {
+    activeAdminViewPanel = button.dataset.adminView;
+    renderAdminViewSwitch();
+  });
 });
 
 async function submitAdminLogin() {
@@ -215,6 +223,7 @@ async function loadAdmin() {
     if (buildVersion) buildVersion.textContent = `Version: ${data.buildVersion || "alt/ohne Pausenfix"}`;
     loginBox.classList.add("hidden");
     adminArea.classList.remove("hidden");
+    renderAdminViewSwitch();
     renderActivePlan(data.publishedPlans || []);
     renderPepCorrections(data.pepCorrections || []);
     renderPlans(data.plans);
@@ -227,6 +236,15 @@ async function loadAdmin() {
     loginBox.classList.remove("hidden");
     adminArea.classList.add("hidden");
   }
+}
+
+function renderAdminViewSwitch() {
+  document.querySelectorAll("[data-admin-view]").forEach(button => {
+    button.classList.toggle("active", button.dataset.adminView === activeAdminViewPanel);
+  });
+  document.querySelectorAll("[data-admin-view-content]").forEach(panel => {
+    panel.classList.toggle("hidden", panel.dataset.adminViewContent !== activeAdminViewPanel);
+  });
 }
 
 function validateShiftsBeforeSave(shifts) {
@@ -476,9 +494,9 @@ function renderActivePlan(plans) {
   }
   box.innerHTML = `
     ${sortPlansByDate(plans).map(plan => `
-      <div class="active-card">
+      <div class="active-card ${isCurrentPlanWeek(plan) ? "current-active-card" : ""}">
         <div>
-          <strong>${escapeHtml(plan.title)}</strong> ${plan.version > 1 ? `<span class="badge subtle">Version ${plan.version}</span>` : ""}<br>
+          <strong>${escapeHtml(plan.title)}</strong> ${isCurrentPlanWeek(plan) ? '<span class="badge">Aktuelle KW</span>' : ""} ${plan.version > 1 ? `<span class="badge subtle">Version ${plan.version}</span>` : ""}<br>
           <span class="meta">Zeitraum: ${escapeHtml(plan.range || "offen")}</span><br>
           <span class="meta">Upload: ${formatDateTime(plan.uploadedAt)}</span>
           ${plan.changeCount ? `<br><span class="warn-text">${plan.changeCount} Aenderungen veroeffentlicht</span>` : ""}

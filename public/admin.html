@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260721-pep-korrekturen-kw-tag-current">
+  <link rel="stylesheet" href="/styles.css?v=20260721-admin-tabs-current-published">
 </head>
 <body>
   <main class="shell wide">
@@ -24,6 +24,12 @@
     </section>
 
     <section id="adminArea" class="hidden">
+      <nav class="view-switch admin-view-switch" aria-label="Admin-Bereich wechseln">
+        <button class="active" data-admin-view="plans" type="button">Dienstplan</button>
+        <button data-admin-view="employees" type="button">Mitarbeiter/PINs</button>
+      </nav>
+
+      <section class="admin-view-panel" data-admin-view-content="plans">
       <section class="panel">
         <h2>PEP-Plan importieren</h2>
         <p id="buildVersion" class="hint">Version: einarbeitung-intern-fix-20260709</p>
@@ -55,18 +61,6 @@
           <h2>Plaene verwalten</h2>
           <div id="planList"></div>
         </div>
-        <div class="panel">
-          <h2>Mitarbeiter-PINs</h2>
-          <p class="hint">Neue Mitarbeiter aus PEP werden automatisch angelegt. Du kannst PINs hier jederzeit aendern.</p>
-          <div class="employee-add">
-            <input id="newEmployeeName" placeholder="Neuer Mitarbeiter, z. B. Nachname, Vorname">
-            <input id="newEmployeePin" inputmode="numeric" placeholder="PIN optional">
-            <button id="addEmployeeBtn" class="secondary">Anlegen</button>
-          </div>
-          <p id="employeeMsg" class="msg"></p>
-          <input id="employeeSearch" type="search" placeholder="Mitarbeiter suchen">
-          <div id="pinList"></div>
-        </div>
       </section>
 
       <section id="inspectPanel" class="panel">
@@ -92,13 +86,29 @@
           <li>Online stellen: bei einem Node-Hoster wie Render, Railway oder einem kleinen VPS hochladen und <code>npm start</code> als Startbefehl nutzen.</li>
         </ol>
       </section>
+      </section>
+
+      <section class="admin-view-panel hidden" data-admin-view-content="employees">
+        <section class="panel">
+          <h2>Mitarbeiter-PINs</h2>
+          <p class="hint">Neue Mitarbeiter aus PEP werden automatisch angelegt. Du kannst PINs hier jederzeit aendern.</p>
+          <div class="employee-add">
+            <input id="newEmployeeName" placeholder="Neuer Mitarbeiter, z. B. Nachname, Vorname">
+            <input id="newEmployeePin" inputmode="numeric" placeholder="PIN optional">
+            <button id="addEmployeeBtn" class="secondary">Anlegen</button>
+          </div>
+          <p id="employeeMsg" class="msg"></p>
+          <input id="employeeSearch" type="search" placeholder="Mitarbeiter suchen">
+          <div id="pinList"></div>
+        </section>
+      </section>
     </section>
 
     <footer class="site-credit">Created by Demircan</footer>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js?v=20260721-pep-korrekturen-kw-tag-current"></script>
+  <script src="/admin.js?v=20260721-admin-tabs-current-published"></script>
 </body>
 </html>
 
