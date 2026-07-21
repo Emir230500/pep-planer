@@ -10,6 +10,7 @@ let inspectionEditMap = new Map();
 let activeAdminViewPanel = "plans";
 let inspectCalendarOpen = false;
 let inspectCalendarMonth = "";
+let inspectPanelVisible = false;
 
 const loginBox = document.querySelector("#adminLogin");
 const adminArea = document.querySelector("#adminArea");
@@ -289,6 +290,7 @@ function renderAdminViewSwitch() {
   document.querySelectorAll("[data-admin-view-content]").forEach(panel => {
     panel.classList.toggle("hidden", panel.dataset.adminViewContent !== activeAdminViewPanel);
   });
+  document.querySelector("#inspectPanel")?.classList.toggle("hidden", !inspectPanelVisible);
 }
 
 function validateShiftsBeforeSave(shifts) {
@@ -463,13 +465,21 @@ function employeeKey(name) {
 function renderPlans(plans) {
   const sortedPlans = sortPlansByDate(plans);
   document.querySelector("#planList").innerHTML = sortedPlans.length ? sortedPlans.map(plan => `
-    <div class="item plan-item ${isCurrentPlanWeek(plan) ? "current-plan-item" : ""}">
-      <div>
-        <strong>${escapeHtml(plan.title)}</strong> ${isCurrentPlanWeek(plan) ? '<span class="badge">Aktuelle KW</span>' : ""} ${plan.isPublished ? '<span class="badge">Veroeffentlicht</span>' : ""} ${plan.version > 1 ? `<span class="badge subtle">Version ${plan.version}</span>` : ""}<br>
-        <span class="meta">Zeitraum: ${escapeHtml(plan.range || "offen")}</span><br>
-        <span class="meta">Upload: ${formatDateTime(plan.uploadedAt)} - ${plan.shiftCount} Schichten</span>
-        ${plan.changeCount ? `<br><span class="warn-text">${plan.changeCount} Aenderungen zum alten Plan</span>` : ""}
-        ${plan.issueCount ? `<br><span class="warn-text">${plan.issueCount} Hinweise pruefen</span>` : ""}
+    <div class="item plan-item plan-row ${isCurrentPlanWeek(plan) ? "current-plan-item" : ""}">
+      <div class="plan-row-main">
+        <div class="plan-title-line">
+          <strong>${escapeHtml(plan.title)}</strong>
+          ${isCurrentPlanWeek(plan) ? '<span class="badge">Aktuelle KW</span>' : ""}
+          ${plan.isPublished ? '<span class="badge">Veroeffentlicht</span>' : ""}
+          ${plan.version > 1 ? `<span class="badge subtle">Version ${plan.version}</span>` : ""}
+        </div>
+        <div class="plan-row-meta">
+          <span>Zeitraum: ${escapeHtml(plan.range || "offen")}</span>
+          <span>Upload: ${formatDateTime(plan.uploadedAt)}</span>
+          <span>${plan.shiftCount} Schichten</span>
+          ${plan.changeCount ? `<span class="warn-text">${plan.changeCount} Aenderungen</span>` : ""}
+          ${plan.issueCount ? `<span class="warn-text">${plan.issueCount} Hinweise</span>` : ""}
+        </div>
       </div>
       <div class="actions">
         <button class="secondary" data-inspect="${escapeHtml(plan.id)}">Pruefen</button>
@@ -483,6 +493,9 @@ function renderPlans(plans) {
 
   document.querySelectorAll("[data-inspect]").forEach(button => {
     button.addEventListener("click", async () => {
+      activeAdminViewPanel = "manage";
+      inspectPanelVisible = true;
+      renderAdminViewSwitch();
       await loadInspection(button.dataset.inspect, true);
     });
   });
@@ -570,7 +583,15 @@ function renderPepCorrections(corrections) {
       <span class="badge warn-badge">${open.length} offen</span>
       ${done.length ? `<span class="badge subtle">${done.length} erledigt</span>` : ""}
     </div>
-    ${open.length ? renderPepCorrectionGroups(open, false) : '<p class="ok-text">Alles fuer PEP abgehakt.</p>'}
+    ${open.length ? `
+      <details class="correction-overview">
+        <summary>
+          <span><strong>Offene PEP-Korrekturen</strong><small>KW, Tage und Namen erst beim Oeffnen anzeigen</small></span>
+          <span class="badge warn-badge">${open.length} offen</span>
+        </summary>
+        ${renderPepCorrectionGroups(open, false)}
+      </details>
+    ` : '<p class="ok-text">Alles fuer PEP abgehakt.</p>'}
     ${done.length ? `
       <details class="done-corrections">
         <summary>Erledigte Korrekturen anzeigen (${done.length})</summary>
@@ -875,6 +896,11 @@ function cssEscape(value) {
 
 async function loadInspection(id, focusPanel = false) {
   if (!id) return;
+  if (focusPanel) {
+    activeAdminViewPanel = "manage";
+    inspectPanelVisible = true;
+    renderAdminViewSwitch();
+  }
   const msg = document.querySelector("#inspectMsg");
   if (msg) {
     msg.textContent = "Plan wird geladen...";
@@ -883,6 +909,7 @@ async function loadInspection(id, focusPanel = false) {
   try {
     const data = await api(`/api/admin/plans/${encodeURIComponent(id)}`);
     inspected = data;
+    inspectCalendarMonth = monthKey(planDateRange(data.plan)?.start) || inspectCalendarMonth;
     const select = document.querySelector("#inspectPlan");
     if (select) select.value = id;
     renderInspection();
@@ -1003,15 +1030,24 @@ function renderInspectActions() {
 
 function updateInspectFilterOptions() {
   const shifts = inspected.shifts || [];
+  const selectedEmployee = document.querySelector("#inspectEmployee")?.value || "";
+  const selectedDay = document.querySelector("#inspectDay")?.value || "";
   const employees = unique(shifts.map(shift => normalizePersonName(shift.name)).filter(Boolean))
     .sort((a, b) => a.localeCompare(b, "de"));
-  const departments = uniqueDepartments(shifts.map(shift => shift.department || "").filter(Boolean))
+  const employeeShifts = selectedEmployee
+    ? shifts.filter(shift => normalizePersonName(shift.name) === selectedEmployee)
+    : shifts;
+  const dayEmployeeShifts = selectedDay
+    ? employeeShifts.filter(shift => shift.date === selectedDay)
+    : [];
+  const departmentSource = dayEmployeeShifts.length ? dayEmployeeShifts : employeeShifts;
+  const departments = uniqueDepartments(departmentSource.map(shift => shift.department || "").filter(Boolean))
     .sort((a, b) => a.localeCompare(b, "de"));
   updateSelectOptions("#inspectEmployee", "Alle Mitarbeiter", employees, value => value);
-  updateSelectOptions("#inspectDepartment", "Alle Abteilungen", departments, value => value);
+  updateSelectOptions("#inspectDepartment", "Alle Abteilungen", departments, value => value, Boolean(selectedEmployee));
 }
 
-function updateSelectOptions(selector, emptyLabel, values, labelFn) {
+function updateSelectOptions(selector, emptyLabel, values, labelFn, autoSelectSingle = false) {
   const select = document.querySelector(selector);
   if (!select) return;
   const current = select.value;
@@ -1019,6 +1055,7 @@ function updateSelectOptions(selector, emptyLabel, values, labelFn) {
     <option value="${escapeHtml(value)}" ${value === current ? "selected" : ""}>${escapeHtml(labelFn(value))}</option>
   `).join("")}`;
   if (current && !values.includes(current)) select.value = "";
+  if (autoSelectSingle && !select.value && values.length === 1) select.value = values[0];
 }
 
 function inspectMonthLabel(value) {
@@ -1028,6 +1065,10 @@ function inspectMonthLabel(value) {
 }
 
 function inspectDayOptions(selectedMonth) {
+  return inspectSelectableDates(selectedMonth);
+}
+
+function monthCalendarDates(selectedMonth) {
   if (selectedMonth) {
     const [year, month] = selectedMonth.split("-").map(Number);
     if (year && month) {
@@ -1042,6 +1083,21 @@ function inspectDayOptions(selectedMonth) {
   }
   return unique((inspected.shifts || []).map(shift => shift.date).filter(Boolean))
     .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+}
+
+function inspectSelectableDates(selectedMonth = "") {
+  const range = planDateRange(inspected.plan);
+  const dates = [];
+  if (range) {
+    const cursor = new Date(range.start);
+    while (cursor <= range.end) {
+      const value = formatGermanDate(cursor);
+      if (!selectedMonth || monthKey(cursor) === selectedMonth) dates.push(value);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return dates;
+  }
+  return monthCalendarDates(selectedMonth);
 }
 
 function renderInspectCalendar() {
@@ -1127,7 +1183,8 @@ function renderInspectCalendar() {
 }
 
 function renderInspectCalendarMonth(month, selectedDate) {
-  const dates = inspectDayOptions(month);
+  const dates = monthCalendarDates(month);
+  const selectableDates = new Set(inspectSelectableDates(month));
   const activeDates = inspectCalendarActiveDates();
   const hasFocusedFilter = Boolean(document.querySelector("#inspectEmployee")?.value || document.querySelector("#inspectDepartment")?.value);
   const [year, monthNumber] = month.split("-").map(Number);
@@ -1142,7 +1199,7 @@ function renderInspectCalendarMonth(month, selectedDate) {
       label: parsed ? String(parsed.getDate()) : dateValue,
       selected: selectedDate === dateValue,
       today: isSameGermanDate(parsed, new Date()),
-      hasPlan: Boolean(planForDate(dateValue)),
+      hasPlan: selectableDates.has(dateValue),
       hasMatch: activeDates.has(dateValue)
     });
   }
@@ -1161,7 +1218,7 @@ function renderInspectCalendarMonth(month, selectedDate) {
       <div class="calendar-days">
         ${cells.map(cell => cell.muted
           ? '<span class="calendar-empty"></span>'
-          : `<button class="calendar-day ${cell.selected ? "selected" : ""} ${cell.today ? "today" : ""} ${cell.hasPlan ? "" : "no-plan"} ${hasFocusedFilter && cell.hasMatch ? "has-filter-match" : ""} ${hasFocusedFilter && !cell.hasMatch ? "no-filter-match" : ""}" data-inspect-calendar-day="${escapeHtml(cell.date)}" type="button">
+          : `<button class="calendar-day ${cell.selected ? "selected" : ""} ${cell.today ? "today" : ""} ${cell.hasPlan ? "" : "no-plan"} ${hasFocusedFilter && cell.hasMatch ? "has-filter-match" : ""} ${hasFocusedFilter && !cell.hasMatch ? "no-filter-match" : ""}" data-inspect-calendar-day="${escapeHtml(cell.date)}" type="button" ${cell.hasPlan ? "" : "disabled"}>
               <span>${escapeHtml(cell.label)}</span>
               ${hasFocusedFilter && cell.hasMatch ? '<small>Eintrag</small>' : ""}
             </button>`

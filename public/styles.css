@@ -1026,6 +1026,68 @@ button:disabled {
   padding: 12px;
 }
 
+.plan-list-panel {
+  max-width: none;
+}
+
+.plan-row {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(210, 210, 215, 0.9);
+  border-left: 4px solid transparent;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin: 10px 0;
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.025);
+}
+
+.plan-row.current-plan-item {
+  background: #f5f9ff;
+  border-left-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.025);
+}
+
+.plan-row-main {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.plan-title-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.plan-row-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.plan-row .actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.plan-row .actions button {
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
+.plan-row .actions .danger {
+  background: #ff3b30;
+}
+
 .item button {
   width: auto;
 }
@@ -1419,13 +1481,44 @@ button:disabled {
 }
 
 .correction-panel {
-  border-color: #ffd60a;
+  border-color: rgba(210, 210, 215, 0.9);
 }
 
 .correction-summary {
   display: flex;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.correction-overview {
+  background: #fff;
+  border: 1px solid rgba(210, 210, 215, 0.9);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.correction-overview > summary {
+  align-items: center;
+  background: #fbfbfd;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.correction-overview > summary small {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.correction-overview > .correction-week-list {
+  border-top: 1px solid rgba(210, 210, 215, 0.9);
+  margin-top: 0;
+  padding: 10px;
 }
 
 .correction-list {
@@ -1446,7 +1539,7 @@ button:disabled {
 .correction-week,
 .correction-day {
   background: #fff;
-  border: 1px solid #ffd60a;
+  border: 1px solid rgba(210, 210, 215, 0.9);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -1467,7 +1560,7 @@ button:disabled {
 }
 
 .correction-week summary {
-  background: #fff8e6;
+  background: #fbfbfd;
 }
 
 .current-correction-week > summary {
@@ -1500,9 +1593,9 @@ button:disabled {
 }
 
 .correction-person {
-  background: #fffaf0;
-  border: 1px solid #ffd60a;
-  border-left: 5px solid #bf5b00;
+  background: #fff;
+  border: 1px solid rgba(210, 210, 215, 0.9);
+  border-left: 5px solid #ff9f0a;
   border-radius: 8px;
   margin: 10px;
   overflow: hidden;
@@ -1525,7 +1618,7 @@ button:disabled {
 }
 
 .correction-person-body {
-  border-top: 1px solid rgba(255, 214, 10, 0.55);
+  border-top: 1px solid rgba(210, 210, 215, 0.9);
   display: grid;
   gap: 8px;
   padding-top: 8px;
@@ -1543,7 +1636,7 @@ button:disabled {
 
 .correction-mini {
   background: rgba(255, 255, 255, 0.7);
-  border-top: 1px solid rgba(255, 214, 10, 0.55);
+  border-top: 1px solid rgba(210, 210, 215, 0.9);
   display: grid;
   gap: 3px;
   padding: 8px 12px;
@@ -1564,7 +1657,7 @@ button:disabled {
 }
 
 .older-corrections {
-  border-top: 1px solid rgba(255, 214, 10, 0.55);
+  border-top: 1px solid rgba(210, 210, 215, 0.9);
   margin-top: 2px;
 }
 

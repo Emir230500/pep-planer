@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260721-kalender-doppelklick-schliesst">
+  <link rel="stylesheet" href="/styles.css?v=20260721-admin-ruhiger">
 </head>
 <body>
   <main class="shell wide">
@@ -33,7 +33,7 @@
       <section class="admin-view-panel" data-admin-view-content="plans">
         <section class="panel">
           <h2>PEP-Plan importieren</h2>
-          <p id="buildVersion" class="hint">Version: kalender-doppelklick-schliesst-20260721</p>
+          <p id="buildVersion" class="hint">Version: admin-ruhiger-20260721</p>
           <label>Titel<input id="planTitle" placeholder="z. B. KW 27"></label>
           <label>PEP-Datei hochladen<input id="fileInput" type="file" accept=".html,.htm,.pdf,.csv,.xlsx,.xls"></label>
           <button id="clearImportBtn" class="secondary" type="button">Ausgewaehlte Datei entfernen</button>
@@ -69,14 +69,14 @@
           <div id="pepCorrections"></div>
         </section>
 
-        <section class="grid">
-          <div class="panel">
+        <section>
+          <div class="panel plan-list-panel">
             <h2>Plaene verwalten</h2>
             <div id="planList"></div>
           </div>
         </section>
 
-        <section id="inspectPanel" class="panel">
+        <section id="inspectPanel" class="panel hidden">
           <h2>Plan kontrollieren & bearbeiten</h2>
           <p class="hint">Plan waehlen, optional Mitarbeiter oder Abteilung filtern und den Tag im Kalender auswaehlen.</p>
           <div class="filters">
@@ -112,7 +112,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js?v=20260721-kalender-doppelklick-schliesst"></script>
+  <script src="/admin.js?v=20260721-admin-ruhiger"></script>
 </body>
 </html>
 
