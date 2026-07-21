@@ -501,7 +501,7 @@ function renderTeamEditForm() {
         <label>Ende<input id="teamEditEnd" value="${escapeHtml(teamEditShift.end)}" placeholder="14:00"></label>
         <label>Abteilung
           <select id="teamEditDepartment">
-            ${departments.map(department => `<option value="${escapeHtml(department)}" ${department === teamEditShift.department ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}
+            ${departments.map(department => `<option value="${escapeHtml(department)}" ${departmentOptionKey(department) === departmentOptionKey(teamEditShift.department) ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}
           </select>
         </label>
         <label>Pause<input id="teamEditBreak" value="${escapeHtml(teamEditShift.break || "")}" placeholder="00:30"></label>
@@ -561,7 +561,7 @@ function editDepartmentOptions() {
     .flatMap(plan => plan.shifts || [])
     .map(shift => shift.department || "")
     .filter(Boolean);
-  return unique([...knownDepartments(), ...fromPlans]).sort((a, b) => a.localeCompare(b, "de"));
+  return uniqueDepartments([...knownDepartments(), ...fromPlans]).sort((a, b) => a.localeCompare(b, "de"));
 }
 
 function editEmployeeOptions() {
@@ -757,13 +757,55 @@ function unique(values) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function uniqueDepartments(values) {
+  const map = new Map();
+  for (const value of values || []) {
+    const key = departmentOptionKey(value);
+    if (!key || map.has(key)) continue;
+    map.set(key, preferredDepartmentLabel(value));
+  }
+  return Array.from(map.values());
+}
+
+function departmentOptionKey(value) {
+  return fixMojibake(value)
+    .toLowerCase()
+    .replace(/ae/g, "a")
+    .replace(/oe/g, "o")
+    .replace(/ue/g, "u")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function preferredDepartmentLabel(value) {
+  const key = departmentOptionKey(value);
+  if (key === "obstgemuse") return "Obst & Gemüse";
+  if (key === "getrankeabteilung") return "Getränke Abteilung";
+  if (key === "getranke") return "Getränke";
+  if (key === "tiefkuhl") return "Tiefkühl";
+  if (key === "buro") return "Büro";
+  return fixMojibake(value).trim();
+}
+
+function fixMojibake(value) {
+  return String(value || "")
+    .replace(/Ã¤/g, "ä")
+    .replace(/Ã¶/g, "ö")
+    .replace(/Ã¼/g, "ü")
+    .replace(/Ã„/g, "Ä")
+    .replace(/Ã–/g, "Ö")
+    .replace(/Ãœ/g, "Ü")
+    .replace(/ÃŸ/g, "ß");
+}
+
 function knownDepartments() {
   return [
     "Marktleitung", "Marktaufsicht", "SCO Kasse", "Backshop", "Einarbeitung intern",
-    "Einarbeitung", "Kasse", "Food Abteilung", "Obst & Gemuese", "Obst & Gemüse",
-    "Getraenke", "Getränke", "Getraenke Abteilung", "Getränke Abteilung",
-    "BakeOff", "Tiefkuehl", "Tiefkühl", "Inventur", "Lotto", "Information",
-    "Next Kurse", "Notdienst", "Buero", "Büro", "Zeitung", "Remision",
+    "Einarbeitung", "Kasse", "Food Abteilung", "Obst & Gemüse", "Obst & Gemuese",
+    "Getränke", "Getraenke", "Getränke Abteilung", "Getraenke Abteilung",
+    "BakeOff", "Tiefkühl", "Tiefkuehl", "Inventur", "Lotto", "Information",
+    "Next Kurse", "Notdienst", "Büro", "Buero", "Zeitung", "Remision",
     "Auto Dispo", "Lager", "Mopro", "Non Food", "Werbung",
     "Urlaub", "Krankheit", "Krank angemeldet (aAu)", "Seminar", "Frei", "Abwesenheit"
   ];

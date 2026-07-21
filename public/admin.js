@@ -984,7 +984,7 @@ function updateInspectFilterOptions() {
   const shifts = inspected.shifts || [];
   const employees = unique(shifts.map(shift => normalizePersonName(shift.name)).filter(Boolean))
     .sort((a, b) => a.localeCompare(b, "de"));
-  const departments = unique(shifts.map(shift => shift.department || "").filter(Boolean))
+  const departments = uniqueDepartments(shifts.map(shift => shift.department || "").filter(Boolean))
     .sort((a, b) => a.localeCompare(b, "de"));
   updateSelectOptions("#inspectEmployee", "Alle Mitarbeiter", employees, value => value);
   updateSelectOptions("#inspectDepartment", "Alle Abteilungen", departments, value => value);
@@ -1219,7 +1219,7 @@ function renderShiftEditForm() {
         <label>Ende<input id="editEnd" value="${escapeHtml(editShift.end)}" placeholder="14:00"></label>
         <label>Abteilung
           <select id="editDepartment">
-            ${departmentOptions.map(department => `<option value="${escapeHtml(department)}" ${department === editShift.department ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}
+            ${departmentOptions.map(department => `<option value="${escapeHtml(department)}" ${departmentOptionKey(department) === departmentOptionKey(editShift.department) ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}
           </select>
         </label>
         <label>Pause<input id="editBreak" value="${escapeHtml(editShift.break || "")}" placeholder="00:30"></label>
@@ -1269,7 +1269,7 @@ function editDepartmentOptions() {
   const fromPlan = (inspected.shifts || [])
     .map(shift => shift.department || "")
     .filter(Boolean);
-  return unique([...knownDepartments(), ...fromPlan])
+  return uniqueDepartments([...knownDepartments(), ...fromPlan])
     .sort((a, b) => a.localeCompare(b, "de"));
 }
 
@@ -2365,12 +2365,54 @@ function detectDepartment(text) {
 function knownDepartments() {
   return [
     "Marktleitung", "Marktaufsicht", "SCO Kasse", "Backshop", "Einarbeitung intern", "Einarbeitung", "Kasse", "Food Abteilung",
-    "Obst & Gemuese", "Obst & Gem\u00fcse", "Getraenke", "Getr\u00e4nke", "BakeOff",
-    "Tiefkuehl", "Tiefk\u00fchl", "Inventur", "Lotto", "Information",
+    "Obst & Gem\u00fcse", "Obst & Gemuese", "Getr\u00e4nke", "Getraenke", "BakeOff",
+    "Tiefk\u00fchl", "Tiefkuehl", "Inventur", "Lotto", "Information",
     "Next Kurse", "Notdienst", "B\u00fcro", "Buero", "Zeitung", "Remision",
     "Auto Dispo",
-    "Lager", "Mopro", "Non Food", "Werbung", "Getraenke Abteilung", "Getr\u00e4nke Abteilung"
+    "Lager", "Mopro", "Non Food", "Werbung", "Getr\u00e4nke Abteilung", "Getraenke Abteilung"
   ];
+}
+
+function uniqueDepartments(values) {
+  const map = new Map();
+  for (const value of values || []) {
+    const key = departmentOptionKey(value);
+    if (!key || map.has(key)) continue;
+    map.set(key, preferredDepartmentLabel(value));
+  }
+  return Array.from(map.values());
+}
+
+function departmentOptionKey(value) {
+  return fixMojibake(value)
+    .toLowerCase()
+    .replace(/ae/g, "a")
+    .replace(/oe/g, "o")
+    .replace(/ue/g, "u")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function preferredDepartmentLabel(value) {
+  const key = departmentOptionKey(value);
+  if (key === "obstgemuse") return "Obst & Gem\u00fcse";
+  if (key === "getrankeabteilung") return "Getr\u00e4nke Abteilung";
+  if (key === "getranke") return "Getr\u00e4nke";
+  if (key === "tiefkuhl") return "Tiefk\u00fchl";
+  if (key === "buro") return "B\u00fcro";
+  return fixMojibake(value).trim();
+}
+
+function fixMojibake(value) {
+  return String(value || "")
+    .replace(/Ã¤/g, "\u00e4")
+    .replace(/Ã¶/g, "\u00f6")
+    .replace(/Ã¼/g, "\u00fc")
+    .replace(/Ã„/g, "\u00c4")
+    .replace(/Ã–/g, "\u00d6")
+    .replace(/Ãœ/g, "\u00dc")
+    .replace(/ÃŸ/g, "\u00df");
 }
 
 function unique(values) {
