@@ -12,7 +12,7 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "admin-bereiche-20260721";
+const BUILD_VERSION = "kalender-arbeitstage-markiert-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -688,11 +688,14 @@ function validPushSubscription(subscription) {
     && typeof subscription.keys.auth === "string";
 }
 
-async function sendPlanPush(db, plan, mode = "auto") {
+async function sendPlanPush(db, plan, mode = "auto", targetNames = null) {
   if (!webPush || !Array.isArray(db.pushSubscriptions) || !db.pushSubscriptions.length) {
     return { sent: 0, removed: 0 };
   }
-  const changedNames = new Set((plan.changes || []).map(change => employeeKey(change.name)).filter(Boolean));
+  const sourceNames = Array.isArray(targetNames) && targetNames.length
+    ? targetNames
+    : (plan.changes || []).map(change => change.name);
+  const changedNames = new Set(sourceNames.map(name => employeeKey(name)).filter(Boolean));
   const affectedOnly = mode === "affected" || (mode === "auto" && changedNames.size);
   const subscriptions = affectedOnly && changedNames.size
     ? db.pushSubscriptions.filter(saved => changedNames.has(employeeKey(saved.name)))
@@ -722,7 +725,7 @@ async function sendPlanPush(db, plan, mode = "auto") {
     }
   }
   db.pushSubscriptions = alive;
-  return { sent, removed };
+  return { sent, removed, mode, affected: affectedOnly ? Array.from(changedNames) : [] };
 }
 
 function shouldNotifyOnPublish(db, plan) {
@@ -785,7 +788,7 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected")
   const correction = createManualPepCorrection(db, plan, change);
   const mode = ["all", "affected", "none"].includes(notifyMode) ? notifyMode : "affected";
   const push = publishedIds(db).includes(plan.id) && mode !== "none"
-    ? await sendPlanPush(db, plan, mode)
+    ? await sendPlanPush(db, plan, mode, [change.name])
     : { sent: 0, removed: 0, skipped: true, mode };
   return { plan, correction, push };
 }

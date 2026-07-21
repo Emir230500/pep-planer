@@ -1117,6 +1117,8 @@ function renderInspectCalendar() {
 
 function renderInspectCalendarMonth(month, selectedDate) {
   const dates = inspectDayOptions(month);
+  const activeDates = inspectCalendarActiveDates();
+  const hasFocusedFilter = Boolean(document.querySelector("#inspectEmployee")?.value || document.querySelector("#inspectDepartment")?.value);
   const [year, monthNumber] = month.split("-").map(Number);
   const first = new Date(year, monthNumber - 1, 1);
   const startOffset = (first.getDay() + 6) % 7;
@@ -1129,7 +1131,8 @@ function renderInspectCalendarMonth(month, selectedDate) {
       label: parsed ? String(parsed.getDate()) : dateValue,
       selected: selectedDate === dateValue,
       today: isSameGermanDate(parsed, new Date()),
-      hasPlan: Boolean(planForDate(dateValue))
+      hasPlan: Boolean(planForDate(dateValue)),
+      hasMatch: activeDates.has(dateValue)
     });
   }
   return `
@@ -1147,13 +1150,24 @@ function renderInspectCalendarMonth(month, selectedDate) {
       <div class="calendar-days">
         ${cells.map(cell => cell.muted
           ? '<span class="calendar-empty"></span>'
-          : `<button class="calendar-day ${cell.selected ? "selected" : ""} ${cell.today ? "today" : ""} ${cell.hasPlan ? "" : "no-plan"}" data-inspect-calendar-day="${escapeHtml(cell.date)}" type="button" ${cell.hasPlan ? "" : "disabled"}>
+          : `<button class="calendar-day ${cell.selected ? "selected" : ""} ${cell.today ? "today" : ""} ${cell.hasPlan ? "" : "no-plan"} ${hasFocusedFilter && cell.hasMatch ? "has-filter-match" : ""} ${hasFocusedFilter && !cell.hasMatch ? "no-filter-match" : ""}" data-inspect-calendar-day="${escapeHtml(cell.date)}" type="button">
               <span>${escapeHtml(cell.label)}</span>
+              ${hasFocusedFilter && cell.hasMatch ? '<small>Eintrag</small>' : ""}
             </button>`
         ).join("")}
       </div>
     </div>
   `;
+}
+
+function inspectCalendarActiveDates() {
+  const employee = document.querySelector("#inspectEmployee")?.value || "";
+  const department = document.querySelector("#inspectDepartment")?.value || "";
+  return new Set((inspected.shifts || [])
+    .filter(shift => !employee || normalizePersonName(shift.name) === employee)
+    .filter(shift => !department || (shift.department || "") === department)
+    .map(shift => shift.date)
+    .filter(Boolean));
 }
 
 function inspectMonthOptions() {

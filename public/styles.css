@@ -1303,6 +1303,30 @@ button:disabled {
   background: transparent;
 }
 
+.calendar-day.has-filter-match {
+  background: #e5f8ff;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  color: var(--text);
+  font-weight: 900;
+}
+
+.calendar-day.has-filter-match small {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.calendar-day.no-filter-match:not(.selected) {
+  color: #8e8e93;
+  opacity: 0.58;
+}
+
+.calendar-day.no-filter-match:not(.selected):hover {
+  background: #f5f5f7;
+  opacity: 0.86;
+}
+
 .calendar-empty {
   min-height: 42px;
 }
