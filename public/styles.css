@@ -1112,6 +1112,11 @@ button:disabled {
   overflow: hidden;
 }
 
+.change-week.current-change-week {
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+}
+
 .change-week summary,
 .change-day summary {
   align-items: center;
@@ -1124,6 +1129,10 @@ button:disabled {
 
 .change-week summary {
   background: #fef3c7;
+}
+
+.current-change-week > summary {
+  background: #d1fae5;
 }
 
 .change-day summary {
@@ -1163,6 +1172,59 @@ button:disabled {
   gap: 10px;
 }
 
+.correction-week-list,
+.correction-day-list {
+  display: grid;
+  gap: 10px;
+}
+
+.correction-week-list {
+  margin-top: 10px;
+}
+
+.correction-week,
+.correction-day {
+  background: #fff;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.correction-week.current-correction-week {
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+}
+
+.correction-week summary,
+.correction-day summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.correction-week summary {
+  background: #fef3c7;
+}
+
+.current-correction-week > summary {
+  background: #d1fae5;
+}
+
+.correction-day summary {
+  background: #fff7ed;
+  border-top: 1px solid #fed7aa;
+}
+
+.correction-summary-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .correction-item {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1172,6 +1234,7 @@ button:disabled {
   border: 1px solid #f59e0b;
   border-left: 5px solid #d97706;
   border-radius: 8px;
+  margin: 10px;
   padding: 12px;
 }
 

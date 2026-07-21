@@ -504,17 +504,11 @@ function renderPepCorrections(corrections) {
       <span class="badge warn-badge">${open.length} offen</span>
       ${done.length ? `<span class="badge subtle">${done.length} erledigt</span>` : ""}
     </div>
-    ${open.length ? `
-      <div class="correction-list">
-        ${open.map(item => renderPepCorrection(item)).join("")}
-      </div>
-    ` : '<p class="ok-text">Alles fuer PEP abgehakt.</p>'}
+    ${open.length ? renderPepCorrectionGroups(open, false) : '<p class="ok-text">Alles fuer PEP abgehakt.</p>'}
     ${done.length ? `
       <details class="done-corrections">
         <summary>Erledigte Korrekturen anzeigen (${done.length})</summary>
-        <div class="correction-list done-list">
-          ${done.map(item => renderPepCorrection(item)).join("")}
-        </div>
+        ${renderPepCorrectionGroups(done, true)}
       </details>
     ` : ""}
   `;
@@ -537,6 +531,41 @@ function renderPepCorrections(corrections) {
       await loadAdmin();
     });
   });
+}
+
+function renderPepCorrectionGroups(corrections, doneList) {
+  const weeks = groupChangesByWeek(corrections);
+  return `
+    <div class="correction-week-list ${doneList ? "done-list" : ""}">
+      ${weeks.map((week, index) => `
+        <details class="correction-week ${week.isCurrent ? "current-correction-week" : ""}" ${week.isCurrent || index === 0 ? "open" : ""}>
+          <summary>
+            <span><strong>KW ${escapeHtml(week.week)}</strong>${week.year ? ` / ${escapeHtml(week.year)}` : ""}</span>
+            <span class="correction-summary-badges">
+              ${week.isCurrent ? '<span class="badge">Aktuelle KW</span>' : ""}
+              <span class="badge ${doneList ? "subtle" : "warn-badge"}">${week.changes.length} ${doneList ? "erledigt" : "offen"}</span>
+            </span>
+          </summary>
+          <div class="correction-day-list">
+            ${week.days.map(day => {
+              const parsed = parseGermanDate(day.date);
+              return `
+                <details class="correction-day" open>
+                  <summary>
+                    <span><strong>${escapeHtml(weekdayLong(parsed))}</strong>, ${escapeHtml(day.date)}</span>
+                    <span class="badge subtle">${day.changes.length}</span>
+                  </summary>
+                  <div class="correction-list">
+                    ${day.changes.map(item => renderPepCorrection(item)).join("")}
+                  </div>
+                </details>
+              `;
+            }).join("")}
+          </div>
+        </details>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderPepCorrection(item) {
@@ -986,10 +1015,13 @@ function renderInspectionChanges(changes) {
       <strong>${changes.length} Aenderungen zum vorher veroeffentlichten Plan</strong>
       <div class="change-week-list">
         ${groupedWeeks.map((week, index) => `
-          <details class="change-week" ${index === 0 ? "open" : ""}>
+          <details class="change-week ${week.isCurrent ? "current-change-week" : ""}" ${week.isCurrent || index === 0 ? "open" : ""}>
             <summary>
               <span><strong>KW ${escapeHtml(week.week)}</strong>${week.year ? ` / ${escapeHtml(week.year)}` : ""}</span>
-              <span class="badge warn-badge">${week.changes.length} Aenderungen</span>
+              <span class="correction-summary-badges">
+                ${week.isCurrent ? '<span class="badge">Aktuelle KW</span>' : ""}
+                <span class="badge warn-badge">${week.changes.length} Aenderungen</span>
+              </span>
             </summary>
             <div class="change-day-list">
               ${week.days.map(day => {
@@ -1031,6 +1063,7 @@ function renderInspectionChangeItem(change) {
 
 function groupChangesByWeek(changes) {
   const groups = new Map();
+  const todayInfo = isoWeekInfo(new Date());
   for (const change of changes || []) {
     const date = parseGermanDate(change.date);
     const info = isoWeekInfo(date);
@@ -1040,6 +1073,7 @@ function groupChangesByWeek(changes) {
         key,
         week: info?.week || "-",
         year: info?.year || "",
+        isCurrent: Boolean(info && todayInfo && info.week === todayInfo.week && info.year === todayInfo.year),
         changes: [],
         days: new Map()
       });
