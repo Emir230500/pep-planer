@@ -602,8 +602,9 @@ function renderPins(employees) {
 document.querySelector("#employeeSearch")?.addEventListener("input", () => renderPins(adminState.employees || []));
 document.querySelector("#addEmployeeBtn")?.addEventListener("click", addEmployee);
 document.querySelector("#inspectPlan")?.addEventListener("change", event => loadInspection(event.target.value, false));
-document.querySelectorAll("#inspectSearch, #inspectWeek, #inspectMonth").forEach(input => {
+document.querySelectorAll("#inspectSearch, #inspectWeek, #inspectMonth, #inspectDay").forEach(input => {
   input.addEventListener("input", renderInspection);
+  input.addEventListener("change", renderInspection);
 });
 
 function renderInspectPlanOptions(plans, selectedId) {
@@ -754,26 +755,19 @@ function renderInspection() {
 
   const changes = inspected.changes || [];
   if (changes.length) {
-    issueList.innerHTML += `
-      <div class="issue-box change-box">
-        <strong>${changes.length} Aenderungen zum vorher veroeffentlichten Plan</strong>
-        ${changes.slice(0, 20).map(change => `
-          <p><strong>${escapeHtml(change.name)}</strong> ${escapeHtml(change.date)}: ${changeTypeLabel(change.type)}<br>
-          <span class="meta">Alt: ${escapeHtml(change.before)}</span><br>
-          <span class="meta">Neu: ${escapeHtml(change.after)}</span></p>
-        `).join("")}
-        ${changes.length > 20 ? `<p>... ${changes.length - 20} weitere Aenderungen</p>` : ""}
-      </div>
-    `;
+    issueList.innerHTML += renderInspectionChanges(changes);
   }
 
   const query = normalizeText(document.querySelector("#inspectSearch").value);
   const week = document.querySelector("#inspectWeek").value.trim();
   const month = document.querySelector("#inspectMonth").value;
+  updateInspectDayOptions(month);
+  const day = document.querySelector("#inspectDay")?.value || "";
   const filtered = inspected.shifts
     .filter(shift => !query || normalizeText(`${shift.name} ${shift.department}`).includes(query))
     .filter(shift => !week || String(isoWeekInfo(parseGermanDate(shift.date))?.week || "") === week)
     .filter(shift => !month || monthKey(parseGermanDate(shift.date)) === month)
+    .filter(shift => !day || shift.date === day)
     .sort((a, b) => (parseGermanDate(a.date) - parseGermanDate(b.date)) || a.name.localeCompare(b.name, "de") || timeToMinutes(a.start) - timeToMinutes(b.start));
 
   const groupedWeeks = groupInspectionByWeek(filtered);
@@ -805,6 +799,36 @@ function renderInspection() {
   });
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
   document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
+}
+
+function updateInspectDayOptions(selectedMonth) {
+  const select = document.querySelector("#inspectDay");
+  if (!select) return;
+  const current = select.value;
+  const dates = inspectDayOptions(selectedMonth);
+  select.innerHTML = `<option value="">Alle Tage</option>${dates.map(date => {
+    const parsed = parseGermanDate(date);
+    const label = parsed ? `${weekdayLong(parsed)}, ${date}` : date;
+    return `<option value="${escapeHtml(date)}" ${date === current ? "selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("")}`;
+  if (current && !dates.includes(current)) select.value = "";
+}
+
+function inspectDayOptions(selectedMonth) {
+  if (selectedMonth) {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    if (year && month) {
+      const options = [];
+      const cursor = new Date(year, month - 1, 1);
+      while (cursor.getMonth() === month - 1) {
+        options.push(formatGermanDate(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return options;
+    }
+  }
+  return unique((inspected.shifts || []).map(shift => shift.date).filter(Boolean))
+    .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
 }
 
 function renderShiftEditForm() {
@@ -953,6 +977,90 @@ function changeTypeLabel(type) {
   if (type === "added") return "neue Schicht";
   if (type === "removed") return "Schicht entfernt";
   return "Schicht geaendert";
+}
+
+function renderInspectionChanges(changes) {
+  const groupedWeeks = groupChangesByWeek(changes);
+  return `
+    <div class="issue-box change-box">
+      <strong>${changes.length} Aenderungen zum vorher veroeffentlichten Plan</strong>
+      <div class="change-week-list">
+        ${groupedWeeks.map((week, index) => `
+          <details class="change-week" ${index === 0 ? "open" : ""}>
+            <summary>
+              <span><strong>KW ${escapeHtml(week.week)}</strong>${week.year ? ` / ${escapeHtml(week.year)}` : ""}</span>
+              <span class="badge warn-badge">${week.changes.length} Aenderungen</span>
+            </summary>
+            <div class="change-day-list">
+              ${week.days.map(day => {
+                const parsed = parseGermanDate(day.date);
+                return `
+                  <details class="change-day" open>
+                    <summary>
+                      <span><strong>${escapeHtml(weekdayLong(parsed))}</strong>, ${escapeHtml(day.date)}</span>
+                      <span class="badge subtle">${day.changes.length}</span>
+                    </summary>
+                    <div class="change-items">
+                      ${day.changes.map(change => renderInspectionChangeItem(change)).join("")}
+                    </div>
+                  </details>
+                `;
+              }).join("")}
+            </div>
+          </details>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderInspectionChangeItem(change) {
+  return `
+    <div class="change-item">
+      <div>
+        <strong>${escapeHtml(change.name)}</strong>
+        <span class="badge subtle">${escapeHtml(changeTypeLabel(change.type))}</span>
+      </div>
+      <div class="change-before-after">
+        <p><span class="meta">Alt:</span> ${escapeHtml(change.before)}</p>
+        <p><span class="meta">Neu:</span> ${escapeHtml(change.after)}</p>
+      </div>
+    </div>
+  `;
+}
+
+function groupChangesByWeek(changes) {
+  const groups = new Map();
+  for (const change of changes || []) {
+    const date = parseGermanDate(change.date);
+    const info = isoWeekInfo(date);
+    const key = `${info?.year || "0000"}-${String(info?.week || 0).padStart(2, "0")}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        week: info?.week || "-",
+        year: info?.year || "",
+        changes: [],
+        days: new Map()
+      });
+    }
+    const group = groups.get(key);
+    group.changes.push(change);
+    const dayKey = change.date || "Ohne Datum";
+    if (!group.days.has(dayKey)) group.days.set(dayKey, []);
+    group.days.get(dayKey).push(change);
+  }
+  return Array.from(groups.values())
+    .sort((a, b) => a.key.localeCompare(b.key))
+    .map(group => ({
+      ...group,
+      days: Array.from(group.days.entries())
+        .map(([date, dayChanges]) => ({
+          date,
+          changes: dayChanges.slice().sort((a, b) => a.name.localeCompare(b.name, "de"))
+        }))
+        .sort((a, b) => (parseGermanDate(a.date) || 0) - (parseGermanDate(b.date) || 0))
+    }));
 }
 
 function parseDailyIssueMessage(message) {

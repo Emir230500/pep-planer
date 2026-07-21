@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260721-teamplan-add-shift-notify">
+  <link rel="stylesheet" href="/styles.css?v=20260721-admin-aenderungen-kw-tag-teamplan-add">
 </head>
 <body>
   <main class="shell wide">
@@ -76,6 +76,7 @@
           <label>Suche<input id="inspectSearch" type="search" placeholder="Name oder Abteilung"></label>
           <label>KW<input id="inspectWeek" inputmode="numeric" placeholder="z. B. 31"></label>
           <label>Monat<input id="inspectMonth" type="month"></label>
+          <label>Tag<select id="inspectDay"><option value="">Alle Tage</option></select></label>
         </div>
         <p id="inspectMsg" class="msg"></p>
         <div id="issueList"></div>
@@ -97,7 +98,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js?v=20260721-teamplan-add-shift-notify"></script>
+  <script src="/admin.js?v=20260721-admin-aenderungen-kw-tag-teamplan-add"></script>
 </body>
 </html>
 
