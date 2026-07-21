@@ -534,6 +534,8 @@ function showPublishChoice(planId) {
   const plan = (adminState.plans || []).find(item => item.id === planId);
   const box = document.querySelector("#publishChoice");
   if (!box || !plan) return;
+  activeAdminViewPanel = "manage";
+  renderAdminViewSwitch();
   const recommended = plan.recommendedNotifyMode || (plan.changeCount ? "affected" : "all");
   box.classList.remove("hidden");
   box.innerHTML = `
@@ -549,7 +551,7 @@ function showPublishChoice(planId) {
       <button data-publish-cancel="1" class="secondary" type="button">Abbrechen</button>
     </div>
   `;
-  box.scrollIntoView({ behavior: "smooth", block: "start" });
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function renderPublishOption(value, title, text, selected) {
