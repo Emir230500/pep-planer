@@ -89,24 +89,36 @@ function showTeamShifts(data) {
 
   shiftList.innerHTML = `
     ${renderNextWorkDay(nextWorkDay)}
-    <section class="own-plan-block">
+    <nav class="view-switch" aria-label="Ansicht wechseln">
+      <button class="active" data-view-panel="own" type="button">Mein Plan</button>
+      <button data-view-panel="team" type="button">Teamplan</button>
+    </nav>
+    <section class="own-plan-block view-panel" data-view-content="own">
       <h2>Mein Plan</h2>
       <nav class="week-nav">
         ${ownWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
       </nav>
       ${ownWeeks.map(week => renderWeek(week)).join("")}
     </section>
-    <section class="team-plan-block">
+    <section class="team-plan-block view-panel hidden" data-view-content="team">
       <h2>Teamplan</h2>
-      <p class="hint">Alle anderen Mitarbeiter, sortiert nach KW, Tag und Abteilung.</p>
       ${renderTeamEditForm()}
+      <nav class="week-nav">
+        ${teamWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="team-kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
+      </nav>
+      ${teamWeeks.map(week => renderTeamWeek(week)).join("")}
     </section>
-    <nav class="week-nav">
-      ${teamWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="team-kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
-    </nav>
-    ${teamWeeks.map(week => renderTeamWeek(week)).join("")}
   `;
 
+  document.querySelectorAll("[data-view-panel]").forEach(button => {
+    button.addEventListener("click", () => {
+      const target = button.dataset.viewPanel;
+      document.querySelectorAll("[data-view-panel]").forEach(item => item.classList.toggle("active", item === button));
+      document.querySelectorAll("[data-view-content]").forEach(panel => {
+        panel.classList.toggle("hidden", panel.dataset.viewContent !== target);
+      });
+    });
+  });
   document.querySelectorAll("[data-week-target]").forEach(button => {
     button.addEventListener("click", () => {
       const week = document.querySelector(`#${button.dataset.weekTarget}`);
@@ -189,7 +201,7 @@ function groupTeamByPlans(plans) {
   for (const plan of plans) {
     const rangeDates = datesFromPlanRange(plan.range);
     for (const original of plan.shifts) {
-      const shift = { ...original, planTitle: plan.title, changed: (plan.changes || []).some(change => employeeKey(change.name) === employeeKey(original.name) && change.date === original.date) };
+      const shift = { ...original, planId: plan.id, planTitle: plan.title, planRange: plan.range, changed: (plan.changes || []).some(change => employeeKey(change.name) === employeeKey(original.name) && change.date === original.date) };
       const date = parseGermanDate(shift.date);
       if (!date) continue;
       const info = isoWeekInfo(date);

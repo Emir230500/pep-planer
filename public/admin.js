@@ -397,9 +397,9 @@ function normalizePersonName(value) {
 function renderPlans(plans) {
   const sortedPlans = sortPlansByDate(plans);
   document.querySelector("#planList").innerHTML = sortedPlans.length ? sortedPlans.map(plan => `
-    <div class="item">
+    <div class="item plan-item ${isCurrentPlanWeek(plan) ? "current-plan-item" : ""}">
       <div>
-        <strong>${escapeHtml(plan.title)}</strong> ${plan.isPublished ? '<span class="badge">Veroeffentlicht</span>' : ""} ${plan.version > 1 ? `<span class="badge subtle">Version ${plan.version}</span>` : ""}<br>
+        <strong>${escapeHtml(plan.title)}</strong> ${isCurrentPlanWeek(plan) ? '<span class="badge">Aktuelle KW</span>' : ""} ${plan.isPublished ? '<span class="badge">Veroeffentlicht</span>' : ""} ${plan.version > 1 ? `<span class="badge subtle">Version ${plan.version}</span>` : ""}<br>
         <span class="meta">Zeitraum: ${escapeHtml(plan.range || "offen")}</span><br>
         <span class="meta">Upload: ${formatDateTime(plan.uploadedAt)} - ${plan.shiftCount} Schichten</span>
         ${plan.changeCount ? `<br><span class="warn-text">${plan.changeCount} Aenderungen zum alten Plan</span>` : ""}
@@ -626,6 +626,14 @@ function planStartDate(plan) {
   return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1])).getTime();
 }
 
+function isCurrentPlanWeek(plan) {
+  const start = new Date(planStartDate(plan));
+  if (Number.isNaN(start.getTime())) return false;
+  const current = isoWeekInfo(new Date());
+  const planWeek = isoWeekInfo(start);
+  return Boolean(current && planWeek && current.week === planWeek.week && current.year === planWeek.year);
+}
+
 function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "unbekannt";
@@ -777,6 +785,11 @@ function renderInspection() {
   document.querySelectorAll("[data-inspect-week-toggle]").forEach(button => {
     button.addEventListener("click", () => {
       button.closest(".inspect-week")?.classList.toggle("collapsed");
+    });
+  });
+  document.querySelectorAll("[data-inspect-day-toggle]").forEach(button => {
+    button.addEventListener("click", () => {
+      button.closest(".inspect-day")?.classList.toggle("collapsed");
     });
   });
   document.querySelectorAll("[data-edit-shift]").forEach(button => {
@@ -994,12 +1007,22 @@ function renderInspectionWeek(group, open) {
         </span>
       </button>
       <div class="inspect-week-body admin-preview">
-        ${days.map(day => `
-          <section class="inspect-day">
-            <div class="inspect-day-head">
-              <strong>${escapeHtml(weekdayLong(parseGermanDate(day.date)) || "")}, ${escapeHtml(day.date)}</strong>
-              <span class="badge subtle">${day.shifts.length} Eintraege</span>
-            </div>
+        ${days.map(day => {
+          const dayWorkCount = day.shifts.filter(shift => !isInspectionStatus(shift)).length;
+          const dayStatusCount = day.shifts.length - dayWorkCount;
+          return `
+          <section class="inspect-day collapsed">
+            <button class="inspect-day-head" data-inspect-day-toggle type="button">
+              <span class="inspect-day-title">
+                <strong>${escapeHtml(weekdayLong(parseGermanDate(day.date)) || "")}</strong>
+                <small>${escapeHtml(day.date)}</small>
+              </span>
+              <span class="inspect-day-actions">
+                <span class="badge subtle">${dayWorkCount} Dienste</span>
+                ${dayStatusCount ? `<span class="badge warn-badge">${dayStatusCount} Abwesenheiten</span>` : ""}
+                <span class="badge subtle">Tag oeffnen</span>
+              </span>
+            </button>
             <div class="preview inspect-day-table">
               <table>
                 <thead><tr><th>Mitarbeiter</th><th>Zeit</th><th>Abteilung</th><th>Pause</th><th>Aktion</th></tr></thead>
@@ -1009,7 +1032,7 @@ function renderInspectionWeek(group, open) {
               </table>
             </div>
           </section>
-        `).join("")}
+        `}).join("")}
       </div>
     </section>
   `;
