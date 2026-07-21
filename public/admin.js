@@ -442,6 +442,10 @@ function normalizePersonName(value) {
   return String(value || "").trim().replace(/\s+/g, " ").replace(/\s+,/g, ",");
 }
 
+function employeeKey(name) {
+  return normalizePersonName(name).toLowerCase();
+}
+
 function renderPlans(plans) {
   const sortedPlans = sortPlansByDate(plans);
   document.querySelector("#planList").innerHTML = sortedPlans.length ? sortedPlans.map(plan => `
