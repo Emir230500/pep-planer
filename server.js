@@ -5,13 +5,14 @@ const crypto = require("crypto");
 
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
-const SESSION_SECRET = process.env.SESSION_SECRET || "bitte-aendern-" + crypto.randomBytes(16).toString("hex");
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
-const PUBLIC_DIR = path.join(__dirname, "public");
+const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "abteilungen-ohne-dubletten-20260721";
+const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
+const PUBLIC_DIR = path.join(__dirname, "public");
+const BUILD_VERSION = "login-stabil-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -36,6 +37,24 @@ const MIME = {
 
 function defaultDb() {
   return { employees: {}, plans: [], publishedPlanIds: [], pushSubscriptions: [], pepCorrections: [] };
+}
+
+function readOrCreateSessionSecret() {
+  if (DATABASE_URL) {
+    return crypto.createHash("sha256").update(`pep-planer-session:${DATABASE_URL}`).digest("hex");
+  }
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (fs.existsSync(SESSION_SECRET_FILE)) {
+      const existing = fs.readFileSync(SESSION_SECRET_FILE, "utf8").trim();
+      if (existing.length >= 32) return existing;
+    }
+    const secret = crypto.randomBytes(32).toString("base64url");
+    fs.writeFileSync(SESSION_SECRET_FILE, secret, { mode: 0o600 });
+    return secret;
+  } catch {
+    return crypto.randomBytes(32).toString("base64url");
+  }
 }
 
 function normalizeDb(db) {

@@ -27,7 +27,11 @@ async function api(url, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Fehler");
+  if (!res.ok) {
+    const error = new Error(res.status === 401 ? "Sitzung abgelaufen. Bitte neu anmelden." : (data.error || "Fehler"));
+    error.status = res.status;
+    throw error;
+  }
   return data;
 }
 
