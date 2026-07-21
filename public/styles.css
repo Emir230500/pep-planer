@@ -1475,6 +1475,52 @@ button:disabled {
   padding: 12px;
 }
 
+.correction-person {
+  background: #fffaf0;
+  border: 1px solid #ffd60a;
+  border-left: 5px solid #bf5b00;
+  border-radius: 8px;
+  margin: 10px;
+  overflow: hidden;
+}
+
+.correction-person.done {
+  background: #f8fafc;
+  border-color: var(--line);
+  border-left-color: #94a3b8;
+  opacity: 0.86;
+}
+
+.correction-person-head {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.correction-mini-list {
+  display: grid;
+  gap: 1px;
+}
+
+.correction-mini {
+  background: rgba(255, 255, 255, 0.7);
+  border-top: 1px solid rgba(255, 214, 10, 0.55);
+  display: grid;
+  gap: 3px;
+  padding: 8px 12px;
+}
+
+.correction-mini.latest-correction-mini {
+  background: #eef5ff;
+  border-left: 4px solid var(--accent);
+}
+
+.correction-mini p {
+  margin: 0;
+}
+
 .correction-item.done {
   background: #f8fafc;
   border-color: var(--line);

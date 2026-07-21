@@ -167,6 +167,11 @@ function showTeamShifts(data) {
     teamEditShift = null;
     showTeamShifts(currentTeamData);
   });
+  document.querySelectorAll("#teamEditStart, #teamEditEnd").forEach(input => {
+    input.addEventListener("blur", () => {
+      input.value = normalizeTimeValue(input.value);
+    });
+  });
   document.querySelector("#saveTeamEdit")?.addEventListener("click", saveTeamEdit);
   document.querySelector("#deleteTeamEdit")?.addEventListener("click", deleteTeamEdit);
 }
@@ -595,8 +600,8 @@ async function saveTeamEdit() {
         after: {
           name: document.querySelector("#teamEditName").value,
           date: document.querySelector("#teamEditDate").value,
-          start: document.querySelector("#teamEditStart").value,
-          end: document.querySelector("#teamEditEnd").value,
+          start: normalizeTimeValue(document.querySelector("#teamEditStart").value),
+          end: normalizeTimeValue(document.querySelector("#teamEditEnd").value),
           department: document.querySelector("#teamEditDepartment").value,
           break: normalizeBreakValue(document.querySelector("#teamEditBreak").value)
         },
@@ -860,6 +865,27 @@ function normalizeBreakValue(value) {
   const match = text.match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return text;
   return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+}
+
+function normalizeTimeValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const colon = text.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (colon) {
+    const hours = Number(colon[1]);
+    const minutes = Number(colon[2]);
+    if (hours <= 23 && minutes <= 59) return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+  if (/^\d{1,2}$/.test(text)) {
+    const hours = Number(text);
+    if (hours <= 23) return `${String(hours).padStart(2, "0")}:00`;
+  }
+  if (/^\d{3,4}$/.test(text)) {
+    const hours = Number(text.slice(0, -2));
+    const minutes = Number(text.slice(-2));
+    if (hours <= 23 && minutes <= 59) return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+  return text;
 }
 
 function shiftDurationMinutes(shift) {

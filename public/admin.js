@@ -576,12 +576,34 @@ function renderPepCorrections(corrections) {
       await loadAdmin();
     });
   });
+  document.querySelectorAll("[data-correction-done-many]").forEach(button => {
+    button.addEventListener("click", async () => {
+      for (const id of button.dataset.correctionDoneMany.split("|").filter(Boolean)) {
+        await api(`/api/admin/pep-corrections/${encodeURIComponent(id)}/done`, {
+          method: "POST",
+          body: { done: true }
+        });
+      }
+      await loadAdmin();
+    });
+  });
   document.querySelectorAll("[data-correction-open]").forEach(button => {
     button.addEventListener("click", async () => {
       await api(`/api/admin/pep-corrections/${encodeURIComponent(button.dataset.correctionOpen)}/done`, {
         method: "POST",
         body: { done: false }
       });
+      await loadAdmin();
+    });
+  });
+  document.querySelectorAll("[data-correction-open-many]").forEach(button => {
+    button.addEventListener("click", async () => {
+      for (const id of button.dataset.correctionOpenMany.split("|").filter(Boolean)) {
+        await api(`/api/admin/pep-corrections/${encodeURIComponent(id)}/done`, {
+          method: "POST",
+          body: { done: false }
+        });
+      }
       await loadAdmin();
     });
   });
@@ -610,7 +632,7 @@ function renderPepCorrectionGroups(corrections, doneList) {
                     <span class="badge subtle">${day.changes.length}</span>
                   </summary>
                   <div class="correction-list">
-                    ${day.changes.map(item => renderPepCorrection(item)).join("")}
+                    ${groupCorrectionsByPerson(day.changes).map(group => renderPepCorrectionPerson(group, doneList)).join("")}
                   </div>
                 </details>
               `;
@@ -618,6 +640,60 @@ function renderPepCorrectionGroups(corrections, doneList) {
           </div>
         </details>
       `).join("")}
+    </div>
+  `;
+}
+
+function groupCorrectionsByPerson(corrections) {
+  const groups = new Map();
+  for (const item of corrections || []) {
+    const key = employeeKey(item.name);
+    if (!groups.has(key)) groups.set(key, { name: item.name, items: [] });
+    groups.get(key).items.push(item);
+  }
+  return Array.from(groups.values())
+    .map(group => ({
+      ...group,
+      items: group.items.slice().sort((a, b) => Number(b.isLatestForPersonDay) - Number(a.isLatestForPersonDay) || new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    }))
+    .sort((a, b) => Number(b.items.some(item => item.isLatestForPersonDay)) - Number(a.items.some(item => item.isLatestForPersonDay)) || a.name.localeCompare(b.name, "de"));
+}
+
+function renderPepCorrectionPerson(group, doneList) {
+  const ids = group.items.map(item => item.id).filter(Boolean).join("|");
+  const latest = group.items.find(item => item.isLatestForPersonDay) || group.items[0];
+  return `
+    <div class="correction-person ${doneList ? "done" : ""}">
+      <div class="correction-person-head">
+        <div>
+          <strong>${escapeHtml(group.name)}</strong>
+          <span class="badge subtle">${group.items.length} ${group.items.length === 1 ? "Aenderung" : "Aenderungen"}</span>
+          ${latest?.isLatestForPersonDay ? '<span class="badge">Aktuell gueltig</span>' : ""}
+        </div>
+        <div class="actions">
+          ${doneList
+            ? `<button class="secondary" data-correction-open-many="${escapeHtml(ids)}">Wieder offen</button>`
+            : `<button data-correction-done-many="${escapeHtml(ids)}">Erledigt</button>`}
+        </div>
+      </div>
+      <div class="correction-mini-list">
+        ${group.items.map(item => renderPepCorrectionMini(item)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderPepCorrectionMini(item) {
+  return `
+    <div class="correction-mini ${item.isLatestForPersonDay ? "latest-correction-mini" : ""}">
+      <div>
+        <span class="badge subtle">${changeTypeLabel(item.type)}</span>
+        ${item.isLatestForPersonDay ? '<span class="badge">neueste</span>' : ""}
+        <span class="meta">Quelle: ${escapeHtml(item.source || "Import")}</span>
+      </div>
+      <p><span class="meta">Alt:</span> ${escapeHtml(item.before)}</p>
+      <p><span class="meta">Neu:</span> ${escapeHtml(item.after)}</p>
+      <p class="correction-note">PEP: ${escapeHtml(correctionShortInstruction(item))}</p>
     </div>
   `;
 }
@@ -882,6 +958,11 @@ function renderInspection() {
   document.querySelector("#cancelShiftEdit")?.addEventListener("click", () => {
     editShift = null;
     renderInspection();
+  });
+  document.querySelectorAll("#editStart, #editEnd").forEach(input => {
+    input.addEventListener("blur", () => {
+      input.value = normalizeTimeValue(input.value);
+    });
   });
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
   document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
@@ -1238,8 +1319,8 @@ async function saveShiftEdit() {
         after: {
           name: document.querySelector("#editName").value,
           date: document.querySelector("#editDate").value,
-          start: document.querySelector("#editStart").value,
-          end: document.querySelector("#editEnd").value,
+          start: normalizeTimeValue(document.querySelector("#editStart").value),
+          end: normalizeTimeValue(document.querySelector("#editEnd").value),
           department: document.querySelector("#editDepartment").value,
           break: normalizeBreakValue(document.querySelector("#editBreak").value)
         },
@@ -1342,7 +1423,8 @@ function groupChangesByWeek(changes) {
   const groups = new Map();
   const todayInfo = isoWeekInfo(new Date());
   const seenPersonDays = new Set();
-  for (const change of changes || []) {
+  const orderedChanges = (changes || []).slice().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  for (const change of orderedChanges) {
     const latestKey = `${employeeKey(change.name)}|${change.date || ""}`;
     const preparedChange = {
       ...change,
@@ -2249,6 +2331,27 @@ function normalizeBreakValue(value) {
   }
 
   return "";
+}
+
+function normalizeTimeValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const colon = text.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (colon) {
+    const hours = Number(colon[1]);
+    const minutes = Number(colon[2]);
+    if (hours <= 23 && minutes <= 59) return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+  if (/^\d{1,2}$/.test(text)) {
+    const hours = Number(text);
+    if (hours <= 23) return `${String(hours).padStart(2, "0")}:00`;
+  }
+  if (/^\d{3,4}$/.test(text)) {
+    const hours = Number(text.slice(0, -2));
+    const minutes = Number(text.slice(-2));
+    if (hours <= 23 && minutes <= 59) return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+  return text;
 }
 
 function detectDepartment(text) {

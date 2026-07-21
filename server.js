@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "meinplan-teamplan-bearbeiten-20260721";
+const BUILD_VERSION = "zeitkurz-pep-korrekturen-kompakt-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -248,6 +248,27 @@ function isTime(value) {
   return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(value || ""));
 }
 
+function normalizeTimeValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const colon = text.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (colon) {
+    const hours = Number(colon[1]);
+    const minutes = Number(colon[2]);
+    if (hours <= 23 && minutes <= 59) return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+  if (/^\d{1,2}$/.test(text)) {
+    const hours = Number(text);
+    if (hours <= 23) return `${String(hours).padStart(2, "0")}:00`;
+  }
+  if (/^\d{3,4}$/.test(text)) {
+    const hours = Number(text.slice(0, -2));
+    const minutes = Number(text.slice(-2));
+    if (hours <= 23 && minutes <= 59) return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+  return text;
+}
+
 function timeToMinutes(value) {
   const [hours, minutes] = String(value || "00:00").split(":").map(Number);
   return hours * 60 + minutes;
@@ -329,8 +350,8 @@ function cleanShift(shift) {
   return {
     name: normalizeName(shift.name),
     date: String(shift.date || "").trim(),
-    start: String(shift.start || "").trim(),
-    end: String(shift.end || "").trim(),
+    start: normalizeTimeValue(shift.start),
+    end: normalizeTimeValue(shift.end),
     department: String(shift.department || "").trim(),
     break: String(shift.break || "").trim()
   };
