@@ -8,6 +8,8 @@ let lastCoverageWarning = "";
 let editShift = null;
 let inspectionEditMap = new Map();
 let activeAdminViewPanel = "plans";
+let inspectCalendarOpen = false;
+let inspectCalendarMonth = "";
 
 const loginBox = document.querySelector("#adminLogin");
 const adminArea = document.querySelector("#adminArea");
@@ -952,14 +954,49 @@ function renderInspectCalendar() {
   }
   const allDates = months.flatMap(month => inspectDayOptions(month));
   if (input.value && !allDates.includes(input.value)) input.value = "";
+  const selectedMonth = input.value ? monthKey(parseGermanDate(input.value)) : "";
+  const rangeMonth = inspected.plan ? monthKey(planDateRange(inspected.plan)?.start) : "";
+  if (!inspectCalendarMonth || !months.includes(inspectCalendarMonth)) {
+    inspectCalendarMonth = selectedMonth || rangeMonth || months[0];
+  }
+  const monthIndex = months.indexOf(inspectCalendarMonth);
+  const hasPrevious = monthIndex > 0;
+  const hasNext = monthIndex >= 0 && monthIndex < months.length - 1;
+  const selectedInMonth = input.value && monthKey(parseGermanDate(input.value)) === inspectCalendarMonth;
   box.innerHTML = `
-    <div class="calendar-months">
-      ${months.map(month => renderInspectCalendarMonth(month, input.value)).join("")}
+    <div class="calendar-picker">
+      <button class="calendar-arrow" data-calendar-prev type="button" ${hasPrevious ? "" : "disabled"} aria-label="Vormonat">&lt;</button>
+      <button class="calendar-summary" data-calendar-toggle type="button" aria-expanded="${inspectCalendarOpen ? "true" : "false"}">
+        <span>
+          <strong>${escapeHtml(inspectMonthLabel(inspectCalendarMonth))}</strong>
+          <small>${selectedInMonth ? escapeHtml(`${weekdayLong(parseGermanDate(input.value))}, ${input.value}`) : "Alle Tage"}</small>
+        </span>
+        <b>${inspectCalendarOpen ? "Schliessen" : "Kalender oeffnen"}</b>
+      </button>
+      <button class="calendar-arrow" data-calendar-next type="button" ${hasNext ? "" : "disabled"} aria-label="Naechster Monat">&gt;</button>
     </div>
+    ${inspectCalendarOpen ? `<div class="calendar-months single">${renderInspectCalendarMonth(inspectCalendarMonth, input.value)}</div>` : ""}
   `;
+  document.querySelector("[data-calendar-toggle]")?.addEventListener("click", () => {
+    inspectCalendarOpen = !inspectCalendarOpen;
+    renderInspection();
+  });
+  document.querySelector("[data-calendar-prev]")?.addEventListener("click", () => {
+    if (!hasPrevious) return;
+    inspectCalendarMonth = months[monthIndex - 1];
+    inspectCalendarOpen = true;
+    renderInspection();
+  });
+  document.querySelector("[data-calendar-next]")?.addEventListener("click", () => {
+    if (!hasNext) return;
+    inspectCalendarMonth = months[monthIndex + 1];
+    inspectCalendarOpen = true;
+    renderInspection();
+  });
   document.querySelectorAll("[data-inspect-calendar-day]").forEach(button => {
     button.addEventListener("click", async () => {
       input.value = button.dataset.inspectCalendarDay;
+      inspectCalendarMonth = monthKey(parseGermanDate(input.value)) || inspectCalendarMonth;
       const targetPlan = planForDate(input.value);
       if (targetPlan && targetPlan.id !== inspected.plan?.id) {
         await loadInspection(targetPlan.id, false);

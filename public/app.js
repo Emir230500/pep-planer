@@ -96,6 +96,7 @@ function showTeamShifts(data) {
     </nav>
     <section class="own-plan-block view-panel ${activeViewPanel === "own" ? "" : "hidden"}" data-view-content="own">
       <h2>Mein Plan</h2>
+      ${activeViewPanel === "own" ? renderTeamEditForm() : ""}
       <nav class="week-nav">
         ${ownWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
       </nav>
@@ -103,7 +104,7 @@ function showTeamShifts(data) {
     </section>
     <section class="team-plan-block view-panel ${activeViewPanel === "team" ? "" : "hidden"}" data-view-content="team">
       <h2>Teamplan</h2>
-      ${renderTeamEditForm()}
+      ${activeViewPanel === "team" ? renderTeamEditForm() : ""}
       <nav class="week-nav">
         ${teamWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="team-kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
       </nav>
@@ -147,7 +148,7 @@ function showTeamShifts(data) {
     button.addEventListener("click", event => {
       event.stopPropagation();
       teamEditShift = teamEditMap.get(button.dataset.teamEdit) || null;
-      activeViewPanel = "team";
+      activeViewPanel = button.dataset.editView || activeViewPanel;
       showTeamShifts(currentTeamData);
       document.querySelector("#teamEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -157,7 +158,7 @@ function showTeamShifts(data) {
       event.stopPropagation();
       const plan = (currentTeamData?.plans || []).find(item => item.id === button.dataset.planId);
       teamEditShift = newTeamShift(button.dataset.planId, button.dataset.date, plan);
-      activeViewPanel = "team";
+      activeViewPanel = button.dataset.editView || "team";
       showTeamShifts(currentTeamData);
       document.querySelector("#teamEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -684,12 +685,16 @@ function renderDay(dateValue, dayShifts, changed = false) {
 
 function renderShift(shift, compactPause = false) {
   const status = detectStatus(shift);
+  const canEdit = Boolean(currentTeamData?.teamView && shift.planId);
+  const editKey = canEdit ? teamShiftKey(shift) : "";
+  if (canEdit) teamEditMap.set(editKey, shift);
   if (status) {
     const statusLabel = status;
     return `
       <div class="shift-row status-row ${statusClassName(status)}">
         <span class="time">Kein Dienst</span>
         <span class="department">${escapeHtml(statusLabel)}</span>
+        ${canEdit ? `<button class="mini-button secondary own-edit-btn" data-team-edit="${escapeHtml(editKey)}" data-edit-view="own" type="button">Bearbeiten</button>` : ""}
       </div>
     `;
   }
@@ -700,6 +705,7 @@ function renderShift(shift, compactPause = false) {
       <span class="department">${escapeHtml(shift.department || "Abteilung pruefen")}</span>
       ${shift.changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
       ${compactPause ? '<span class="pause">Teilblock</span>' : renderPause(shift)}
+      ${canEdit ? `<button class="mini-button secondary own-edit-btn" data-team-edit="${escapeHtml(editKey)}" data-edit-view="own" type="button">Bearbeiten</button>` : ""}
     </div>
   `;
 }

@@ -619,7 +619,7 @@ button:disabled {
 
 .shift-row {
   display: grid;
-  grid-template-columns: 112px 1fr auto auto;
+  grid-template-columns: 112px 1fr auto auto auto;
   gap: 8px;
   align-items: center;
   background: #f8fafc;
@@ -773,6 +773,10 @@ button:disabled {
 }
 
 .team-edit-btn {
+  justify-self: end;
+}
+
+.own-edit-btn {
   justify-self: end;
 }
 
@@ -1157,6 +1161,60 @@ button:disabled {
   margin-top: 12px;
 }
 
+.calendar-picker {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  max-width: 430px;
+}
+
+.calendar-arrow,
+.calendar-summary {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 48px;
+}
+
+.calendar-arrow {
+  font-size: 22px;
+  font-weight: 900;
+  padding: 0;
+}
+
+.calendar-arrow:disabled {
+  color: #c7c7cc;
+  opacity: 0.55;
+}
+
+.calendar-summary {
+  align-items: center;
+  box-shadow: none;
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.calendar-summary small {
+  color: var(--muted);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.calendar-summary b {
+  background: #e5f8ff;
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
 .calendar-months {
   display: flex;
   gap: 12px;
@@ -1164,11 +1222,17 @@ button:disabled {
   padding: 2px 0 8px;
 }
 
+.calendar-months.single {
+  display: block;
+  margin-top: 10px;
+  max-width: 430px;
+  overflow: visible;
+}
+
 .calendar-card {
   background: #fbfbfd;
   border: 1px solid var(--line);
   border-radius: 8px;
-  flex: 0 0 330px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035), 0 10px 28px rgba(0, 0, 0, 0.04);
   padding: 14px;
 }
