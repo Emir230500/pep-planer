@@ -110,6 +110,25 @@ document.querySelector("#parseTextBtn")?.addEventListener("click", () => {
   parsePepTextInput();
 });
 
+document.querySelector("#publishChoice")?.addEventListener("click", async event => {
+  const button = event.target.closest("[data-publish-confirm], [data-publish-cancel]");
+  if (!button) return;
+  const box = document.querySelector("#publishChoice");
+  if (button.dataset.publishCancel) {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  const notifyMode = document.querySelector("input[name='publishNotifyMode']:checked")?.value || "none";
+  await api(`/api/admin/plans/${encodeURIComponent(button.dataset.publishConfirm)}/publish`, {
+    method: "POST",
+    body: { notifyMode }
+  });
+  box.classList.add("hidden");
+  box.innerHTML = "";
+  await loadAdmin();
+});
+
 document.querySelector("#openPepBrowserBtn")?.addEventListener("click", async () => {
   uploadMsg.textContent = "PEP-Browser wird geoeffnet...";
   uploadMsg.classList.remove("error");
@@ -401,10 +420,7 @@ function renderPlans(plans) {
     });
   });
   document.querySelectorAll("[data-publish]").forEach(button => {
-    button.addEventListener("click", async () => {
-      await api(`/api/admin/plans/${encodeURIComponent(button.dataset.publish)}/publish`, { method: "POST" });
-      await loadAdmin();
-    });
+    button.addEventListener("click", () => showPublishChoice(button.dataset.publish));
   });
   document.querySelectorAll("[data-unpublish]").forEach(button => {
     button.addEventListener("click", async () => {
@@ -418,6 +434,37 @@ function renderPlans(plans) {
       await loadAdmin();
     });
   });
+}
+
+function showPublishChoice(planId) {
+  const plan = (adminState.plans || []).find(item => item.id === planId);
+  const box = document.querySelector("#publishChoice");
+  if (!box || !plan) return;
+  const recommended = plan.recommendedNotifyMode || (plan.changeCount ? "affected" : "all");
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <h2>Plan veroeffentlichen</h2>
+    <p class="hint">${escapeHtml(plan.title)} ${plan.range ? `(${escapeHtml(plan.range)})` : ""}</p>
+    <div class="publish-options">
+      ${renderPublishOption("all", "Alle Mitarbeiter benachrichtigen", "Alle mit Push-Aktivierung bekommen eine Nachricht.", recommended)}
+      ${renderPublishOption("affected", "Nur betroffene Mitarbeiter", "Nur Mitarbeiter mit erkannter Aenderung bekommen eine Nachricht.", recommended)}
+      ${renderPublishOption("none", "Niemand benachrichtigen", "Plan wird veroeffentlicht, aber ohne Push-Nachricht.", recommended)}
+    </div>
+    <div class="actions">
+      <button data-publish-confirm="${escapeHtml(plan.id)}" type="button">Veroeffentlichen</button>
+      <button data-publish-cancel="1" class="secondary" type="button">Abbrechen</button>
+    </div>
+  `;
+  box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderPublishOption(value, title, text, selected) {
+  return `
+    <label class="choice-line publish-option">
+      <input type="radio" name="publishNotifyMode" value="${value}" ${value === selected ? "checked" : ""}>
+      <span><b>${escapeHtml(title)}</b><small>${escapeHtml(text)}</small></span>
+    </label>
+  `;
 }
 
 function renderActivePlan(plans) {
@@ -746,16 +793,28 @@ function renderInspection() {
 
 function renderShiftEditForm() {
   if (!editShift) return "";
+  const departmentOptions = editDepartmentOptions();
   return `
     <div id="shiftEditBox" class="shift-edit-box">
       <strong>Schicht bearbeiten</strong>
       <p class="hint">${escapeHtml(editShift.name)} - ${escapeHtml(editShift.date)}. Nach dem Speichern wird automatisch eine PEP-Korrektur mit Quelle Haendisch angelegt.</p>
       <div class="shift-edit-grid">
         <label>Mitarbeiter<input id="editName" value="${escapeHtml(editShift.name)}"></label>
-        <label>Datum<input id="editDate" value="${escapeHtml(editShift.date)}"></label>
+        <label>Datum
+          <select id="editDate">
+            ${editDateOptions(editShift.date).map(option => `
+              <option value="${escapeHtml(option.value)}" ${option.value === editShift.date ? "selected" : ""}>${escapeHtml(option.label)}</option>
+            `).join("")}
+          </select>
+        </label>
         <label>Start<input id="editStart" value="${escapeHtml(editShift.start)}" placeholder="06:00"></label>
         <label>Ende<input id="editEnd" value="${escapeHtml(editShift.end)}" placeholder="14:00"></label>
-        <label>Abteilung<input id="editDepartment" value="${escapeHtml(editShift.department)}"></label>
+        <label>Abteilung
+          <input id="editDepartment" list="editDepartmentOptions" value="${escapeHtml(editShift.department)}" placeholder="Abteilung eingeben">
+          <datalist id="editDepartmentOptions">
+            ${departmentOptions.map(department => `<option value="${escapeHtml(department)}"></option>`).join("")}
+          </datalist>
+        </label>
         <label>Pause<input id="editBreak" value="${escapeHtml(editShift.break || "")}" placeholder="00:30"></label>
       </div>
       <div class="actions">
@@ -764,6 +823,32 @@ function renderShiftEditForm() {
       </div>
     </div>
   `;
+}
+
+function editDateOptions(selectedDate) {
+  const base = parseGermanDate(selectedDate) || parseGermanDate(inspected.shifts[0]?.date);
+  if (!base) return selectedDate ? [{ value: selectedDate, label: selectedDate }] : [];
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  const options = [];
+  const cursor = new Date(year, month, 1);
+  while (cursor.getMonth() === month) {
+    const value = formatGermanDate(cursor);
+    options.push({ value, label: `${weekdayLong(cursor)}, ${value}` });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  if (selectedDate && !options.some(option => option.value === selectedDate)) {
+    options.unshift({ value: selectedDate, label: selectedDate });
+  }
+  return options;
+}
+
+function editDepartmentOptions() {
+  const fromPlan = (inspected.shifts || [])
+    .map(shift => shift.department || "")
+    .filter(Boolean);
+  return unique([...knownDepartments(), ...fromPlan])
+    .sort((a, b) => a.localeCompare(b, "de"));
 }
 
 async function saveShiftEdit() {

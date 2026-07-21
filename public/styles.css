@@ -681,7 +681,7 @@ button:disabled {
 
 .team-shift {
   display: grid;
-  grid-template-columns: 1.25fr 105px 1fr auto;
+  grid-template-columns: 1.25fr 105px 1fr auto auto;
   gap: 8px;
   align-items: center;
   background: #f8fafc;
@@ -689,6 +689,10 @@ button:disabled {
   border-left: 4px solid var(--accent);
   border-radius: 7px;
   padding: 8px 10px;
+}
+
+.team-edit-btn {
+  justify-self: end;
 }
 
 .team-name,
@@ -892,6 +896,31 @@ button:disabled {
 .choice-line span {
   display: block;
   line-height: 1.35;
+}
+
+.publish-choice {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+.publish-options {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.publish-option {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.publish-option small {
+  color: var(--muted);
+  display: block;
+  font-weight: 500;
+  margin-top: 3px;
 }
 
 .item {
@@ -1100,7 +1129,8 @@ button:disabled {
   margin: 10px 0;
 }
 
-.shift-edit-grid input {
+.shift-edit-grid input,
+.shift-edit-grid select {
   margin-top: 4px;
 }
 

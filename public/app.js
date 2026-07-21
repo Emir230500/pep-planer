@@ -6,6 +6,9 @@ const hello = document.querySelector("#hello");
 const pushBox = document.querySelector("#pushBox");
 const pushBtn = document.querySelector("#pushBtn");
 const pushMsg = document.querySelector("#pushMsg");
+let currentTeamData = null;
+let teamEditShift = null;
+let teamEditMap = new Map();
 
 async function api(url, options = {}) {
   const res = await fetch(url, {
@@ -62,6 +65,8 @@ function showShifts(data) {
 }
 
 function showTeamShifts(data) {
+  currentTeamData = data;
+  teamEditMap = new Map();
   const ownPlans = data.plans.map(plan => ({
     ...plan,
     changes: (plan.changes || []).filter(change => employeeKey(change.name) === employeeKey(data.name)),
@@ -94,6 +99,7 @@ function showTeamShifts(data) {
     <section class="team-plan-block">
       <h2>Teamplan</h2>
       <p class="hint">Alle anderen Mitarbeiter, sortiert nach KW, Tag und Abteilung.</p>
+      ${renderTeamEditForm()}
     </section>
     <nav class="week-nav">
       ${teamWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="team-kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
@@ -123,6 +129,19 @@ function showTeamShifts(data) {
       button.closest(".department-group")?.classList.toggle("collapsed");
     });
   });
+  document.querySelectorAll("[data-team-edit]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      teamEditShift = teamEditMap.get(button.dataset.teamEdit) || null;
+      showTeamShifts(currentTeamData);
+      document.querySelector("#teamEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  document.querySelector("#cancelTeamEdit")?.addEventListener("click", () => {
+    teamEditShift = null;
+    showTeamShifts(currentTeamData);
+  });
+  document.querySelector("#saveTeamEdit")?.addEventListener("click", saveTeamEdit);
 }
 
 function groupByPlans(plans) {
@@ -143,7 +162,7 @@ function groupByPlans(plans) {
       continue;
     }
     for (const original of plan.shifts) {
-      const shift = { ...original, planTitle: plan.title, changed: (plan.changes || []).some(change => employeeKey(change.name) === employeeKey(original.name) && change.date === original.date) };
+      const shift = { ...original, planId: plan.id, planTitle: plan.title, planRange: plan.range, changed: (plan.changes || []).some(change => employeeKey(change.name) === employeeKey(original.name) && change.date === original.date) };
       const date = parseGermanDate(shift.date);
       if (!date) continue;
       const info = isoWeekInfo(date);
@@ -396,14 +415,116 @@ function renderTeamShift(shift, dayShifts = []) {
   const statusLabel = status;
   const splitInfo = teamSplitInfo(shift, dayShifts);
   const splitClass = splitInfo ? " split-shift" : "";
+  const editKey = teamShiftKey(shift);
+  teamEditMap.set(editKey, shift);
   return `
     <div class="team-shift${statusClass}${splitClass} ${departmentClass(shift.department)}">
       <span class="team-name">${escapeHtml(shift.name)}</span>
       <span class="team-time">${status ? "Kein Dienst" : `${escapeHtml(shift.start)}-${escapeHtml(shift.end)}`}</span>
       <span class="team-department">${status ? escapeHtml(statusLabel) : escapeHtml(shift.department || "Abteilung pruefen")}</span>
       <span class="team-pause">${status ? "" : splitInfo || renderPauseText(shift)}</span>
+      <button class="mini-button secondary team-edit-btn" data-team-edit="${escapeHtml(editKey)}" type="button">Bearbeiten</button>
     </div>
   `;
+}
+
+function teamShiftKey(shift) {
+  return [
+    shift.planId || "",
+    employeeKey(shift.name),
+    shift.date || "",
+    shift.start || "",
+    shift.end || "",
+    shift.department || "",
+    shift.break || ""
+  ].join("|");
+}
+
+function renderTeamEditForm() {
+  if (!teamEditShift) return "";
+  const dateOptions = teamEditDateOptions(teamEditShift);
+  const departments = editDepartmentOptions();
+  return `
+    <div id="teamEditBox" class="shift-edit-box team-edit-box">
+      <strong>Teamplan-Schicht bearbeiten</strong>
+      <p class="hint">${escapeHtml(teamEditShift.name)} - ${escapeHtml(teamEditShift.date)}. Nach dem Speichern landet es als haendische PEP-Korrektur in der Admin-Liste.</p>
+      <div class="shift-edit-grid">
+        <label>Mitarbeiter<input id="teamEditName" value="${escapeHtml(teamEditShift.name)}"></label>
+        <label>Datum
+          <select id="teamEditDate">
+            ${dateOptions.map(option => `<option value="${escapeHtml(option.value)}" ${option.value === teamEditShift.date ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+          </select>
+        </label>
+        <label>Start<input id="teamEditStart" value="${escapeHtml(teamEditShift.start)}" placeholder="06:00"></label>
+        <label>Ende<input id="teamEditEnd" value="${escapeHtml(teamEditShift.end)}" placeholder="14:00"></label>
+        <label>Abteilung
+          <input id="teamEditDepartment" list="teamEditDepartmentOptions" value="${escapeHtml(teamEditShift.department)}" placeholder="Abteilung eingeben">
+          <datalist id="teamEditDepartmentOptions">
+            ${departments.map(department => `<option value="${escapeHtml(department)}"></option>`).join("")}
+          </datalist>
+        </label>
+        <label>Pause<input id="teamEditBreak" value="${escapeHtml(teamEditShift.break || "")}" placeholder="00:30"></label>
+      </div>
+      <div class="actions">
+        <button id="saveTeamEdit" type="button">Speichern</button>
+        <button id="cancelTeamEdit" class="secondary" type="button">Abbrechen</button>
+      </div>
+    </div>
+  `;
+}
+
+function teamEditDateOptions(shift) {
+  const range = datesFromPlanRange(shift.planRange || "");
+  const base = parseGermanDate(shift.date) || range.start;
+  if (!base) return shift.date ? [{ value: shift.date, label: shift.date }] : [];
+  const month = base.getMonth();
+  const year = base.getFullYear();
+  const options = [];
+  const cursor = new Date(year, month, 1);
+  while (cursor.getMonth() === month) {
+    const value = formatGermanDate(cursor);
+    options.push({ value, label: `${weekdayLong(cursor)}, ${value}` });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  if (shift.date && !options.some(option => option.value === shift.date)) {
+    options.unshift({ value: shift.date, label: shift.date });
+  }
+  return options;
+}
+
+function editDepartmentOptions() {
+  const fromPlans = (currentTeamData?.plans || [])
+    .flatMap(plan => plan.shifts || [])
+    .map(shift => shift.department || "")
+    .filter(Boolean);
+  return unique([...knownDepartments(), ...fromPlans]).sort((a, b) => a.localeCompare(b, "de"));
+}
+
+async function saveTeamEdit() {
+  if (!teamEditShift?.planId) return;
+  try {
+    await api(`/api/me/plans/${encodeURIComponent(teamEditShift.planId)}/shifts/edit`, {
+      method: "POST",
+      body: {
+        before: teamEditShift,
+        after: {
+          name: document.querySelector("#teamEditName").value,
+          date: document.querySelector("#teamEditDate").value,
+          start: document.querySelector("#teamEditStart").value,
+          end: document.querySelector("#teamEditEnd").value,
+          department: document.querySelector("#teamEditDepartment").value,
+          break: normalizeBreakValue(document.querySelector("#teamEditBreak").value)
+        }
+      }
+    });
+    teamEditShift = null;
+    await loadMine();
+  } catch (error) {
+    const box = document.querySelector("#teamEditBox");
+    if (box && !box.querySelector(".team-edit-error")) {
+      box.insertAdjacentHTML("beforeend", `<p class="msg error team-edit-error">${escapeHtml(error.message)}</p>`);
+    }
+  }
 }
 
 function teamSplitInfo(shift, dayShifts) {
@@ -540,6 +661,18 @@ function unique(values) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function knownDepartments() {
+  return [
+    "Marktleitung", "Marktaufsicht", "SCO Kasse", "Backshop", "Einarbeitung intern",
+    "Einarbeitung", "Kasse", "Food Abteilung", "Obst & Gemuese", "Obst & Gemüse",
+    "Getraenke", "Getränke", "Getraenke Abteilung", "Getränke Abteilung",
+    "BakeOff", "Tiefkuehl", "Tiefkühl", "Inventur", "Lotto", "Information",
+    "Next Kurse", "Notdienst", "Buero", "Büro", "Zeitung", "Remision",
+    "Auto Dispo", "Lager", "Mopro", "Non Food", "Werbung",
+    "Urlaub", "Krankheit", "Krank angemeldet (aAu)", "Seminar", "Frei", "Abwesenheit"
+  ];
+}
+
 function parseGermanDate(value) {
   const match = String(value || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   if (!match) return null;
@@ -627,6 +760,15 @@ function weekdayLong(date) {
 function timeToMinutes(value) {
   const match = String(value || "").match(/^([01]\d|2[0-3]):([0-5]\d)$/);
   return match ? Number(match[1]) * 60 + Number(match[2]) : 9999;
+}
+
+function normalizeBreakValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^\d{1,2}$/.test(text)) return `00:${String(Number(text)).padStart(2, "0")}`;
+  const match = text.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return text;
+  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
 }
 
 function shiftDurationMinutes(shift) {

@@ -11,7 +11,7 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const BUILD_VERSION = "uploadmodus-push-logik-20260721";
+const BUILD_VERSION = "publish-push-auswahl-20260721";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -630,18 +630,19 @@ function validPushSubscription(subscription) {
     && typeof subscription.keys.auth === "string";
 }
 
-async function sendPlanPush(db, plan) {
+async function sendPlanPush(db, plan, mode = "auto") {
   if (!webPush || !Array.isArray(db.pushSubscriptions) || !db.pushSubscriptions.length) {
     return { sent: 0, removed: 0 };
   }
   const changedNames = new Set((plan.changes || []).map(change => employeeKey(change.name)).filter(Boolean));
-  const subscriptions = changedNames.size
+  const affectedOnly = mode === "affected" || (mode === "auto" && changedNames.size);
+  const subscriptions = affectedOnly && changedNames.size
     ? db.pushSubscriptions.filter(saved => changedNames.has(employeeKey(saved.name)))
     : db.pushSubscriptions;
 
   const payload = JSON.stringify({
-    title: changedNames.size ? "Arbeitsplan geaendert" : "Neuer Arbeitsplan online",
-    body: changedNames.size ? `${plan.title || "Dein Plan"} hat Aenderungen.` : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`,
+    title: affectedOnly ? "Arbeitsplan geaendert" : "Neuer Arbeitsplan online",
+    body: affectedOnly ? `${plan.title || "Dein Plan"} hat Aenderungen.` : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`,
     url: "/"
   });
 
@@ -673,6 +674,46 @@ function shouldNotifyOnPublish(db, plan) {
   const rangeKey = rangeKeyFromRange(plan.range || planRange(plan.shifts || []));
   const alreadyPublishedSameWeek = matchingPlans(db, rangeKey, plan.id).some(item => ids.includes(item.id));
   return !alreadyPublishedSameWeek;
+}
+
+function defaultPublishNotifyMode(db, plan) {
+  if (!shouldNotifyOnPublish(db, plan)) return "none";
+  if (plan.uploadMode === "correction" && Array.isArray(plan.changes) && plan.changes.length) return "affected";
+  return "all";
+}
+
+function publishNotifyMode(db, plan, requestedMode) {
+  if (["all", "affected", "none"].includes(requestedMode)) return requestedMode;
+  return defaultPublishNotifyMode(db, plan);
+}
+
+async function editPlanShift(db, planId, before, after) {
+  const cleanBefore = cleanShift(before || {});
+  const cleanAfter = cleanShift(after || {});
+  const validationError = validateUploadedShifts([cleanAfter]);
+  if (validationError) return { error: validationError, status: 400 };
+
+  const plan = db.plans.find(item => item.id === planId);
+  if (!plan) return { error: "Plan nicht gefunden.", status: 404 };
+
+  const index = (plan.shifts || []).findIndex(shift =>
+    employeeKey(shift.name) === employeeKey(cleanBefore.name) &&
+    String(shift.date || "") === cleanBefore.date &&
+    String(shift.start || "") === cleanBefore.start &&
+    String(shift.end || "") === cleanBefore.end &&
+    String(shift.department || "") === cleanBefore.department
+  );
+  if (index < 0) return { error: "Schicht wurde im gespeicherten Plan nicht gefunden.", status: 404 };
+
+  const oldShift = cleanShift(plan.shifts[index]);
+  plan.shifts[index] = cleanAfter;
+  plan.updatedAt = new Date().toISOString();
+  plan.range = planRange(plan.shifts || []);
+  const change = changeFromShifts(oldShift, cleanAfter, "Haendisch");
+  plan.changes = [change, ...(plan.changes || [])];
+  const correction = createManualPepCorrection(db, plan, change);
+  const push = publishedIds(db).includes(plan.id) ? await sendPlanPush(db, plan) : { sent: 0, removed: 0 };
+  return { plan, correction, push };
 }
 
 async function handleApi(req, res, pathname) {
@@ -731,7 +772,7 @@ async function handleApi(req, res, pathname) {
         publishedPlanId: ids[0] || "",
         activePlan: publishedPlans[0] ? publicPlan(publishedPlans[0]) : null,
         publishedPlans: publishedPlans.map(plan => publicPlan(plan)),
-        plans: db.plans.map(plan => publicPlan(plan, { isPublished: ids.includes(plan.id) })),
+        plans: db.plans.map(plan => publicPlan(plan, { isPublished: ids.includes(plan.id), recommendedNotifyMode: defaultPublishNotifyMode(db, plan) })),
         employees: employeePublic(db),
         pepCorrections: publicPepCorrections(db)
       });
@@ -842,45 +883,39 @@ async function handleApi(req, res, pathname) {
       if (!requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
-      const before = cleanShift(body.before || {});
-      const after = cleanShift(body.after || {});
-      const validationError = validateUploadedShifts([after]);
-      if (validationError) return json(res, 400, { error: validationError });
       const db = await readDb();
-      const plan = db.plans.find(item => item.id === id);
-      if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
-      const index = (plan.shifts || []).findIndex(shift =>
-        employeeKey(shift.name) === employeeKey(before.name) &&
-        String(shift.date || "") === before.date &&
-        String(shift.start || "") === before.start &&
-        String(shift.end || "") === before.end &&
-        String(shift.department || "") === before.department
-      );
-      if (index < 0) return json(res, 404, { error: "Schicht wurde im gespeicherten Plan nicht gefunden." });
-      const oldShift = cleanShift(plan.shifts[index]);
-      plan.shifts[index] = after;
-      plan.updatedAt = new Date().toISOString();
-      plan.range = planRange(plan.shifts || []);
-      const change = changeFromShifts(oldShift, after, "Haendisch");
-      plan.changes = [change, ...(plan.changes || [])];
-      const correction = createManualPepCorrection(db, plan, change);
-      const push = publishedIds(db).includes(plan.id) ? await sendPlanPush(db, plan) : { sent: 0, removed: 0 };
+      const result = await editPlanShift(db, id, body.before, body.after);
+      if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
-      return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: publishedIds(db).includes(plan.id) }), correction, push });
+      return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
+    }
+
+    if (pathname.match(/^\/api\/me\/plans\/[^/]+\/shifts\/edit$/) && req.method === "POST") {
+      const editorName = requireEmployee(req, res);
+      if (!editorName) return;
+      if (!canSeeTeamPlan(editorName)) return json(res, 403, { error: "Du darfst den Teamplan nicht bearbeiten." });
+      const id = decodeURIComponent(pathname.split("/")[4]);
+      const body = await readBody(req);
+      const db = await readDb();
+      const result = await editPlanShift(db, id, body.before, body.after);
+      if (result.error) return json(res, result.status || 400, { error: result.error });
+      await writeDb(db);
+      return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/publish$/) && req.method === "POST") {
       if (!requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
+      const body = await readBody(req);
       const db = await readDb();
       const plan = db.plans.find(item => item.id === id);
       if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
       const ids = publishedIds(db);
       if (!ids.includes(id)) ids.unshift(id);
-      const notify = shouldNotifyOnPublish(db, plan);
+      const notifyMode = publishNotifyMode(db, plan, body.notifyMode);
       setPublishedIds(db, ids);
       plan.publishedAt = new Date().toISOString();
-      const push = notify ? await sendPlanPush(db, plan) : { sent: 0, removed: 0, skipped: true };
+      const push = notifyMode === "none" ? { sent: 0, removed: 0, skipped: true, mode: notifyMode } : await sendPlanPush(db, plan, notifyMode);
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: true }), push });
     }
