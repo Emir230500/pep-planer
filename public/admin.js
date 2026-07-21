@@ -50,14 +50,30 @@ document.querySelectorAll("[data-admin-view]").forEach(button => {
 
 async function submitAdminLogin() {
   const msg = document.querySelector("#adminLoginMsg");
-  msg.textContent = "";
-  msg.classList.remove("error");
+  const button = document.querySelector("#adminLoginBtn");
+  if (button?.disabled) return;
+  msg.textContent = "Anmeldung laeuft...";
+  msg.classList.remove("error", "success-msg");
+  button?.classList.remove("login-tap");
+  void button?.offsetWidth;
+  button?.classList.add("login-tap");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Anmelden...";
+  }
   try {
     await api("/api/admin/login", { method: "POST", body: { password: document.querySelector("#adminPassword").value } });
+    msg.textContent = "Admin angemeldet.";
+    msg.classList.add("success-msg");
     await loadAdmin();
   } catch (error) {
     msg.textContent = error.message;
     msg.classList.add("error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Anmelden";
+    }
   }
 }
 
@@ -649,8 +665,7 @@ function renderPins(employees) {
 document.querySelector("#employeeSearch")?.addEventListener("input", () => renderPins(adminState.employees || []));
 document.querySelector("#addEmployeeBtn")?.addEventListener("click", addEmployee);
 document.querySelector("#inspectPlan")?.addEventListener("change", event => loadInspection(event.target.value, false));
-document.querySelectorAll("#inspectSearch, #inspectWeek, #inspectMonth, #inspectDay").forEach(input => {
-  input.addEventListener("input", renderInspection);
+document.querySelectorAll("#inspectEmployee, #inspectDepartment, #inspectWeek, #inspectMonth, #inspectDay").forEach(input => {
   input.addEventListener("change", renderInspection);
 });
 
@@ -782,7 +797,8 @@ function renderInspection() {
 
   const issues = filterDailyBreakIssues(inspected.issues || [], inspected.shifts || []);
   const missingEmployees = inspected.missingEmployees || [];
-  issueList.innerHTML = `${renderShiftEditForm()}${issues.length ? `
+  updateInspectFilterOptions();
+  issueList.innerHTML = `${renderInspectActions()}${renderShiftEditForm()}${issues.length ? `
     <div class="issue-box">
       <strong>${issues.length} Hinweise im Plan</strong>
       ${issues.slice(0, 12).map(issue => `<p>${escapeHtml(issue.message)}</p>`).join("")}
@@ -805,13 +821,15 @@ function renderInspection() {
     issueList.innerHTML += renderInspectionChanges(changes);
   }
 
-  const query = normalizeText(document.querySelector("#inspectSearch").value);
-  const week = document.querySelector("#inspectWeek").value.trim();
-  const month = document.querySelector("#inspectMonth").value;
+  const employee = document.querySelector("#inspectEmployee")?.value || "";
+  const department = document.querySelector("#inspectDepartment")?.value || "";
+  const week = document.querySelector("#inspectWeek")?.value || "";
+  const month = document.querySelector("#inspectMonth")?.value || "";
   updateInspectDayOptions(month);
   const day = document.querySelector("#inspectDay")?.value || "";
   const filtered = inspected.shifts
-    .filter(shift => !query || normalizeText(`${shift.name} ${shift.department}`).includes(query))
+    .filter(shift => !employee || normalizePersonName(shift.name) === employee)
+    .filter(shift => !department || (shift.department || "") === department)
     .filter(shift => !week || String(isoWeekInfo(parseGermanDate(shift.date))?.week || "") === week)
     .filter(shift => !month || monthKey(parseGermanDate(shift.date)) === month)
     .filter(shift => !day || shift.date === day)
@@ -840,12 +858,63 @@ function renderInspection() {
       document.querySelector("#shiftEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
+  document.querySelector("#addInspectionShift")?.addEventListener("click", () => {
+    editShift = newInspectionShift();
+    renderInspection();
+    document.querySelector("#shiftEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   document.querySelector("#cancelShiftEdit")?.addEventListener("click", () => {
     editShift = null;
     renderInspection();
   });
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
   document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
+}
+
+function renderInspectActions() {
+  return `
+    <div class="inspection-actions">
+      <div>
+        <strong>Plan pruefen und korrigieren</strong>
+        <p class="hint">Hier kontrollierst du den geladenen Plan, bearbeitest Dienste oder fuegst fehlende Schichten hinzu.</p>
+      </div>
+      <button id="addInspectionShift" class="secondary" type="button">+ Schicht hinzufuegen</button>
+    </div>
+  `;
+}
+
+function updateInspectFilterOptions() {
+  const shifts = inspected.shifts || [];
+  const employees = unique(shifts.map(shift => normalizePersonName(shift.name)).filter(Boolean))
+    .sort((a, b) => a.localeCompare(b, "de"));
+  const departments = unique(shifts.map(shift => shift.department || "").filter(Boolean))
+    .sort((a, b) => a.localeCompare(b, "de"));
+  const weeks = unique(shifts.map(shift => {
+    const info = isoWeekInfo(parseGermanDate(shift.date));
+    return info?.week ? String(info.week) : "";
+  }).filter(Boolean)).sort((a, b) => Number(a) - Number(b));
+  const months = unique(shifts.map(shift => monthKey(parseGermanDate(shift.date))).filter(Boolean)).sort();
+
+  updateSelectOptions("#inspectEmployee", "Alle Mitarbeiter", employees, value => value);
+  updateSelectOptions("#inspectDepartment", "Alle Abteilungen", departments, value => value);
+  updateSelectOptions("#inspectWeek", "Alle KWs", weeks, value => `KW ${value}`);
+  updateSelectOptions("#inspectMonth", "Alle Monate", months, inspectMonthLabel);
+}
+
+function updateSelectOptions(selector, emptyLabel, values, labelFn) {
+  const select = document.querySelector(selector);
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">${escapeHtml(emptyLabel)}</option>${values.map(value => `
+    <option value="${escapeHtml(value)}" ${value === current ? "selected" : ""}>${escapeHtml(labelFn(value))}</option>
+  `).join("")}`;
+  if (current && !values.includes(current)) select.value = "";
+}
+
+function inspectMonthLabel(value) {
+  const [year, month] = String(value || "").split("-").map(Number);
+  if (!year || !month) return value;
+  return new Date(year, month - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
 }
 
 function updateInspectDayOptions(selectedMonth) {
@@ -878,15 +947,36 @@ function inspectDayOptions(selectedMonth) {
     .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
 }
 
+function newInspectionShift() {
+  const selectedDay = document.querySelector("#inspectDay")?.value || "";
+  const date = selectedDay || inspectDayOptions(document.querySelector("#inspectMonth")?.value || "")[0] || inspected.shifts[0]?.date || formatGermanDate(new Date());
+  return {
+    isNew: true,
+    name: document.querySelector("#inspectEmployee")?.value || (inspected.shifts[0]?.name || ""),
+    date,
+    start: "06:00",
+    end: "14:00",
+    department: document.querySelector("#inspectDepartment")?.value || "Kasse",
+    break: "00:30"
+  };
+}
+
 function renderShiftEditForm() {
   if (!editShift) return "";
   const departmentOptions = editDepartmentOptions();
+  const employeeOptions = editEmployeeOptions();
+  const isNew = Boolean(editShift.isNew);
   return `
     <div id="shiftEditBox" class="shift-edit-box">
-      <strong>Schicht bearbeiten</strong>
-      <p class="hint">${escapeHtml(editShift.name)} - ${escapeHtml(editShift.date)}. Nach dem Speichern wird automatisch eine PEP-Korrektur mit Quelle Haendisch angelegt.</p>
+      <strong>${isNew ? "Schicht hinzufuegen" : "Schicht bearbeiten"}</strong>
+      <p class="hint">${isNew ? "Neue Schicht" : `${escapeHtml(editShift.name)} - ${escapeHtml(editShift.date)}`}. Nach dem Speichern wird automatisch eine PEP-Korrektur mit Quelle Haendisch angelegt.</p>
       <div class="shift-edit-grid">
-        <label>Mitarbeiter<input id="editName" value="${escapeHtml(editShift.name)}"></label>
+        <label>Mitarbeiter
+          <input id="editName" list="editEmployeeOptions" value="${escapeHtml(editShift.name)}" placeholder="Name auswaehlen oder eingeben">
+          <datalist id="editEmployeeOptions">
+            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
+          </datalist>
+        </label>
         <label>Datum
           <select id="editDate">
             ${editDateOptions(editShift.date).map(option => `
@@ -903,14 +993,28 @@ function renderShiftEditForm() {
           </datalist>
         </label>
         <label>Pause<input id="editBreak" value="${escapeHtml(editShift.break || "")}" placeholder="00:30"></label>
+        <label>Benachrichtigung
+          <select id="editNotifyMode">
+            <option value="affected" selected>Nur betroffene Person</option>
+            <option value="all">Alle Mitarbeiter</option>
+            <option value="none">Keine Benachrichtigung</option>
+          </select>
+        </label>
       </div>
       <div class="actions">
-        <button id="deleteShiftEdit" class="danger" type="button">Schicht loeschen</button>
+        ${isNew ? "" : '<button id="deleteShiftEdit" class="danger" type="button">Schicht loeschen</button>'}
         <button id="saveShiftEdit" type="button">Speichern</button>
         <button id="cancelShiftEdit" class="secondary" type="button">Abbrechen</button>
       </div>
     </div>
   `;
+}
+
+function editEmployeeOptions() {
+  const fromEmployees = (adminState.employees || []).map(employee => employee.name || "");
+  const fromPlan = (inspected.shifts || []).map(shift => shift.name || "");
+  return unique([...fromEmployees, ...fromPlan].map(normalizePersonName).filter(Boolean))
+    .sort((a, b) => a.localeCompare(b, "de"));
 }
 
 function editDateOptions(selectedDate) {
@@ -951,7 +1055,11 @@ async function deleteShiftEdit() {
   try {
     await api(`/api/admin/plans/${encodeURIComponent(planId)}/shifts/edit`, {
       method: "POST",
-      body: { before: editShift, after: null }
+      body: {
+        before: editShift,
+        after: null,
+        notifyMode: document.querySelector("#editNotifyMode")?.value || "affected"
+      }
     });
     editShift = null;
     await loadAdmin();
@@ -977,7 +1085,7 @@ async function saveShiftEdit() {
     await api(`/api/admin/plans/${encodeURIComponent(planId)}/shifts/edit`, {
       method: "POST",
       body: {
-        before: editShift,
+        before: editShift.isNew ? null : editShift,
         after: {
           name: document.querySelector("#editName").value,
           date: document.querySelector("#editDate").value,
@@ -985,7 +1093,8 @@ async function saveShiftEdit() {
           end: document.querySelector("#editEnd").value,
           department: document.querySelector("#editDepartment").value,
           break: normalizeBreakValue(document.querySelector("#editBreak").value)
-        }
+        },
+        notifyMode: document.querySelector("#editNotifyMode")?.value || "affected"
       }
     });
     editShift = null;
@@ -1066,10 +1175,11 @@ function renderInspectionChanges(changes) {
 
 function renderInspectionChangeItem(change) {
   return `
-    <div class="change-item">
+    <div class="change-item ${change.isLatestForPersonDay ? "latest-change-item" : ""}">
       <div>
         <strong>${escapeHtml(change.name)}</strong>
         <span class="badge subtle">${escapeHtml(changeTypeLabel(change.type))}</span>
+        ${change.isLatestForPersonDay ? '<span class="badge">Aktuell gueltig</span>' : ""}
       </div>
       <div class="change-before-after">
         <p><span class="meta">Alt:</span> ${escapeHtml(change.before)}</p>
@@ -1082,7 +1192,14 @@ function renderInspectionChangeItem(change) {
 function groupChangesByWeek(changes) {
   const groups = new Map();
   const todayInfo = isoWeekInfo(new Date());
+  const seenPersonDays = new Set();
   for (const change of changes || []) {
+    const latestKey = `${employeeKey(change.name)}|${change.date || ""}`;
+    const preparedChange = {
+      ...change,
+      isLatestForPersonDay: !seenPersonDays.has(latestKey)
+    };
+    seenPersonDays.add(latestKey);
     const date = parseGermanDate(change.date);
     const info = isoWeekInfo(date);
     const key = `${info?.year || "0000"}-${String(info?.week || 0).padStart(2, "0")}`;
@@ -1097,10 +1214,10 @@ function groupChangesByWeek(changes) {
       });
     }
     const group = groups.get(key);
-    group.changes.push(change);
+    group.changes.push(preparedChange);
     const dayKey = change.date || "Ohne Datum";
     if (!group.days.has(dayKey)) group.days.set(dayKey, []);
-    group.days.get(dayKey).push(change);
+    group.days.get(dayKey).push(preparedChange);
   }
   return Array.from(groups.values())
     .sort((a, b) => a.key.localeCompare(b.key))
@@ -1109,7 +1226,7 @@ function groupChangesByWeek(changes) {
       days: Array.from(group.days.entries())
         .map(([date, dayChanges]) => ({
           date,
-          changes: dayChanges.slice().sort((a, b) => a.name.localeCompare(b.name, "de"))
+          changes: dayChanges.slice().sort((a, b) => Number(b.isLatestForPersonDay) - Number(a.isLatestForPersonDay) || a.name.localeCompare(b.name, "de"))
         }))
         .sort((a, b) => (parseGermanDate(a.date) || 0) - (parseGermanDate(b.date) || 0))
     }));

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260721-admin-tabs-current-published">
+  <link rel="stylesheet" href="/styles.css?v=20260721-apple-premium-admin">
 </head>
 <body>
   <main class="shell wide">
@@ -32,7 +32,7 @@
       <section class="admin-view-panel" data-admin-view-content="plans">
       <section class="panel">
         <h2>PEP-Plan importieren</h2>
-        <p id="buildVersion" class="hint">Version: einarbeitung-intern-fix-20260709</p>
+        <p id="buildVersion" class="hint">Version: apple-premium-admin-20260721</p>
         <label>Titel<input id="planTitle" placeholder="z. B. KW 27"></label>
         <label>PEP-Datei hochladen<input id="fileInput" type="file" accept=".html,.htm,.pdf,.csv,.xlsx,.xls"></label>
         <button id="clearImportBtn" class="secondary" type="button">Ausgewaehlte Datei entfernen</button>
@@ -67,9 +67,10 @@
         <h2>Plan pruefen</h2>
         <div class="filters">
           <label>Plan<select id="inspectPlan"></select></label>
-          <label>Suche<input id="inspectSearch" type="search" placeholder="Name oder Abteilung"></label>
-          <label>KW<input id="inspectWeek" inputmode="numeric" placeholder="z. B. 31"></label>
-          <label>Monat<input id="inspectMonth" type="month"></label>
+          <label>Mitarbeiter<select id="inspectEmployee"><option value="">Alle Mitarbeiter</option></select></label>
+          <label>Abteilung<select id="inspectDepartment"><option value="">Alle Abteilungen</option></select></label>
+          <label>KW<select id="inspectWeek"><option value="">Alle KWs</option></select></label>
+          <label>Monat<select id="inspectMonth"><option value="">Alle Monate</option></select></label>
           <label>Tag<select id="inspectDay"><option value="">Alle Tage</option></select></label>
         </div>
         <p id="inspectMsg" class="msg"></p>
@@ -108,7 +109,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js?v=20260721-admin-tabs-current-published"></script>
+  <script src="/admin.js?v=20260721-apple-premium-admin"></script>
 </body>
 </html>
 

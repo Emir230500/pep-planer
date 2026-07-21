@@ -1,16 +1,17 @@
 :root {
   color-scheme: light;
-  --bg: #f4f6f8;
-  --text: #17202a;
-  --muted: #667085;
-  --line: #d7dde5;
+  --bg: #f5f5f7;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --line: #d2d2d7;
   --panel: #ffffff;
-  --accent: #0f766e;
-  --accent-dark: #115e59;
-  --soft: #ecfdf5;
-  --note: #fef3c7;
-  --danger: #b42318;
-  --warning: #b45309;
+  --accent: #007aff;
+  --accent-dark: #0051d5;
+  --soft: #f2f8ff;
+  --note: #fff8e6;
+  --danger: #ff3b30;
+  --warning: #bf5b00;
+  --success: #34c759;
 }
 
 * {
@@ -22,6 +23,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0;
 }
 
 .shell {
@@ -60,7 +62,7 @@ body {
 
 .eyebrow {
   margin: 0 0 4px;
-  color: var(--accent-dark);
+  color: #0066cc;
   font-weight: 700;
   font-size: 13px;
   text-transform: uppercase;
@@ -85,13 +87,14 @@ h2 {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   padding: 18px;
   margin-bottom: 16px;
 }
 
 .panel.flash {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.16);
 }
 
 .grid {
@@ -123,7 +126,18 @@ select {
   margin-top: 6px;
   border: 1px solid var(--line);
   padding: 10px 12px;
+  background: #fbfbfd;
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
   background: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.14);
+  outline: none;
 }
 
 textarea {
@@ -138,10 +152,31 @@ button {
   font-weight: 700;
   padding: 10px 14px;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 button:hover {
   background: var(--accent-dark);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button.login-tap {
+  animation: loginTap 0.28s ease;
+}
+
+@keyframes loginTap {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 button:disabled {
@@ -151,7 +186,7 @@ button:disabled {
 
 .secondary {
   width: auto;
-  background: #344054;
+  background: #1d1d1f;
 }
 
 .danger {
@@ -176,6 +211,11 @@ button:disabled {
 
 .error {
   color: var(--danger);
+}
+
+.success-msg {
+  color: #248a3d;
+  font-weight: 700;
 }
 
 .site-credit {
@@ -250,7 +290,7 @@ button:disabled {
   gap: 6px;
   margin: 18px 0 6px;
   padding: 4px;
-  background: #e2e8f0;
+  background: #e8e8ed;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
@@ -297,7 +337,7 @@ button:disabled {
 .week-nav button {
   width: auto;
   min-width: 74px;
-  background: #344054;
+  background: #1d1d1f;
   white-space: nowrap;
 }
 
@@ -375,8 +415,8 @@ button:disabled {
 }
 
 .badge.subtle {
-  background: #e0f2fe;
-  color: #075985;
+  background: #eef5ff;
+  color: #0066cc;
 }
 
 .badge.warn-badge {
@@ -387,7 +427,7 @@ button:disabled {
 
 .day {
   padding: 18px 14px 16px;
-  border-top: 14px solid #eef2f6;
+  border-top: 14px solid #f5f5f7;
 }
 
 .empty-week {
@@ -404,11 +444,11 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: #ccfbf1;
-  border: 1px solid #5eead4;
+  background: #f2f8ff;
+  border: 1px solid #b7d7ff;
   border-left: 8px solid var(--accent);
   border-radius: 8px;
-  color: #0f172a;
+  color: var(--text);
   margin-bottom: 12px;
   padding: 12px 13px;
 }
@@ -419,7 +459,7 @@ button:disabled {
 
 .team-day {
   padding: 26px 14px 20px;
-  border-top: 44px solid #e2e8f0;
+  border-top: 44px solid #e8e8ed;
 }
 
 .team-day:first-of-type {
@@ -427,9 +467,9 @@ button:disabled {
 }
 
 .team-day .day-title {
-  background: #ccfbf1;
-  border: 1px solid #5eead4;
-  border-left: 9px solid #0f766e;
+  background: #eef5ff;
+  border: 1px solid #b7d7ff;
+  border-left: 9px solid var(--accent);
   border-radius: 7px;
   margin-bottom: 16px;
   padding: 15px 14px;
@@ -456,9 +496,9 @@ button:disabled {
 
 .team-day-open-hint {
   background: #fff;
-  border: 1px solid #5eead4;
+  border: 1px solid #b7d7ff;
   border-radius: 999px;
-  color: var(--accent-dark);
+  color: #0066cc;
   font-size: 12px;
   font-weight: 800;
   padding: 4px 8px;
@@ -467,8 +507,8 @@ button:disabled {
 }
 
 .add-shift-inline {
-  background: #0f766e;
-  border-color: #0f766e;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
   font-size: 12px;
   font-weight: 800;
@@ -476,7 +516,7 @@ button:disabled {
 
 .team-day-head::before {
   content: "+";
-  background: #0f766e;
+  background: var(--accent);
   border-radius: 999px;
   color: #fff;
   display: inline-flex;
@@ -502,15 +542,15 @@ button:disabled {
 }
 
 .team-day.today-team-day {
-  background: #ecfdf5;
+  background: #f2f8ff;
   border: 3px solid var(--accent);
-  border-top: 58px solid #14b8a6;
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.16);
+  border-top: 58px solid var(--accent);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.14);
 }
 
 .team-day.today-team-day .day-title {
-  background: #0f766e;
-  border-color: #0f766e;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
 }
@@ -522,13 +562,13 @@ button:disabled {
 }
 
 .today-day {
-  background: #d1fae5;
-  box-shadow: inset 0 0 0 2px rgba(15, 118, 110, 0.22);
+  background: #f2f8ff;
+  box-shadow: inset 0 0 0 2px rgba(0, 122, 255, 0.2);
 }
 
 .today-day .day-title {
-  background: #0f766e;
-  border-color: #0f766e;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2);
 }
@@ -552,10 +592,10 @@ button:disabled {
 }
 
 .day-summary {
-  background: #f0fdfa;
-  border: 1px solid #99f6e4;
+  background: #f5f5f7;
+  border: 1px solid var(--line);
   border-radius: 7px;
-  color: #134e4a;
+  color: var(--text);
   font-weight: 700;
   margin-bottom: 8px;
   padding: 8px 10px;
@@ -1073,7 +1113,7 @@ button:disabled {
 }
 
 .active-card.current-active-card {
-  background: #ecfdf5;
+  background: #f2f8ff;
   border: 2px solid var(--accent);
   border-left: 7px solid var(--accent);
   border-radius: 8px;
@@ -1082,26 +1122,42 @@ button:disabled {
 
 .filters {
   display: grid;
-  grid-template-columns: 1.15fr 1.05fr 0.45fr 0.7fr 1fr;
+  grid-template-columns: 1.2fr 1fr 1fr 0.65fr 0.85fr 1fr;
   gap: 10px;
+}
+
+.inspection-actions {
+  align-items: center;
+  background: #f5f5f7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 12px 0;
+  padding: 12px;
+}
+
+.inspection-actions p {
+  margin: 3px 0 0;
 }
 
 .issue-box {
   background: var(--note);
-  border: 1px solid #f59e0b;
+  border: 1px solid #ffd60a;
   border-radius: 8px;
   padding: 12px;
   margin: 12px 0;
 }
 
 .danger-box {
-  background: #fef2f2;
-  border-color: #fca5a5;
+  background: #fff2f2;
+  border-color: #ff9f99;
 }
 
 .change-box {
-  background: #fffbeb;
-  border-color: #f59e0b;
+  background: #fffaf0;
+  border-color: #ffd60a;
 }
 
 .change-week-list,
@@ -1115,14 +1171,14 @@ button:disabled {
 .change-week,
 .change-day {
   background: #fff;
-  border: 1px solid #fbbf24;
+  border: 1px solid #ffd60a;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .change-week.current-change-week {
   border: 3px solid var(--accent);
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.14);
 }
 
 .change-week summary,
@@ -1136,24 +1192,32 @@ button:disabled {
 }
 
 .change-week summary {
-  background: #fef3c7;
+  background: #fff8e6;
 }
 
 .current-change-week > summary {
-  background: #d1fae5;
+  background: #eef5ff;
 }
 
 .change-day summary {
-  background: #fff7ed;
-  border-top: 1px solid #fed7aa;
+  background: #fbfbfd;
+  border-top: 1px solid var(--line);
 }
 
 .change-item {
   background: #fff;
-  border-top: 1px solid #fde68a;
+  border-top: 1px solid #f0f0f2;
   display: grid;
   gap: 5px;
   padding: 10px 12px;
+}
+
+.change-item.latest-change-item {
+  background: #f2f8ff;
+  border: 2px solid var(--accent);
+  border-left: 7px solid var(--accent);
+  border-radius: 8px;
+  margin: 8px;
 }
 
 .change-before-after {
@@ -1166,7 +1230,7 @@ button:disabled {
 }
 
 .correction-panel {
-  border-color: #f59e0b;
+  border-color: #ffd60a;
 }
 
 .correction-summary {
@@ -1193,14 +1257,14 @@ button:disabled {
 .correction-week,
 .correction-day {
   background: #fff;
-  border: 1px solid #f59e0b;
+  border: 1px solid #ffd60a;
   border-radius: 8px;
   overflow: hidden;
 }
 
 .correction-week.current-correction-week {
   border: 3px solid var(--accent);
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.14);
 }
 
 .correction-week summary,
@@ -1214,16 +1278,16 @@ button:disabled {
 }
 
 .correction-week summary {
-  background: #fef3c7;
+  background: #fff8e6;
 }
 
 .current-correction-week > summary {
-  background: #d1fae5;
+  background: #eef5ff;
 }
 
 .correction-day summary {
-  background: #fff7ed;
-  border-top: 1px solid #fed7aa;
+  background: #fbfbfd;
+  border-top: 1px solid var(--line);
 }
 
 .correction-summary-badges {
@@ -1238,9 +1302,9 @@ button:disabled {
   grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: center;
-  background: #fffbeb;
-  border: 1px solid #f59e0b;
-  border-left: 5px solid #d97706;
+  background: #fffaf0;
+  border: 1px solid #ffd60a;
+  border-left: 5px solid #bf5b00;
   border-radius: 8px;
   margin: 10px;
   padding: 12px;
@@ -1258,7 +1322,7 @@ button:disabled {
 }
 
 .correction-note {
-  color: #92400e;
+  color: var(--warning);
   font-weight: 700;
 }
 
@@ -1276,8 +1340,8 @@ button:disabled {
 }
 
 .shift-edit-box {
-  background: #f0fdfa;
-  border: 1px solid #14b8a6;
+  background: #f2f8ff;
+  border: 1px solid #b7d7ff;
   border-left: 5px solid var(--accent);
   border-radius: 8px;
   margin: 12px 0;
@@ -1306,7 +1370,7 @@ button:disabled {
 }
 
 .admin-preview tr.marked td {
-  background: #fff7ed;
+  background: #fff8e6;
 }
 
 .inspect-week {
@@ -1319,7 +1383,7 @@ button:disabled {
 
 .inspect-week.current-inspect-week {
   border: 3px solid var(--accent);
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.14);
 }
 
 .inspect-week-head {
@@ -1337,7 +1401,7 @@ button:disabled {
 }
 
 .current-inspect-week .inspect-week-head {
-  background: #d1fae5;
+  background: #eef5ff;
 }
 
 .inspect-week-badges {
@@ -1349,7 +1413,7 @@ button:disabled {
 }
 
 .inspect-week-head:hover {
-  background: #f8fafc;
+  background: #f5f5f7;
 }
 
 .inspect-week-body {
@@ -1365,7 +1429,7 @@ button:disabled {
 }
 
 .inspect-day {
-  background: #f8fafc;
+  background: #fbfbfd;
   border: 1px solid var(--line);
   border-radius: 8px;
   margin-bottom: 14px;
@@ -1378,7 +1442,7 @@ button:disabled {
 
 .inspect-day-head {
   align-items: center;
-  background: #e0f2fe;
+  background: #eef5ff;
   border-left: 6px solid var(--accent);
   border-radius: 0;
   color: var(--text);
@@ -1393,7 +1457,7 @@ button:disabled {
 }
 
 .inspect-day-head:hover {
-  background: #bae6fd;
+  background: #dbeaff;
 }
 
 .inspect-day-title {
@@ -1449,8 +1513,203 @@ code {
   line-height: 1.7;
 }
 
+/* Apple-inspirierte Politur: ruhige Flaechen, feine Linien, klare Interaktion. */
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.shell {
+  padding-top: 24px;
+}
+
+.top,
+.bar {
+  background: rgba(245, 245, 247, 0.82);
+  border-bottom: 1px solid rgba(210, 210, 215, 0.72);
+  margin: -24px -18px 18px;
+  padding: 18px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+h2 {
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.panel,
+.week,
+.next-card,
+.plan-item,
+.employee-group,
+.inspect-week,
+.correction-week,
+.change-week {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(210, 210, 215, 0.9);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035), 0 10px 28px rgba(0, 0, 0, 0.045);
+}
+
+button {
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.secondary,
+.week-nav button {
+  background: #2c2c2e;
+}
+
+.danger {
+  background: #ff3b30;
+}
+
+.link {
+  color: #0066cc;
+}
+
+input,
+textarea,
+select {
+  border-radius: 8px;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.025);
+}
+
+.view-switch {
+  background: #e9e9ed;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.view-switch button {
+  box-shadow: none;
+}
+
+.view-switch button.active,
+.week-nav button.active {
+  background: #007aff;
+  box-shadow: 0 1px 3px rgba(0, 122, 255, 0.22);
+}
+
+.badge {
+  background: #007aff;
+  box-shadow: none;
+}
+
+.badge.subtle {
+  background: #edf4ff;
+  color: #0066cc;
+}
+
+.week-head,
+.inspect-week-head {
+  background: #fff;
+}
+
+.current-week,
+.inspect-week.current-inspect-week,
+.correction-week.current-correction-week,
+.change-week.current-change-week,
+.active-card.current-active-card,
+.plan-item.current-plan-item {
+  background: #f2f8ff;
+  border-color: #007aff;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.12), 0 12px 30px rgba(0, 0, 0, 0.05);
+}
+
+.current-week .week-head,
+.current-inspect-week .inspect-week-head,
+.current-correction-week > summary,
+.current-change-week > summary {
+  background: #edf4ff;
+}
+
+.day,
+.team-day {
+  border-top-color: #f0f0f2;
+}
+
+.day-title,
+.team-day .day-title,
+.inspect-day-head {
+  background: #f5f9ff;
+  border-color: #c8ddff;
+  color: #1d1d1f;
+}
+
+.today-day .day-title,
+.team-day.today-team-day .day-title {
+  background: #007aff;
+  border-color: #007aff;
+  color: #fff;
+}
+
+.today-day,
+.team-day.today-team-day {
+  background: #f2f8ff;
+  box-shadow: inset 0 0 0 2px rgba(0, 122, 255, 0.16);
+}
+
+.team-day.today-team-day {
+  border-color: #007aff;
+  border-top-color: #007aff;
+}
+
+.team-day-head::before {
+  background: #007aff;
+}
+
+.team-day-open-hint {
+  border-color: #c8ddff;
+  color: #0066cc;
+}
+
+.shift-row,
+.team-shift,
+.correction-item,
+.change-item.latest-change-item {
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+}
+
+.shift-edit-box,
+.inspection-actions {
+  background: #f5f9ff;
+  border-color: #c8ddff;
+}
+
+.preview table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.preview th {
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
+
+.preview td,
+.preview th {
+  border-color: #e5e5ea;
+}
+
 @media (max-width: 720px) {
   .shell {
+    padding: 14px;
+  }
+
+  .top,
+  .bar {
+    margin: -14px -14px 16px;
     padding: 14px;
   }
 
