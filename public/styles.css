@@ -2135,24 +2135,58 @@ select {
 }
 
 @media (max-width: 720px) {
+  body {
+    overflow-x: hidden;
+  }
+
   .shell {
-    padding: 14px;
+    padding: 12px;
+    width: 100%;
   }
 
   .top,
   .bar {
-    margin: -14px -14px 16px;
-    padding: 14px;
+    margin: -12px -12px 14px;
+    padding: 12px;
   }
 
   .top,
   .bar {
     align-items: flex-start;
     flex-direction: column;
+    gap: 8px;
   }
 
   h1 {
-    font-size: 25px;
+    font-size: 24px;
+    line-height: 1.05;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+
+  .admin-view-switch,
+  .view-switch,
+  .week-nav {
+    display: flex;
+    gap: 8px;
+    margin-left: -2px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-view-switch button,
+  .view-switch button,
+  .week-nav button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .panel {
+    padding: 14px;
   }
 
   .grid,
@@ -2198,5 +2232,38 @@ select {
 
   .team-pause {
     white-space: normal;
+  }
+
+  .plan-row {
+    align-items: stretch;
+    gap: 12px;
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .plan-title-line {
+    gap: 5px;
+  }
+
+  .plan-row-meta {
+    display: grid;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .plan-row .actions {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .plan-row .actions button {
+    min-height: 40px;
+    padding: 8px 10px;
+    width: 100%;
+  }
+
+  .plan-row .actions .danger {
+    grid-column: 1 / -1;
   }
 }
