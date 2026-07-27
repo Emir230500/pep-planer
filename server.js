@@ -12,16 +12,18 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "mobile-planliste-teamplan-freigabe-20260727";
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
+const BUILD_VERSION = "vapid-secret-aus-code-entfernt-20260727";
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
 let pgPool = null;
 let webPush = null;
 
 try {
-  webPush = require("web-push");
-  webPush.setVapidDetails(PUSH_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+    webPush = require("web-push");
+    webPush.setVapidDetails(PUSH_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  }
 } catch {
   webPush = null;
 }
@@ -822,7 +824,7 @@ async function handleApi(req, res, pathname) {
     if (pathname === "/api/push/public-key" && req.method === "GET") {
       const name = requireEmployee(req, res);
       if (!name) return;
-      return json(res, 200, { enabled: Boolean(webPush), publicKey: VAPID_PUBLIC_KEY });
+      return json(res, 200, { enabled: Boolean(webPush && VAPID_PUBLIC_KEY), publicKey: VAPID_PUBLIC_KEY });
     }
 
     if (pathname === "/api/push/subscribe" && req.method === "POST") {
