@@ -159,9 +159,10 @@ document.querySelector("#publishChoice")?.addEventListener("click", async event 
     return;
   }
   const notifyMode = document.querySelector("input[name='publishNotifyMode']:checked")?.value || "none";
+  const pushMessage = document.querySelector("#publishPushMessage")?.value || "";
   await api(`/api/admin/plans/${encodeURIComponent(button.dataset.publishConfirm)}/publish`, {
     method: "POST",
-    body: { notifyMode }
+    body: { notifyMode, pushMessage }
   });
   box.classList.add("hidden");
   box.innerHTML = "";
@@ -544,8 +545,16 @@ function showPublishChoice(planId) {
     <div class="publish-options">
       ${renderPublishOption("all", "Alle Mitarbeiter benachrichtigen", "Alle mit Push-Aktivierung bekommen eine Nachricht.", recommended)}
       ${renderPublishOption("affected", "Nur betroffene Mitarbeiter", "Nur Mitarbeiter mit erkannter Aenderung bekommen eine Nachricht.", recommended)}
+      ${renderPublishOption("affected_leadership", "Betroffene + Team Marktleitung", "Geaenderte Mitarbeiter und Marktleitung bekommen eine Nachricht.", recommended)}
+      ${renderPublishOption("leadership", "Team Marktleitung", "Nur Marktleitung/Teamplan-Freigabe bekommt eine Nachricht.", recommended)}
       ${renderPublishOption("none", "Niemand benachrichtigen", "Plan wird veroeffentlicht, aber ohne Push-Nachricht.", recommended)}
     </div>
+    <details class="push-custom">
+      <summary>+ Eigene Nachricht schreiben</summary>
+      <label>Nachricht
+        <textarea id="publishPushMessage" maxlength="180" placeholder="Leer lassen = Standardtext, z. B. Achtung Kassenausfaelle"></textarea>
+      </label>
+    </details>
     <div class="actions">
       <button data-publish-confirm="${escapeHtml(plan.id)}" type="button">Veroeffentlichen</button>
       <button data-publish-cancel="1" class="secondary" type="button">Abbrechen</button>
@@ -1367,9 +1376,14 @@ function renderShiftEditForm() {
         <label>Benachrichtigung
           <select id="editNotifyMode">
             <option value="affected" selected>Nur betroffene Person</option>
+            <option value="affected_leadership">Betroffene Person + Team Marktleitung</option>
+            <option value="leadership">Team Marktleitung</option>
             <option value="all">Alle Mitarbeiter</option>
             <option value="none">Keine Benachrichtigung</option>
           </select>
+        </label>
+        <label>Eigene Push-Nachricht
+          <input id="editPushMessage" maxlength="180" placeholder="Leer = Standardtext">
         </label>
       </div>
       <div class="actions">
@@ -1460,7 +1474,8 @@ async function deleteShiftEdit() {
       body: {
         before: editShift,
         after: null,
-        notifyMode: document.querySelector("#editNotifyMode")?.value || "affected"
+        notifyMode: document.querySelector("#editNotifyMode")?.value || "affected",
+        pushMessage: document.querySelector("#editPushMessage")?.value || ""
       }
     });
     editShift = null;
@@ -1496,7 +1511,8 @@ async function saveShiftEdit() {
           department: document.querySelector("#editDepartment").value,
           break: normalizeBreakValue(document.querySelector("#editBreak").value)
         },
-        notifyMode: document.querySelector("#editNotifyMode")?.value || "affected"
+        notifyMode: document.querySelector("#editNotifyMode")?.value || "affected",
+        pushMessage: document.querySelector("#editPushMessage")?.value || ""
       }
     });
     editShift = null;

@@ -12,7 +12,7 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "mobile-planliste-teamplan-freigabe-20260727";
+const BUILD_VERSION = "push-team-marktleitung-pausenfix-20260803";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -179,6 +179,12 @@ function employeeKey(name) {
 }
 
 function canSeeTeamPlan(name) {
+  return teamLeadershipNames()
+    .map(employeeKey)
+    .includes(employeeKey(name));
+}
+
+function teamLeadershipNames() {
   return [
     "Demircan, Emirkan",
     "Brockling, Angelina",
@@ -186,7 +192,7 @@ function canSeeTeamPlan(name) {
     "Konxhelli, Blerina",
     "Hammer, Pascal",
     "Rode, Joanna"
-  ].map(employeeKey).includes(employeeKey(name));
+  ];
 }
 
 function parseGermanDate(value) {
@@ -690,22 +696,69 @@ function validPushSubscription(subscription) {
     && typeof subscription.keys.auth === "string";
 }
 
-async function sendPlanPush(db, plan, mode = "auto", targetNames = null) {
-  if (!webPush || !Array.isArray(db.pushSubscriptions) || !db.pushSubscriptions.length) {
-    return { sent: 0, removed: 0 };
+function validNotifyMode(mode) {
+  return ["all", "affected", "leadership", "affected_leadership", "none"].includes(mode);
+}
+
+function sanitizePushMessage(value) {
+  return normalizeName(value).slice(0, 180);
+}
+
+function departmentFromSignature(value) {
+  return String(value || "")
+    .split("/")
+    .map(part => part.split("|")[1] || "")
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+function changedDepartmentText(plan, targetNames = null) {
+  const targetKeys = Array.isArray(targetNames) && targetNames.length
+    ? new Set(targetNames.map(employeeKey).filter(Boolean))
+    : null;
+  const departments = [];
+  for (const change of plan.changes || []) {
+    if (targetKeys && !targetKeys.has(employeeKey(change.name))) continue;
+    departments.push(...departmentFromSignature(change.after));
+    departments.push(...departmentFromSignature(change.before));
   }
+  return Array.from(new Set(departments))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(", ");
+}
+
+function pushTargetKeys(plan, mode, targetNames = null) {
   const sourceNames = Array.isArray(targetNames) && targetNames.length
     ? targetNames
     : (plan.changes || []).map(change => change.name);
   const changedNames = new Set(sourceNames.map(name => employeeKey(name)).filter(Boolean));
-  const affectedOnly = mode === "affected" || (mode === "auto" && changedNames.size);
-  const subscriptions = affectedOnly && changedNames.size
-    ? db.pushSubscriptions.filter(saved => changedNames.has(employeeKey(saved.name)))
+  if (mode === "affected_leadership") {
+    return new Set([...changedNames, ...teamLeadershipNames().map(employeeKey)]);
+  }
+  if (mode === "leadership") return new Set(teamLeadershipNames().map(employeeKey));
+  if (mode === "affected" || (mode === "auto" && changedNames.size)) return changedNames;
+  return null;
+}
+
+async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options = {}) {
+  if (!webPush || !Array.isArray(db.pushSubscriptions) || !db.pushSubscriptions.length) {
+    return { sent: 0, removed: 0 };
+  }
+  const targetKeys = pushTargetKeys(plan, mode, targetNames);
+  const subscriptions = targetKeys
+    ? db.pushSubscriptions.filter(saved => targetKeys.has(employeeKey(saved.name)))
     : db.pushSubscriptions;
+  const hasChanges = Array.isArray(plan.changes) && plan.changes.length > 0;
+  const customMessage = sanitizePushMessage(options.message || options.pushMessage || "");
+  const departments = changedDepartmentText(plan, targetNames);
+  const body = customMessage || (hasChanges
+    ? `${plan.title || "Dienstplan"}: Planaenderung${departments ? ` bei ${departments}` : ""}.`
+    : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`);
 
   const payload = JSON.stringify({
-    title: affectedOnly ? "Arbeitsplan geaendert" : "Neuer Arbeitsplan online",
-    body: affectedOnly ? `${plan.title || "Dein Plan"} hat Aenderungen.` : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`,
+    title: customMessage ? "Arbeitsplan Info" : hasChanges ? "Planaenderung" : "Neuer Arbeitsplan online",
+    body,
     url: "/"
   });
 
@@ -727,7 +780,7 @@ async function sendPlanPush(db, plan, mode = "auto", targetNames = null) {
     }
   }
   db.pushSubscriptions = alive;
-  return { sent, removed, mode, affected: affectedOnly ? Array.from(changedNames) : [] };
+  return { sent, removed, mode, affected: targetKeys ? Array.from(targetKeys) : [] };
 }
 
 function shouldNotifyOnPublish(db, plan) {
@@ -746,11 +799,11 @@ function defaultPublishNotifyMode(db, plan) {
 }
 
 function publishNotifyMode(db, plan, requestedMode) {
-  if (["all", "affected", "none"].includes(requestedMode)) return requestedMode;
+  if (validNotifyMode(requestedMode)) return requestedMode;
   return defaultPublishNotifyMode(db, plan);
 }
 
-async function editPlanShift(db, planId, before, after, notifyMode = "affected") {
+async function editPlanShift(db, planId, before, after, notifyMode = "affected", pushMessage = "") {
   const addShift = !before && Boolean(after);
   const cleanBefore = addShift ? null : cleanShift(before || {});
   const deleteShift = !after;
@@ -788,9 +841,9 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected")
   const change = changeFromShifts(oldShift, cleanAfter, "Haendisch");
   plan.changes = [change, ...(plan.changes || [])];
   const correction = createManualPepCorrection(db, plan, change);
-  const mode = ["all", "affected", "none"].includes(notifyMode) ? notifyMode : "affected";
+  const mode = validNotifyMode(notifyMode) ? notifyMode : "affected";
   const push = publishedIds(db).includes(plan.id) && mode !== "none"
-    ? await sendPlanPush(db, plan, mode, [change.name])
+    ? await sendPlanPush(db, plan, mode, [change.name], { pushMessage })
     : { sent: 0, removed: 0, skipped: true, mode };
   return { plan, correction, push };
 }
@@ -963,7 +1016,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
@@ -976,7 +1029,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
@@ -994,7 +1047,7 @@ async function handleApi(req, res, pathname) {
       const notifyMode = publishNotifyMode(db, plan, body.notifyMode);
       setPublishedIds(db, ids);
       plan.publishedAt = new Date().toISOString();
-      const push = notifyMode === "none" ? { sent: 0, removed: 0, skipped: true, mode: notifyMode } : await sendPlanPush(db, plan, notifyMode);
+      const push = notifyMode === "none" ? { sent: 0, removed: 0, skipped: true, mode: notifyMode } : await sendPlanPush(db, plan, notifyMode, null, { pushMessage: body.pushMessage });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: true }), push });
     }

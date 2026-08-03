@@ -299,6 +299,8 @@ function renderNextWorkDay(nextWorkDay) {
   }
 
   const multiDepartment = new Set(nextWorkDay.shifts.map(shift => shift.department).filter(Boolean)).size > 1;
+  const multiBlock = nextWorkDay.shifts.length > 1;
+  const showDayPause = multiBlock || multiDepartment || dayHasBreak(nextWorkDay.shifts);
   return `
     <section class="next-card">
       <p class="next-label">Naechste Schicht</p>
@@ -310,9 +312,9 @@ function renderNextWorkDay(nextWorkDay) {
         <span class="badge">Anstehend</span>
       </div>
       <div class="day-shifts">
-        ${nextWorkDay.shifts.map(shift => renderShift(shift, multiDepartment)).join("")}
+        ${nextWorkDay.shifts.map(shift => renderShift(shift, multiBlock || multiDepartment, nextWorkDay.shifts)).join("")}
       </div>
-      ${multiDepartment ? `<div class="day-summary next-summary">Tagespause: ${dayPauseText(nextWorkDay.shifts)}</div>` : ""}
+      ${showDayPause ? `<div class="day-summary next-summary">Tagespause: ${dayPauseText(nextWorkDay.shifts)}</div>` : ""}
     </section>
   `;
 }
@@ -526,10 +528,13 @@ function renderTeamEditForm() {
         <label>Benachrichtigung
           <select id="teamEditNotifyMode">
             <option value="affected" selected>Nur betroffene Person</option>
+            <option value="affected_leadership">Betroffene Person + Team Marktleitung</option>
+            <option value="leadership">Team Marktleitung</option>
             <option value="none">Niemand</option>
             <option value="all">Alle Mitarbeiter</option>
           </select>
         </label>
+        <label>Eigene Push-Nachricht<input id="teamEditPushMessage" maxlength="180" placeholder="Leer = Standardtext"></label>
       </div>
       <div class="actions">
         ${isNew ? "" : '<button id="deleteTeamEdit" class="danger" type="button">Schicht loeschen</button>'}
@@ -628,7 +633,12 @@ async function deleteTeamEdit() {
   try {
     await api(`/api/me/plans/${encodeURIComponent(teamEditShift.planId)}/shifts/edit`, {
       method: "POST",
-      body: { before: teamEditShift, after: null, notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected" }
+      body: {
+        before: teamEditShift,
+        after: null,
+        notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected",
+        pushMessage: document.querySelector("#teamEditPushMessage")?.value || ""
+      }
     });
     teamEditShift = null;
     await loadMine();
@@ -655,7 +665,8 @@ async function saveTeamEdit() {
           department: document.querySelector("#teamEditDepartment").value,
           break: normalizeBreakValue(document.querySelector("#teamEditBreak").value)
         },
-        notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected"
+        notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected",
+        pushMessage: document.querySelector("#teamEditPushMessage")?.value || ""
       }
     });
     teamEditShift = null;
@@ -720,7 +731,9 @@ function renderDay(dateValue, dayShifts, changed = false) {
   const currentDay = isToday(date);
   const sorted = dayShifts.slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
   const multiDepartment = new Set(sorted.map(shift => shift.department).filter(Boolean)).size > 1;
+  const multiBlock = sorted.length > 1;
   const dayPause = dayPauseText(sorted);
+  const showDaySummary = multiBlock || multiDepartment || dayHasBreak(sorted);
 
   return `
     <article class="day ${currentDay ? "today-day" : ""} ${changed ? "changed-day" : ""}">
@@ -730,15 +743,15 @@ function renderDay(dateValue, dayShifts, changed = false) {
         ${changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
         ${multiDepartment ? '<span class="badge subtle">Mehrere Abteilungen</span>' : ""}
       </div>
-      ${multiDepartment ? `<div class="day-summary">Gesamt: ${escapeHtml(dayTimeRange(sorted))} - Tagespause: ${dayPause}</div>` : ""}
+      ${showDaySummary ? `<div class="day-summary">Gesamt: ${escapeHtml(dayTimeRange(sorted))} - Tagespause: ${dayPause}</div>` : ""}
       <div class="day-shifts">
-        ${sorted.map(shift => renderShift(shift, multiDepartment)).join("")}
+        ${sorted.map(shift => renderShift(shift, multiBlock || multiDepartment, sorted)).join("")}
       </div>
     </article>
   `;
 }
 
-function renderShift(shift, compactPause = false) {
+function renderShift(shift, compactPause = false, dayShifts = []) {
   const status = detectStatus(shift);
   const canEdit = Boolean(currentTeamData?.teamView && shift.planId);
   const editKey = canEdit ? teamShiftKey(shift) : "";
@@ -759,14 +772,15 @@ function renderShift(shift, compactPause = false) {
       <span class="time">${escapeHtml(shift.start)}-${escapeHtml(shift.end)}</span>
       <span class="department">${escapeHtml(shift.department || "Abteilung pruefen")}</span>
       ${shift.changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
-      ${compactPause ? '<span class="pause">Teilblock</span>' : renderPause(shift)}
+      ${compactPause ? '<span class="pause">Teilblock</span>' : renderPause(shift, dayShifts)}
       ${canEdit ? `<button class="mini-button secondary own-edit-btn" data-team-edit="${escapeHtml(editKey)}" data-edit-view="own" type="button">Bearbeiten</button>` : ""}
     </div>
   `;
 }
 
-function renderPause(shift) {
+function renderPause(shift, dayShifts = []) {
   if (shift.break) return `<span class="pause">Pause ${escapeHtml(shift.break)}</span>`;
+  if (dayHasBreak(dayShifts)) return '<span class="pause">Pause im Tag</span>';
   if (needsBreakCheck(shift)) return '<span class="pause warn">Pause pruefen</span>';
   return '<span class="pause">keine Pause</span>';
 }
@@ -775,6 +789,10 @@ function renderPauseText(shift) {
   if (shift.break) return `Pause ${shift.break}`;
   if (needsBreakCheck(shift)) return "Pause pruefen";
   return "keine Pause";
+}
+
+function dayHasBreak(shifts) {
+  return (shifts || []).some(shift => Boolean(shift.break));
 }
 
 function detectStatus(shift) {
@@ -800,7 +818,13 @@ function statusClassName(status) {
 }
 
 function employeeKey(name) {
-  return String(name || "").trim().replace(/\s+/g, " ").replace(/\s+,/g, ",").toLowerCase();
+  return String(name || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\s+,/g, ",")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function unique(values) {
