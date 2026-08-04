@@ -180,7 +180,7 @@ button:active {
 }
 
 button.login-tap {
-  animation: loginTap 0.28s ease;
+  animation: loginTap 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes loginTap {
@@ -200,9 +200,44 @@ button:disabled {
   opacity: 0.55;
 }
 
+.page-enter {
+  animation: pageEnter 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .secondary {
   width: auto;
   background: #1d1d1f;
+}
+
+#plans .bar {
+  background: transparent;
+  border-bottom: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  position: static;
+}
+
+.logout-area {
+  border-top: 1px solid rgba(210, 210, 215, 0.8);
+  margin-top: 22px;
+  padding-top: 16px;
+}
+
+.logout-area .secondary {
+  background: #2c2c2e;
+  width: 100%;
 }
 
 .danger {

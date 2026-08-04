@@ -38,6 +38,10 @@ function showShifts(data) {
   sessionStorage.removeItem("sessionReloadedAfter401");
   login.classList.add("hidden");
   plans.classList.remove("hidden");
+  plans.classList.remove("page-enter");
+  void plans.offsetWidth;
+  plans.classList.add("page-enter");
+  window.setTimeout(() => plans.classList.remove("page-enter"), 420);
   hello.textContent = data.name;
   setupPushButton();
 
@@ -182,6 +186,11 @@ function showTeamShifts(data) {
     });
   });
   document.querySelector("#showTeamSick")?.addEventListener("click", () => {
+    if (teamSickEntry) {
+      teamSickEntry = null;
+      showTeamShifts(currentTeamData);
+      return;
+    }
     teamEditShift = null;
     teamSickEntry = newTeamSickEntry();
     activeViewPanel = "team";
