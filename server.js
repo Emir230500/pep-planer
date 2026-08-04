@@ -493,7 +493,45 @@ function cleanShift(shift) {
 }
 
 function applyDailyBreaks(shifts) {
+  const groups = new Map();
+  for (const shift of shifts || []) {
+    if (isStatusShift(shift)) continue;
+    const key = `${employeeKey(shift.name)}|${shift.date}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(shift);
+  }
+
+  for (const dayShifts of groups.values()) {
+    const sorted = dayShifts
+      .filter(shift => isTime(shift.start) && isTime(shift.end))
+      .sort((a, b) => timeToMinutesSafe(a.start) - timeToMinutesSafe(b.start));
+    if (!sorted.length) continue;
+
+    const legalMinutes = legalBreakMinutes(totalDurationMinutes(sorted));
+    const existingMinutes = Math.max(0, ...sorted.map(shift => breakToMinutes(shift.break)));
+    const breakMinutes = Math.max(legalMinutes, existingMinutes);
+    if (!breakMinutes) continue;
+
+    const target = sorted.find(shift => breakToMinutes(shift.break)) || sorted[0];
+    for (const shift of sorted) {
+      shift.break = shift === target ? minutesToBreak(breakMinutes) : "";
+    }
+  }
   return shifts;
+}
+
+function ensureLegalBreaksInPlans(db) {
+  let changed = false;
+  for (const plan of db.plans || []) {
+    const before = JSON.stringify((plan.shifts || []).map(shift => shift.break || ""));
+    plan.shifts = applyDailyBreaks(plan.shifts || []);
+    const after = JSON.stringify((plan.shifts || []).map(shift => shift.break || ""));
+    if (before !== after) {
+      plan.updatedAt = plan.updatedAt || new Date().toISOString();
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function applyLegalBreakForManualDay(shifts, name, date) {
@@ -1108,7 +1146,10 @@ async function handleApi(req, res, pathname) {
     if (pathname === "/api/employee/login" && req.method === "POST") {
       const body = await readBody(req);
       const db = await readDb();
-      if (ensureEmployeesFromPlans(db)) await writeDb(db);
+      const employeeSyncChanged = ensureEmployeesFromPlans(db);
+      const breakSyncChanged = ensureLegalBreaksInPlans(db);
+      const loginDataChanged = employeeSyncChanged || breakSyncChanged;
+      if (loginDataChanged) await writeDb(db);
       const name = normalizeName(body.name);
       const employee = findEmployeeByName(db, name);
       if (!employee || !verifyPin(body.pin, employee.pinHash)) return json(res, 403, { error: "Name oder PIN stimmt nicht." });
@@ -1146,7 +1187,9 @@ async function handleApi(req, res, pathname) {
       const db = await readDb();
       cleanupPepCorrections(db);
       const employeeSyncChanged = ensureEmployeesFromPlans(db);
-      if (employeeSyncChanged) await writeDb(db);
+      const breakSyncChanged = ensureLegalBreaksInPlans(db);
+      const overviewDataChanged = employeeSyncChanged || breakSyncChanged;
+      if (overviewDataChanged) await writeDb(db);
       const ids = publishedIds(db);
       const publishedPlans = db.plans.filter(plan => ids.includes(plan.id));
       return json(res, 200, {
@@ -1183,6 +1226,7 @@ async function handleApi(req, res, pathname) {
       const pin = String(body.pin || "").trim();
       if (!/^\d{4,8}$/.test(pin)) return json(res, 400, { error: "PIN muss 4 bis 8 Zahlen haben." });
       const db = await readDb();
+      if (ensureEmployeesFromPlans(db)) await writeDb(db);
       const employee = findEmployeeByName(db, name);
       if (!employee) return json(res, 404, { error: "Mitarbeiter nicht gefunden." });
       employee.pinHash = hashPin(pin);
@@ -1365,6 +1409,7 @@ async function handleApi(req, res, pathname) {
       if (!requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/").pop());
       const db = await readDb();
+      if (ensureLegalBreaksInPlans(db)) await writeDb(db);
       const plan = db.plans.find(item => item.id === id);
       if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
       const displayShifts = cleanedDisplayShifts(plan.shifts || []);
@@ -1393,6 +1438,7 @@ async function handleApi(req, res, pathname) {
       const name = requireEmployee(req, res);
       if (!name) return;
       const db = await readDb();
+      if (ensureLegalBreaksInPlans(db)) await writeDb(db);
       const ids = publishedIds(db);
       const teamView = canSeeTeamPlan(name);
       const plans = db.plans

@@ -368,6 +368,14 @@ button:disabled {
   margin-top: 6px;
 }
 
+@media (min-width: 1000px) {
+  .week-overview-block .week {
+    margin-left: 50%;
+    transform: translateX(-50%);
+    width: min(1500px, calc(100vw - 48px));
+  }
+}
+
 .sort-switch {
   background: #e8e8ed;
   border: 1px solid var(--line);
@@ -401,8 +409,8 @@ button:disabled {
 
 .overview-grid {
   display: grid;
-  grid-template-columns: 164px repeat(var(--overview-days), minmax(146px, 1fr));
-  min-width: 1068px;
+  grid-template-columns: 180px repeat(var(--overview-days), minmax(174px, 1fr));
+  min-width: 1224px;
   gap: 1px;
   background: #e5e5ea;
   border: 1px solid #e5e5ea;
@@ -426,8 +434,8 @@ button:disabled {
   display: flex;
   font-weight: 800;
   left: 0;
-  max-width: 164px;
-  min-width: 164px;
+  max-width: 180px;
+  min-width: 180px;
   position: -webkit-sticky;
   position: sticky;
   z-index: 10;
@@ -2602,6 +2610,16 @@ select {
 
   .team-pause {
     white-space: normal;
+  }
+
+  .overview-grid {
+    grid-template-columns: 164px repeat(var(--overview-days), minmax(146px, 1fr));
+    min-width: 1068px;
+  }
+
+  .overview-name {
+    max-width: 164px;
+    min-width: 164px;
   }
 
   .plan-row {
