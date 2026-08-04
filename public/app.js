@@ -581,18 +581,32 @@ function overviewPrimaryDepartment(shifts) {
 
 function renderOverviewCell(shifts) {
   if (!shifts.length) return '<span class="overview-empty">-</span>';
-  return sortOverviewShifts(shifts).map(shift => {
-    const status = detectStatus(shift);
-    const label = status || shift.department || "Abteilung pruefen";
-    const time = status ? "Kein Dienst" : `${shift.start}-${shift.end}`;
+  const sorted = sortOverviewShifts(shifts);
+  const statusOnly = sorted.every(shift => detectStatus(shift));
+  if (statusOnly) {
+    const status = detectStatus(sorted[0]) || "Abwesenheit";
     return `
-      <div class="overview-shift ${departmentClass(label)} ${status ? `status-row ${statusClassName(status)}` : ""}">
-        <strong>${escapeHtml(time)}</strong>
-        <span>${escapeHtml(label)}</span>
-        ${status ? "" : `<small>${escapeHtml(renderPausePlain(shift))}</small>`}
+      <div class="overview-shift overview-shift-combined status-row ${statusClassName(status)}">
+        <strong>Kein Dienst</strong>
+        <span>${escapeHtml(status)}</span>
       </div>
     `;
-  }).join("");
+  }
+  const workShifts = sorted.filter(isWorkShift);
+  const statusShifts = sorted.filter(shift => !isWorkShift(shift));
+  const mainLabel = workShifts.length > 1 ? `${dayTimeRange(workShifts)} Gesamt` : `${workShifts[0]?.start || ""}-${workShifts[0]?.end || ""}`;
+  const mainDepartment = workShifts.length === 1 ? (workShifts[0].department || "Abteilung pruefen") : `${workShifts.length} Bereiche`;
+  return `
+    <div class="overview-shift overview-shift-combined ${departmentClass(workShifts[0]?.department)}">
+      <strong>${escapeHtml(mainLabel)}</strong>
+      <span>${escapeHtml(mainDepartment)}</span>
+      ${workShifts.map(shift => `
+        <small class="overview-part">${escapeHtml(shift.start)}-${escapeHtml(shift.end)} ${escapeHtml(shift.department || "Abteilung pruefen")}</small>
+      `).join("")}
+      ${statusShifts.map(shift => `<small class="overview-part">${escapeHtml(detectStatus(shift) || "Abwesenheit")}</small>`).join("")}
+      <small>${escapeHtml(dayPauseText(workShifts))}</small>
+    </div>
+  `;
 }
 
 function sortOverviewShifts(shifts) {
