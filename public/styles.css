@@ -1512,6 +1512,11 @@ button:disabled {
   margin: 0;
 }
 
+.change-delete-btn {
+  margin-top: 8px;
+  width: fit-content;
+}
+
 .correction-panel {
   border-color: rgba(210, 210, 215, 0.9);
 }
@@ -1787,6 +1792,25 @@ button:disabled {
 
 .leadership-checks input {
   width: auto;
+}
+
+.person-picker {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 8px 0 12px;
+  padding: 10px;
+}
+
+.person-picker summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.person-picker .leadership-checks {
+  border: 0;
+  margin: 10px 0 0;
+  padding: 0;
 }
 
 .edit-date-picker {
@@ -2316,5 +2340,28 @@ select {
 
   .plan-row .actions .danger {
     grid-column: 1 / -1;
+  }
+
+  .inspection-action-buttons,
+  .team-section-head {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .edit-date-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .edit-date-chip {
+    min-height: 52px;
+  }
+
+  .leadership-checks {
+    grid-template-columns: 1fr;
+  }
+
+  .leadership-checks label {
+    min-height: 44px;
   }
 }

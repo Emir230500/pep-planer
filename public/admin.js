@@ -8,6 +8,7 @@ let lastCoverageWarning = "";
 let editShift = null;
 let sickEntry = null;
 let inspectionEditMap = new Map();
+let inspectionChangeMap = new Map();
 let activeAdminViewPanel = "plans";
 let inspectCalendarOpen = false;
 let inspectCalendarMonth = "";
@@ -996,6 +997,7 @@ function renderInspection() {
 
   const changes = inspected.changes || [];
   if (changes.length) {
+    inspectionChangeMap = new Map();
     issueList.innerHTML += renderInspectionChanges(changes);
   }
 
@@ -1067,11 +1069,35 @@ function renderInspection() {
   document.querySelectorAll("[data-sick-date-choice]").forEach(button => {
     button.addEventListener("click", () => {
       if (!sickEntry) return;
-      sickEntry.date = button.dataset.sickDateChoice;
+      syncSickEntryFormState();
+      const value = button.dataset.sickDateChoice;
+      const current = new Set(sickEntry.dates || []);
+      if (current.has(value) && current.size > 1) current.delete(value);
+      else current.add(value);
+      sickEntry.dates = Array.from(current);
+      sickEntry.date = sickEntry.dates[0] || value;
+      sickEntry.wholeWeek = false;
       renderInspection();
     });
   });
+  document.querySelector("#sickWholeWeek")?.addEventListener("change", event => {
+    if (!sickEntry) return;
+    syncSickEntryFormState();
+    sickEntry.wholeWeek = event.target.checked;
+    if (sickEntry.wholeWeek) sickEntry.dates = editDateValues(sickEntry.date);
+    renderInspection();
+  });
+  document.querySelector("#sickName")?.addEventListener("change", syncSickEntryFormState);
+  document.querySelector("#sickNotifyMode")?.addEventListener("change", () => {
+    syncSickEntryFormState();
+    renderInspection();
+  });
+  document.querySelector("#sickPushMessage")?.addEventListener("input", syncSickEntryFormState);
+  document.querySelectorAll(".sick-leadership-name").forEach(input => input.addEventListener("change", syncSickEntryFormState));
   document.querySelector("#saveSickEntry")?.addEventListener("click", saveSickEntry);
+  document.querySelectorAll("[data-delete-inspection-change]").forEach(button => {
+    button.addEventListener("click", () => deleteInspectionChange(button.dataset.deleteInspectionChange));
+  });
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
   document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
 }
@@ -1387,7 +1413,11 @@ function newSickEntry() {
   return {
     name: document.querySelector("#inspectEmployee")?.value || (inspected.shifts[0]?.name || ""),
     date,
-    wholeWeek: false
+    dates: [date].filter(Boolean),
+    wholeWeek: false,
+    notifyMode: "leadership",
+    notifyNames: [],
+    pushMessage: ""
   };
 }
 
@@ -1401,15 +1431,15 @@ function renderSickEntryForm() {
       <strong>Mitarbeiter krank melden</strong>
       <p class="hint">Ersetzt die Dienste der Person durch Krankheit. Bei ganzer Woche werden alle Dienste dieser Woche entfernt.</p>
       <div class="shift-edit-grid">
-        <label>Mitarbeiter
-          <input id="sickName" list="sickEmployeeOptions" value="${escapeHtml(sickEntry.name)}" placeholder="Name auswaehlen oder eingeben">
-          <datalist id="sickEmployeeOptions">
-            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
-          </datalist>
+        <label>Person waehlen
+          <select id="sickName">
+            <option value="">Person waehlen</option>
+            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}" ${name === sickEntry.name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
+          </select>
         </label>
-        <label>Datum
+        <label class="full-row">Tage waehlen
           <input id="sickDate" type="hidden" value="${escapeHtml(sickEntry.date)}">
-          ${renderEditDatePicker(dateValues, sickEntry.date, "data-sick-date-choice")}
+          ${renderSickDatePicker(dateValues, sickEntry.dates || [sickEntry.date], "data-sick-date-choice")}
         </label>
         <label class="checkbox-label">
           <input id="sickWholeWeek" type="checkbox" ${sickEntry.wholeWeek ? "checked" : ""}>
@@ -1417,26 +1447,56 @@ function renderSickEntryForm() {
         </label>
         <label>Benachrichtigung
           <select id="sickNotifyMode">
-            <option value="leadership" selected>Team Marktleitung</option>
-            <option value="selected_leadership">Einzelne Marktleitung auswaehlen</option>
-            <option value="none">Niemand</option>
+            <option value="leadership" ${sickEntry.notifyMode === "leadership" ? "selected" : ""}>Team Marktleitung</option>
+            <option value="selected_leadership" ${sickEntry.notifyMode === "selected_leadership" ? "selected" : ""}>Person waehlen</option>
+            <option value="none" ${sickEntry.notifyMode === "none" ? "selected" : ""}>Niemand</option>
           </select>
         </label>
         <label class="full-row">Eigene Push-Nachricht
-          <input id="sickPushMessage" maxlength="180" placeholder="Leer = Standardtext mit alter/neuer Info">
+          <input id="sickPushMessage" maxlength="180" value="${escapeHtml(sickEntry.pushMessage || "")}" placeholder="Leer = Standardtext mit alter/neuer Info">
         </label>
       </div>
-      <div class="leadership-checks">
-        ${leadership.map(name => `
-          <label><input type="checkbox" class="sick-leadership-name" value="${escapeHtml(name)}"> ${escapeHtml(name)}</label>
-        `).join("")}
-      </div>
+      <details class="person-picker" ${sickEntry.notifyMode === "selected_leadership" ? "open" : ""}>
+        <summary>Personen fuer Benachrichtigung auswaehlen</summary>
+        <div class="leadership-checks">
+          ${leadership.map(name => `
+            <label><input type="checkbox" class="sick-leadership-name" value="${escapeHtml(name)}" ${(sickEntry.notifyNames || []).includes(name) ? "checked" : ""}> ${escapeHtml(name)}</label>
+          `).join("")}
+        </div>
+      </details>
       <div class="actions">
         <button id="saveSickEntry" class="danger" type="button">Krank melden</button>
         <button id="cancelSickEntry" class="secondary" type="button">Abbrechen</button>
       </div>
     </div>
   `;
+}
+
+function renderSickDatePicker(values, selectedDates, dataAttr) {
+  const selectedSet = new Set((selectedDates || []).filter(Boolean));
+  const label = selectedSet.size > 1 ? `${selectedSet.size} Tage ausgewaehlt` : (Array.from(selectedSet)[0] || "Tag waehlen");
+  return `
+    <div class="edit-date-picker">
+      <div class="edit-date-selected">${escapeHtml(label)}</div>
+      <div class="edit-date-grid">
+        ${values.map(value => {
+          const parsed = parseGermanDate(value);
+          return `<button class="edit-date-chip ${selectedSet.has(value) ? "selected" : ""}" ${dataAttr}="${escapeHtml(value)}" type="button">
+            <span>${escapeHtml(weekdayShort(parsed))}</span>
+            <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
+          </button>`;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function syncSickEntryFormState() {
+  if (!sickEntry) return;
+  sickEntry.name = document.querySelector("#sickName")?.value || sickEntry.name || "";
+  sickEntry.notifyMode = document.querySelector("#sickNotifyMode")?.value || sickEntry.notifyMode || "leadership";
+  sickEntry.notifyNames = Array.from(document.querySelectorAll(".sick-leadership-name:checked")).map(input => input.value);
+  sickEntry.pushMessage = document.querySelector("#sickPushMessage")?.value || "";
 }
 
 function renderShiftEditForm() {
@@ -1635,7 +1695,7 @@ async function saveSickEntry() {
       method: "POST",
       body: {
         name: document.querySelector("#sickName")?.value || "",
-        date: document.querySelector("#sickDate")?.value || "",
+        date: Array.from(new Set((sickEntry.dates || [document.querySelector("#sickDate")?.value || ""]).filter(Boolean))),
         wholeWeek: Boolean(document.querySelector("#sickWholeWeek")?.checked),
         notifyMode: document.querySelector("#sickNotifyMode")?.value || "leadership",
         notifyNames: Array.from(document.querySelectorAll(".sick-leadership-name:checked")).map(input => input.value),
@@ -1646,6 +1706,33 @@ async function saveSickEntry() {
     await loadAdmin();
     await loadInspection(planId, true);
     if (msg) msg.textContent = "Krankmeldung gespeichert. Dienste wurden ersetzt und PEP-Korrektur wurde angelegt.";
+  } catch (error) {
+    if (msg) {
+      msg.textContent = error.message;
+      msg.classList.add("error");
+    }
+  }
+}
+
+async function deleteInspectionChange(changeId) {
+  if (!inspected.plan?.id) return;
+  const change = inspectionChangeMap.get(changeId);
+  if (!change) return;
+  if (!window.confirm("Diese Aenderung nur aus der Liste entfernen? Der aktuelle Dienstplan bleibt unveraendert.")) return;
+  const planId = inspected.plan.id;
+  const msg = document.querySelector("#inspectMsg");
+  if (msg) {
+    msg.textContent = "Aenderung wird aus der Liste entfernt...";
+    msg.classList.remove("error");
+  }
+  try {
+    await api(`/api/admin/plans/${encodeURIComponent(planId)}/changes/delete`, {
+      method: "POST",
+      body: { change }
+    });
+    await loadAdmin();
+    await loadInspection(planId, true);
+    if (msg) msg.textContent = "Aenderung wurde aus der Liste entfernt. Der Dienstplan selbst blieb unveraendert.";
   } catch (error) {
     if (msg) {
       msg.textContent = error.message;
@@ -1719,6 +1806,8 @@ function renderInspectionChanges(changes) {
 }
 
 function renderInspectionChangeItem(change) {
+  const changeId = `change-${inspectionChangeMap.size}`;
+  inspectionChangeMap.set(changeId, change);
   return `
     <div class="change-item ${change.isLatestForPersonDay ? "latest-change-item" : ""}">
       <div>
@@ -1731,6 +1820,7 @@ function renderInspectionChangeItem(change) {
         <p><span class="meta">Alt:</span> ${escapeHtml(change.before)}</p>
         <p><span class="meta">Neu:</span> ${escapeHtml(change.after)}</p>
       </div>
+      <button class="mini-button danger change-delete-btn" data-delete-inspection-change="${escapeHtml(changeId)}" type="button">Aus Liste loeschen</button>
     </div>
   `;
 }

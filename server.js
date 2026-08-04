@@ -641,6 +641,15 @@ function changeFromShifts(before, after, source = "Import", editorName = "") {
   };
 }
 
+function sameChange(left, right) {
+  return employeeKey(left?.name) === employeeKey(right?.name)
+    && String(left?.date || "") === String(right?.date || "")
+    && String(left?.type || "") === String(right?.type || "")
+    && String(left?.before || "") === String(right?.before || "")
+    && String(left?.after || "") === String(right?.after || "")
+    && String(left?.createdAt || "") === String(right?.createdAt || "");
+}
+
 function createPepCorrections(db, plan) {
   const existing = new Set((db.pepCorrections || []).map(item => item.key).filter(Boolean));
   const createdAt = new Date().toISOString();
@@ -937,7 +946,8 @@ async function markEmployeeSick(db, planId, name, date, wholeWeek = false, notif
   const cleanName = normalizeName(name);
   if (!cleanName) return { error: "Bitte Mitarbeiter auswaehlen.", status: 400 };
 
-  const targetDates = wholeWeek ? datesFromPlan(plan) : [String(date || "").trim()];
+  const requestedDates = Array.isArray(date) ? date : [String(date || "").trim()];
+  const targetDates = wholeWeek ? datesFromPlan(plan) : requestedDates;
   const validDates = targetDates.filter(Boolean);
   if (!validDates.length) return { error: "Bitte Datum auswaehlen.", status: 400 };
 
@@ -1193,6 +1203,23 @@ async function handleApi(req, res, pathname) {
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), corrections: result.corrections, push: result.push });
+    }
+
+    if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/changes\/delete$/) && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const id = decodeURIComponent(pathname.split("/")[4]);
+      const body = await readBody(req);
+      const db = await readDb();
+      const plan = db.plans.find(item => item.id === id);
+      if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
+      const change = body.change || {};
+      const beforeCount = (plan.changes || []).length;
+      plan.changes = (plan.changes || []).filter(item => !sameChange(item, change));
+      if (plan.changes.length === beforeCount) return json(res, 404, { error: "Aenderung wurde nicht gefunden." });
+      const key = correctionKey(plan.id, change);
+      db.pepCorrections = (db.pepCorrections || []).filter(item => item.key !== key);
+      await writeDb(db);
+      return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: publishedIds(db).includes(plan.id) }), pepCorrections: publicPepCorrections(db) });
     }
 
     if (pathname.match(/^\/api\/me\/plans\/[^/]+\/shifts\/edit$/) && req.method === "POST") {
