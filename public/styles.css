@@ -401,13 +401,13 @@ button:disabled {
 
 .overview-grid {
   display: grid;
-  grid-template-columns: 136px repeat(var(--overview-days), minmax(146px, 1fr));
-  min-width: 1040px;
+  grid-template-columns: 164px repeat(var(--overview-days), minmax(146px, 1fr));
+  min-width: 1068px;
   gap: 1px;
   background: #e5e5ea;
   border: 1px solid #e5e5ea;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .overview-name,
@@ -420,14 +420,17 @@ button:disabled {
 
 .overview-name {
   align-items: center;
-  background: #fbfbfd;
-  box-shadow: 8px 0 12px rgba(0, 0, 0, 0.08);
+  background: #fff;
+  box-shadow: 12px 0 18px rgba(0, 0, 0, 0.14);
   color: #1d1d1f;
   display: flex;
   font-weight: 800;
   left: 0;
+  max-width: 164px;
+  min-width: 164px;
+  position: -webkit-sticky;
   position: sticky;
-  z-index: 3;
+  z-index: 10;
 }
 
 .overview-corner {
