@@ -1080,11 +1080,29 @@ function renderInspection() {
       renderInspection();
     });
   });
+  document.querySelectorAll("[data-sick-week]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (!sickEntry) return;
+      syncSickEntryFormState();
+      const values = button.dataset.sickWeek.split("|").filter(Boolean);
+      const current = new Set(sickEntry.dates || []);
+      const allSelected = values.every(value => current.has(value));
+      values.forEach(value => allSelected ? current.delete(value) : current.add(value));
+      if (!current.size) values.forEach(value => current.add(value));
+      sickEntry.dates = Array.from(current).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+      sickEntry.date = sickEntry.dates[0] || values[0] || sickEntry.date;
+      sickEntry.wholeWeek = values.every(value => sickEntry.dates.includes(value));
+      renderInspection();
+    });
+  });
   document.querySelector("#sickWholeWeek")?.addEventListener("change", event => {
     if (!sickEntry) return;
     syncSickEntryFormState();
     sickEntry.wholeWeek = event.target.checked;
-    if (sickEntry.wholeWeek) sickEntry.dates = editDateValues(sickEntry.date);
+    if (sickEntry.wholeWeek) {
+      const week = groupSickDatesByWeek(sickDateValues()).find(group => group.dates.includes(sickEntry.date));
+      sickEntry.dates = week?.dates || editDateValues(sickEntry.date);
+    }
     renderInspection();
   });
   document.querySelector("#sickName")?.addEventListener("change", syncSickEntryFormState);
@@ -1424,7 +1442,7 @@ function newSickEntry() {
 function renderSickEntryForm() {
   if (!sickEntry) return "";
   const employeeOptions = editEmployeeOptions();
-  const dateValues = editDateValues(sickEntry.date);
+  const dateValues = sickDateValues();
   const leadership = teamLeadershipOptions();
   return `
     <div id="sickEntryBox" class="shift-edit-box sick-entry-box">
@@ -1464,6 +1482,7 @@ function renderSickEntryForm() {
           `).join("")}
         </div>
       </details>` : ""}
+      ${renderSickNotificationPreview(sickEntry, dateValues)}
       <div class="actions">
         <button id="saveSickEntry" class="danger" type="button">Krank melden</button>
         <button id="cancelSickEntry" class="secondary" type="button">Abbrechen</button>
@@ -1472,23 +1491,92 @@ function renderSickEntryForm() {
   `;
 }
 
+function sickDateValues() {
+  const dates = [];
+  for (const plan of sortPlansByDate(adminState.plans || [])) {
+    const range = planDateRange(plan);
+    if (!range) continue;
+    const cursor = new Date(range.start);
+    while (cursor <= range.end) {
+      dates.push(formatGermanDate(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+  return Array.from(new Set(dates)).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+}
+
 function renderSickDatePicker(values, selectedDates, dataAttr) {
   const selectedSet = new Set((selectedDates || []).filter(Boolean));
   const label = selectedSet.size > 1 ? `${selectedSet.size} Tage ausgewaehlt` : (Array.from(selectedSet)[0] || "Tag waehlen");
+  const weeks = groupSickDatesByWeek(values);
   return `
     <div class="edit-date-picker">
       <div class="edit-date-selected">${escapeHtml(label)}</div>
-      <div class="edit-date-grid">
-        ${values.map(value => {
-          const parsed = parseGermanDate(value);
-          return `<button class="edit-date-chip ${selectedSet.has(value) ? "selected" : ""}" ${dataAttr}="${escapeHtml(value)}" type="button">
-            <span>${escapeHtml(weekdayShort(parsed))}</span>
-            <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
-          </button>`;
-        }).join("")}
-      </div>
+      ${weeks.map(week => `
+        <div class="sick-week-group">
+          <button class="sick-week-select" data-sick-week="${escapeHtml(week.dates.join("|"))}" type="button">
+            KW ${escapeHtml(week.week)} - ${escapeHtml(week.dates[0])} bis ${escapeHtml(week.dates[week.dates.length - 1])}
+          </button>
+          <div class="edit-date-grid">
+            ${week.dates.map(value => {
+              const parsed = parseGermanDate(value);
+              return `<button class="edit-date-chip ${selectedSet.has(value) ? "selected" : ""}" ${dataAttr}="${escapeHtml(value)}" type="button">
+                <span>${escapeHtml(weekdayShort(parsed))}</span>
+                <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
+              </button>`;
+            }).join("")}
+          </div>
+        </div>
+      `).join("")}
     </div>
   `;
+}
+
+function groupSickDatesByWeek(values) {
+  const groups = new Map();
+  for (const value of values || []) {
+    const parsed = parseGermanDate(value);
+    if (!parsed) continue;
+    const info = isoWeekInfo(parsed);
+    const key = `${info.year}-${info.week}`;
+    if (!groups.has(key)) groups.set(key, { week: info.week, year: info.year, dates: [] });
+    groups.get(key).dates.push(value);
+  }
+  return Array.from(groups.values()).map(group => ({
+    ...group,
+    dates: group.dates.sort((a, b) => parseGermanDate(a) - parseGermanDate(b))
+  })).sort((a, b) => parseGermanDate(a.dates[0]) - parseGermanDate(b.dates[0]));
+}
+
+function renderSickNotificationPreview(entry) {
+  const selectedDates = Array.from(new Set((entry.dates || []).filter(Boolean))).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+  const notifyText = entry.notifyMode === "none"
+    ? "Niemand bekommt eine Push-Nachricht."
+    : entry.notifyMode === "selected_leadership"
+      ? `${entry.notifyNames?.length || 0} ausgewaehlte Person(en) bekommen eine Push-Nachricht.`
+      : "Team Marktleitung bekommt eine Push-Nachricht.";
+  const rangeText = selectedDates.length > 1 ? `${selectedDates[0]} bis ${selectedDates[selectedDates.length - 1]}` : (selectedDates[0] || "kein Tag gewaehlt");
+  return `
+    <div class="sick-preview">
+      <strong>Vorschau</strong>
+      <p>${escapeHtml(entry.name || "Keine Person gewaehlt")} krank: ${escapeHtml(rangeText)}</p>
+      <p>${escapeHtml(notifyText)}</p>
+      <small>${escapeHtml(entry.pushMessage || sickDefaultPushMessage(entry.name, selectedDates, "ED"))}</small>
+    </div>
+  `;
+}
+
+function sickDefaultPushMessage(name, dates, initials = "") {
+  const sortedDates = (dates || []).slice().sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+  const editor = initials ? ` (${initials})` : "";
+  if (!sortedDates.length) return `Krankmeldung: ${name || "Person"}${editor}`;
+  if (sortedDates.length === 1) {
+    const parsed = parseGermanDate(sortedDates[0]);
+    return `Krankmeldung: ${name || "Person"}${editor} ${weekdayShort(parsed)} ${sortedDates[0]}`;
+  }
+  const first = sortedDates[0];
+  const last = sortedDates[sortedDates.length - 1];
+  return `Krankmeldung: ${name || "Person"}${editor} ${weekdayShort(parseGermanDate(first))} ${first} bis ${weekdayShort(parseGermanDate(last))} ${last}`;
 }
 
 function syncSickEntryFormState() {
@@ -1684,24 +1772,33 @@ async function saveShiftEdit() {
 
 async function saveSickEntry() {
   if (!sickEntry || !inspected.plan?.id) return;
-  const planId = inspected.plan.id;
+  syncSickEntryFormState();
+  const selectedDates = Array.from(new Set((sickEntry.dates || [document.querySelector("#sickDate")?.value || ""]).filter(Boolean)))
+    .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+  const groups = groupDatesByPlan(selectedDates);
+  const planId = groups[0]?.planId || inspected.plan.id;
   const msg = document.querySelector("#inspectMsg");
   if (msg) {
     msg.textContent = "Krankmeldung wird gespeichert...";
     msg.classList.remove("error");
   }
   try {
-    await api(`/api/admin/plans/${encodeURIComponent(planId)}/sick`, {
-      method: "POST",
-      body: {
-        name: document.querySelector("#sickName")?.value || "",
-        date: Array.from(new Set((sickEntry.dates || [document.querySelector("#sickDate")?.value || ""]).filter(Boolean))),
-        wholeWeek: Boolean(document.querySelector("#sickWholeWeek")?.checked),
-        notifyMode: document.querySelector("#sickNotifyMode")?.value || "leadership",
-        notifyNames: Array.from(document.querySelectorAll(".sick-leadership-name:checked")).map(input => input.value),
-        pushMessage: document.querySelector("#sickPushMessage")?.value || ""
-      }
-    });
+    if (!groups.length) throw new Error("Bitte mindestens einen Tag auswaehlen.");
+    const pushText = document.querySelector("#sickPushMessage")?.value || sickDefaultPushMessage(sickEntry.name, selectedDates, "ED");
+    for (let index = 0; index < groups.length; index += 1) {
+      const group = groups[index];
+      await api(`/api/admin/plans/${encodeURIComponent(group.planId)}/sick`, {
+        method: "POST",
+        body: {
+          name: document.querySelector("#sickName")?.value || "",
+          date: group.dates,
+          wholeWeek: false,
+          notifyMode: index === 0 ? (document.querySelector("#sickNotifyMode")?.value || "leadership") : "none",
+          notifyNames: index === 0 ? Array.from(document.querySelectorAll(".sick-leadership-name:checked")).map(input => input.value) : [],
+          pushMessage: index === 0 ? pushText : ""
+        }
+      });
+    }
     sickEntry = null;
     await loadAdmin();
     await loadInspection(planId, true);
@@ -1712,6 +1809,17 @@ async function saveSickEntry() {
       msg.classList.add("error");
     }
   }
+}
+
+function groupDatesByPlan(dates) {
+  const groups = new Map();
+  for (const dateValue of dates || []) {
+    const plan = planForDate(dateValue) || inspected.plan;
+    if (!plan?.id) continue;
+    if (!groups.has(plan.id)) groups.set(plan.id, { planId: plan.id, dates: [] });
+    groups.get(plan.id).dates.push(dateValue);
+  }
+  return Array.from(groups.values());
 }
 
 async function deleteInspectionChange(changeId) {

@@ -1831,6 +1831,50 @@ button:disabled {
   padding: 0;
 }
 
+.sick-week-group {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.sick-week-group:first-of-type {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.sick-week-select {
+  background: #f5f5f7;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.sick-preview {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 12px;
+  padding: 10px;
+}
+
+.sick-preview p {
+  color: var(--text);
+  margin: 0;
+}
+
+.sick-preview small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .edit-date-picker {
   background: #fbfbfd;
   border: 1px solid var(--line);

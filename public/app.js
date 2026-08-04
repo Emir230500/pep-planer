@@ -222,6 +222,21 @@ function showTeamShifts(data) {
       showTeamShifts(currentTeamData);
     });
   });
+  document.querySelectorAll("[data-team-sick-week]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (!teamSickEntry) return;
+      syncTeamSickFormState();
+      const values = button.dataset.teamSickWeek.split("|").filter(Boolean);
+      const current = new Set(teamSickEntry.dates || []);
+      const allSelected = values.every(value => current.has(value));
+      values.forEach(value => allSelected ? current.delete(value) : current.add(value));
+      if (!current.size) values.forEach(value => current.add(value));
+      teamSickEntry.dates = Array.from(current).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+      teamSickEntry.date = teamSickEntry.dates[0] || values[0] || teamSickEntry.date;
+      teamSickEntry.wholeWeek = values.every(value => teamSickEntry.dates.includes(value));
+      showTeamShifts(currentTeamData);
+    });
+  });
   document.querySelector("#teamSickPlan")?.addEventListener("change", event => {
     if (!teamSickEntry) return;
     syncTeamSickFormState();
@@ -237,7 +252,10 @@ function showTeamShifts(data) {
     if (!teamSickEntry) return;
     syncTeamSickFormState();
     teamSickEntry.wholeWeek = event.target.checked;
-    if (teamSickEntry.wholeWeek) teamSickEntry.dates = teamEditDateValues(teamSickEntry);
+    if (teamSickEntry.wholeWeek) {
+      const week = groupTeamSickDatesByWeek(teamSickDateValues()).find(group => group.dates.includes(teamSickEntry.date));
+      teamSickEntry.dates = week?.dates || teamEditDateValues(teamSickEntry);
+    }
     showTeamShifts(currentTeamData);
   });
   document.querySelector("#teamSickName")?.addEventListener("change", syncTeamSickFormState);
@@ -629,7 +647,7 @@ function renderTeamSickForm() {
   const plans = currentTeamData?.plans || [];
   const employees = editEmployeeOptions();
   const leadership = teamLeadershipOptions();
-  const dateValues = teamEditDateValues(teamSickEntry);
+  const dateValues = teamSickDateValues();
   return `
     <div id="teamSickBox" class="shift-edit-box team-edit-box sick-entry-box">
       <strong>Mitarbeiter krank melden</strong>
@@ -671,6 +689,7 @@ function renderTeamSickForm() {
           `).join("")}
         </div>
       </details>` : ""}
+      ${renderTeamSickNotificationPreview(teamSickEntry)}
       <div class="actions">
         <button id="saveTeamSick" class="danger" type="button">Krank melden</button>
         <button id="cancelTeamSick" class="secondary" type="button">Abbrechen</button>
@@ -679,23 +698,103 @@ function renderTeamSickForm() {
   `;
 }
 
+function teamSickDateValues() {
+  const dates = [];
+  for (const plan of currentTeamData?.plans || []) {
+    const range = datesFromPlanRange(plan.range || "");
+    if (!range.start) continue;
+    const end = range.end || range.start;
+    const cursor = new Date(range.start);
+    while (cursor <= end) {
+      dates.push(formatGermanDate(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+  return Array.from(new Set(dates)).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+}
+
 function renderTeamSickDatePicker(values, selectedDates, dataAttr) {
   const selectedSet = new Set((selectedDates || []).filter(Boolean));
   const label = selectedSet.size > 1 ? `${selectedSet.size} Tage ausgewaehlt` : (Array.from(selectedSet)[0] || "Tag waehlen");
+  const weeks = groupTeamSickDatesByWeek(values);
   return `
     <div class="edit-date-picker">
       <div class="edit-date-selected">${escapeHtml(label)}</div>
-      <div class="edit-date-grid">
-        ${values.map(value => {
-          const parsed = parseGermanDate(value);
-          return `<button class="edit-date-chip ${selectedSet.has(value) ? "selected" : ""}" ${dataAttr}="${escapeHtml(value)}" type="button">
-            <span>${escapeHtml(weekdayShort(parsed))}</span>
-            <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
-          </button>`;
-        }).join("")}
-      </div>
+      ${weeks.map(week => `
+        <div class="sick-week-group">
+          <button class="sick-week-select" data-team-sick-week="${escapeHtml(week.dates.join("|"))}" type="button">
+            KW ${escapeHtml(week.week)} - ${escapeHtml(week.dates[0])} bis ${escapeHtml(week.dates[week.dates.length - 1])}
+          </button>
+          <div class="edit-date-grid">
+            ${week.dates.map(value => {
+              const parsed = parseGermanDate(value);
+              return `<button class="edit-date-chip ${selectedSet.has(value) ? "selected" : ""}" ${dataAttr}="${escapeHtml(value)}" type="button">
+                <span>${escapeHtml(weekdayShort(parsed))}</span>
+                <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
+              </button>`;
+            }).join("")}
+          </div>
+        </div>
+      `).join("")}
     </div>
   `;
+}
+
+function groupTeamSickDatesByWeek(values) {
+  const groups = new Map();
+  for (const value of values || []) {
+    const parsed = parseGermanDate(value);
+    if (!parsed) continue;
+    const info = isoWeekInfo(parsed);
+    const key = `${info.year}-${info.week}`;
+    if (!groups.has(key)) groups.set(key, { week: info.week, year: info.year, dates: [] });
+    groups.get(key).dates.push(value);
+  }
+  return Array.from(groups.values()).map(group => ({
+    ...group,
+    dates: group.dates.sort((a, b) => parseGermanDate(a) - parseGermanDate(b))
+  })).sort((a, b) => parseGermanDate(a.dates[0]) - parseGermanDate(b.dates[0]));
+}
+
+function renderTeamSickNotificationPreview(entry) {
+  const selectedDates = Array.from(new Set((entry.dates || []).filter(Boolean))).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+  const notifyText = entry.notifyMode === "none"
+    ? "Niemand bekommt eine Push-Nachricht."
+    : entry.notifyMode === "selected_leadership"
+      ? `${entry.notifyNames?.length || 0} ausgewaehlte Person(en) bekommen eine Push-Nachricht.`
+      : "Team Marktleitung bekommt eine Push-Nachricht.";
+  const rangeText = selectedDates.length > 1 ? `${selectedDates[0]} bis ${selectedDates[selectedDates.length - 1]}` : (selectedDates[0] || "kein Tag gewaehlt");
+  return `
+    <div class="sick-preview">
+      <strong>Vorschau</strong>
+      <p>${escapeHtml(entry.name || "Keine Person gewaehlt")} krank: ${escapeHtml(rangeText)}</p>
+      <p>${escapeHtml(notifyText)}</p>
+      <small>${escapeHtml(entry.pushMessage || sickDefaultPushMessage(entry.name, selectedDates, initialsFromName(currentTeamData?.name || "")))}</small>
+    </div>
+  `;
+}
+
+function sickDefaultPushMessage(name, dates, initials = "") {
+  const sortedDates = (dates || []).slice().sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+  const editor = initials ? ` (${initials})` : "";
+  if (!sortedDates.length) return `Krankmeldung: ${name || "Person"}${editor}`;
+  if (sortedDates.length === 1) {
+    const parsed = parseGermanDate(sortedDates[0]);
+    return `Krankmeldung: ${name || "Person"}${editor} ${weekdayShort(parsed)} ${sortedDates[0]}`;
+  }
+  const first = sortedDates[0];
+  const last = sortedDates[sortedDates.length - 1];
+  return `Krankmeldung: ${name || "Person"}${editor} ${weekdayShort(parseGermanDate(first))} ${first} bis ${weekdayShort(parseGermanDate(last))} ${last}`;
+}
+
+function initialsFromName(name) {
+  const value = String(name || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").trim();
+  const parts = value.includes(",")
+    ? value.split(",").map(part => part.trim())
+    : value.split(/\s+/).filter(Boolean).reverse();
+  const last = parts[0] || "";
+  const first = parts[1] || "";
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
 
 function syncTeamSickFormState() {
@@ -892,17 +991,26 @@ async function saveTeamEdit() {
 async function saveTeamSick() {
   if (!teamSickEntry?.planId) return;
   try {
-    await api(`/api/me/plans/${encodeURIComponent(teamSickEntry.planId)}/sick`, {
-      method: "POST",
-      body: {
-        name: document.querySelector("#teamSickName")?.value || "",
-        date: Array.from(new Set((teamSickEntry.dates || [document.querySelector("#teamSickDate")?.value || ""]).filter(Boolean))),
-        wholeWeek: Boolean(document.querySelector("#teamSickWholeWeek")?.checked),
-        notifyMode: document.querySelector("#teamSickNotifyMode")?.value || "leadership",
-        notifyNames: Array.from(document.querySelectorAll(".team-sick-leadership-name:checked")).map(input => input.value),
-        pushMessage: document.querySelector("#teamSickPushMessage")?.value || ""
-      }
-    });
+    syncTeamSickFormState();
+    const selectedDates = Array.from(new Set((teamSickEntry.dates || [document.querySelector("#teamSickDate")?.value || ""]).filter(Boolean)))
+      .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+    const groups = groupTeamDatesByPlan(selectedDates);
+    if (!groups.length) throw new Error("Bitte mindestens einen Tag auswaehlen.");
+    const pushText = document.querySelector("#teamSickPushMessage")?.value || sickDefaultPushMessage(teamSickEntry.name, selectedDates, initialsFromName(currentTeamData?.name || ""));
+    for (let index = 0; index < groups.length; index += 1) {
+      const group = groups[index];
+      await api(`/api/me/plans/${encodeURIComponent(group.planId)}/sick`, {
+        method: "POST",
+        body: {
+          name: document.querySelector("#teamSickName")?.value || "",
+          date: group.dates,
+          wholeWeek: false,
+          notifyMode: index === 0 ? (document.querySelector("#teamSickNotifyMode")?.value || "leadership") : "none",
+          notifyNames: index === 0 ? Array.from(document.querySelectorAll(".team-sick-leadership-name:checked")).map(input => input.value) : [],
+          pushMessage: index === 0 ? pushText : ""
+        }
+      });
+    }
     teamSickEntry = null;
     await loadMine();
   } catch (error) {
@@ -911,6 +1019,26 @@ async function saveTeamSick() {
       box.insertAdjacentHTML("beforeend", `<p class="msg error team-edit-error">${escapeHtml(error.message)}</p>`);
     }
   }
+}
+
+function teamPlanForDate(dateValue) {
+  const date = parseGermanDate(dateValue);
+  if (!date) return null;
+  return (currentTeamData?.plans || []).find(plan => {
+    const range = datesFromPlanRange(plan.range || "");
+    return range.start && range.end && date >= range.start && date <= range.end;
+  }) || null;
+}
+
+function groupTeamDatesByPlan(dates) {
+  const groups = new Map();
+  for (const dateValue of dates || []) {
+    const plan = teamPlanForDate(dateValue) || (currentTeamData?.plans || []).find(item => item.id === teamSickEntry?.planId);
+    if (!plan?.id) continue;
+    if (!groups.has(plan.id)) groups.set(plan.id, { planId: plan.id, dates: [] });
+    groups.get(plan.id).dates.push(dateValue);
+  }
+  return Array.from(groups.values());
 }
 
 function teamSplitInfo(shift, dayShifts) {
