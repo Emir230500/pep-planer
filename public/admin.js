@@ -1603,10 +1603,10 @@ function renderShiftEditForm() {
       <p class="hint">${isNew ? "Neue Schicht" : `${escapeHtml(editShift.name)} - ${escapeHtml(editShift.date)}`}. Nach dem Speichern wird automatisch eine PEP-Korrektur mit Quelle Haendisch angelegt.</p>
       <div class="shift-edit-grid">
         <label>Mitarbeiter
-          <input id="editName" list="editEmployeeOptions" value="${escapeHtml(editShift.name)}" placeholder="Name auswaehlen oder eingeben">
-          <datalist id="editEmployeeOptions">
-            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
-          </datalist>
+          <select id="editName">
+            <option value="">Mitarbeiter auswaehlen</option>
+            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}" ${employeeKey(name) === employeeKey(editShift.name) ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
+          </select>
         </label>
         <label>Datum
           <input id="editDate" type="hidden" value="${escapeHtml(editShift.date)}">

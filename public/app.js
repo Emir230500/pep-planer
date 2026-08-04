@@ -575,13 +575,31 @@ function overviewFirstStart(shifts) {
 }
 
 function overviewPrimaryDepartment(shifts) {
-  const work = shifts.filter(isWorkShift).sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+  const work = shifts.filter(isWorkShift).sort((a, b) => {
+    const byDepartment = departmentSortRank(overviewDepartmentLabel(a)) - departmentSortRank(overviewDepartmentLabel(b));
+    if (byDepartment) return byDepartment;
+    return timeToMinutes(a.start) - timeToMinutes(b.start);
+  });
   const selected = work[0] || shifts[0] || {};
   const status = detectStatus(selected);
   if (status) return status;
-  const department = String(selected.department || "");
+  return overviewDepartmentLabel(selected);
+}
+
+function overviewDepartmentLabel(shift) {
+  const department = String(shift?.department || "");
   if (department.toLowerCase().includes("sco kasse")) return "Kasse";
-  return department || departmentLabel(selected);
+  return department || departmentLabel(shift || {});
+}
+
+function overviewDistinctDepartments(shifts) {
+  const labels = [];
+  shifts.forEach(shift => {
+    const label = overviewDepartmentLabel(shift);
+    const key = departmentOptionKey(label);
+    if (label && !labels.some(item => item.key === key)) labels.push({ key, label });
+  });
+  return labels;
 }
 
 function renderOverviewCell(shifts) {
@@ -599,18 +617,20 @@ function renderOverviewCell(shifts) {
   }
   const workShifts = sorted.filter(isWorkShift);
   const statusShifts = sorted.filter(shift => !isWorkShift(shift));
+  const distinctDepartments = overviewDistinctDepartments(workShifts);
+  const showParts = distinctDepartments.length > 1;
   const mainLabel = workShifts.length > 1 ? `${dayTimeRange(workShifts)} Gesamt` : `${workShifts[0]?.start || ""}-${workShifts[0]?.end || ""}`;
-  const mainDepartment = workShifts.length === 1 ? (workShifts[0].department || "Abteilung pruefen") : `${workShifts.length} Bereiche`;
+  const mainDepartment = showParts ? `${distinctDepartments.length} Bereiche` : (distinctDepartments[0]?.label || "Abteilung pruefen");
   return `
-    <div class="overview-shift overview-shift-combined ${departmentClass(workShifts[0]?.department)}">
+    <div class="overview-shift overview-shift-combined ${departmentClass(distinctDepartments[0]?.label || workShifts[0]?.department)}">
       <strong>${escapeHtml(mainLabel)}</strong>
       <span>${escapeHtml(mainDepartment)}</span>
-      ${workShifts.map(shift => `
+      ${showParts ? workShifts.map(shift => `
         <small class="overview-part ${departmentClass(shift.department)}">
           <b>${escapeHtml(shift.start)}-${escapeHtml(shift.end)}</b>
-          ${escapeHtml(shift.department || "Abteilung pruefen")}
+          ${escapeHtml(overviewDepartmentLabel(shift) || "Abteilung pruefen")}
         </small>
-      `).join("")}
+      `).join("") : ""}
       ${statusShifts.map(shift => `<small class="overview-part">${escapeHtml(detectStatus(shift) || "Abwesenheit")}</small>`).join("")}
       <small>${escapeHtml(dayPauseText(workShifts))}</small>
     </div>
@@ -1017,10 +1037,10 @@ function renderTeamEditForm() {
       <p class="hint">${isNew ? "Neue Schicht" : `${escapeHtml(teamEditShift.name)} - ${escapeHtml(teamEditShift.date)}`}. Nach dem Speichern landet es als haendische PEP-Korrektur in der Admin-Liste.</p>
       <div class="shift-edit-grid">
         <label>Mitarbeiter
-          <input id="teamEditName" list="teamEditEmployeeOptions" value="${escapeHtml(teamEditShift.name)}" placeholder="Mitarbeiter auswaehlen">
-          <datalist id="teamEditEmployeeOptions">
-            ${employees.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
-          </datalist>
+          <select id="teamEditName">
+            <option value="">Mitarbeiter auswaehlen</option>
+            ${employees.map(name => `<option value="${escapeHtml(name)}" ${employeeKey(name) === employeeKey(teamEditShift.name) ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
+          </select>
         </label>
         <label>Datum
           <input id="teamEditDate" type="hidden" value="${escapeHtml(teamEditShift.date)}">
@@ -1138,11 +1158,12 @@ function editDepartmentOptions() {
 }
 
 function editEmployeeOptions() {
+  const fromEmployees = currentTeamData?.employees || [];
   const fromPlans = (currentTeamData?.plans || [])
     .flatMap(plan => plan.shifts || [])
     .map(shift => shift.name || "")
     .filter(Boolean);
-  return unique(fromPlans).sort((a, b) => a.localeCompare(b, "de"));
+  return unique([...fromEmployees, ...fromPlans]).sort((a, b) => a.localeCompare(b, "de"));
 }
 
 async function deleteTeamEdit() {

@@ -247,6 +247,42 @@ function ensureEmployeesFromPlans(db) {
   return changed;
 }
 
+function allKnownEmployeeNames(db) {
+  const names = new Set();
+  for (const employee of Object.values(db.employees || {})) {
+    const name = normalizeName(employee.name);
+    if (name) names.add(name);
+  }
+  for (const plan of db.plans || []) {
+    for (const shift of plan.shifts || []) {
+      const name = normalizeName(shift.name);
+      if (name && !isSuspiciousName(name)) names.add(name);
+    }
+    for (const nameValue of plan.seenEmployees || []) {
+      const name = normalizeName(nameValue);
+      if (name && !isSuspiciousName(name)) names.add(name);
+    }
+  }
+  return Array.from(names).sort((a, b) => a.localeCompare(b, "de"));
+}
+
+function resolveKnownEmployeeName(db, value) {
+  const clean = normalizeName(value);
+  if (!clean) return "";
+  const found = findEmployeeByName(db, clean);
+  if (found?.name) return found.name;
+  if (!isSuspiciousName(clean)) return clean;
+
+  const target = looseEmployeeKey(clean).replace(/,/g, "").trim();
+  if (!target) return clean;
+  const matches = allKnownEmployeeNames(db).filter(name => {
+    const loose = looseEmployeeKey(name);
+    const last = loose.split(",")[0].trim();
+    return last === target || loose.replace(/,/g, " ").split(/\s+/).includes(target);
+  });
+  return matches.length === 1 ? matches[0] : clean;
+}
+
 function initialsFromName(name) {
   const value = normalizeName(name).normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
   const parts = value.includes(",")
@@ -586,7 +622,7 @@ function validateUploadedShifts(shifts) {
   const unknown = workShifts.filter(shift => !shift.department || shift.department === "PEP");
   const badTimes = workShifts.filter(shift => !isTime(shift.start) || !isTime(shift.end));
   const badNames = shifts.filter(shift => isSuspiciousName(shift.name));
-  if (badNames.length) return `${badNames.length} Mitarbeiter-Namen wirken abgeschnitten. Import wurde nicht gespeichert. Beispiel: ${badNames[0].name}`;
+  if (badNames.length) return `${badNames.length} Mitarbeiter-Name wirkt abgeschnitten. Bitte aus der Mitarbeiterliste den kompletten Namen waehlen, z. B. Nachname, Vorname. Beispiel: ${badNames[0].name || "Name fehlt"}`;
   if (badTimes.length) return `${badTimes.length} Schichten haben ungueltige Zeiten. Import wurde nicht gespeichert. Beispiel: ${badTimes[0].name} ${badTimes[0].date} ${badTimes[0].start}-${badTimes[0].end}`;
   if (unknown.length) return `${unknown.length} Schichten haben keine sicher erkannte Abteilung. Import wurde nicht gespeichert.`;
   return "";
@@ -1003,6 +1039,8 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected",
   const cleanBefore = addShift ? null : cleanShift(before || {});
   const deleteShift = !after;
   const cleanAfter = deleteShift ? null : cleanShift(after || {});
+  if (cleanAfter) cleanAfter.name = resolveKnownEmployeeName(db, cleanAfter.name);
+  if (cleanAfter && !cleanAfter.name) return { error: "Bitte Mitarbeiter auswaehlen.", status: 400 };
   if (!deleteShift) {
     const validationError = validateUploadedShifts([cleanAfter]);
     if (validationError) return { error: validationError, status: 400 };
@@ -1472,7 +1510,7 @@ async function handleApi(req, res, pathname) {
           shifts: teamView ? cleanedDisplayShifts(plan.shifts || []) : cleanedDisplayShifts(plan.shifts || []).filter(shift => employeeKey(shift.name) === employeeKey(name))
         }))
         .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
-      return json(res, 200, { name, teamView, plans });
+      return json(res, 200, { name, teamView, employees: teamView ? allKnownEmployeeNames(db) : [], plans });
     }
 
     json(res, 404, { error: "Nicht gefunden." });
