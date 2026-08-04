@@ -516,9 +516,6 @@ button:disabled {
   margin-bottom: 12px;
   overflow-x: auto;
   padding-bottom: 4px;
-  position: sticky;
-  top: 0;
-  z-index: 2;
   background: var(--bg);
 }
 
@@ -2270,9 +2267,6 @@ body {
   border-bottom: 1px solid rgba(210, 210, 215, 0.72);
   margin: -24px -18px 18px;
   padding: 18px;
-  position: sticky;
-  top: 0;
-  z-index: 5;
 }
 
 h1 {
