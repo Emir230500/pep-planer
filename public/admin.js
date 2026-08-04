@@ -6,6 +6,7 @@ let inspected = { plan: null, shifts: [], issues: [], missingEmployees: [], chan
 let lastPepTextNames = [];
 let lastCoverageWarning = "";
 let editShift = null;
+let sickEntry = null;
 let inspectionEditMap = new Map();
 let activeAdminViewPanel = "plans";
 let inspectCalendarOpen = false;
@@ -757,6 +758,7 @@ function renderPepCorrectionMini(item, prominent = false) {
         <span class="badge subtle">${changeTypeLabel(item.type)}</span>
         ${prominent || item.isLatestForPersonDay ? '<span class="badge">Diese Schicht ist aktuell</span>' : ""}
         <span class="meta">Quelle: ${escapeHtml(item.source || "Import")}</span>
+        ${item.editorInitials ? `<span class="badge subtle">Von ${escapeHtml(item.editorInitials)}</span>` : ""}
       </div>
       <p><span class="meta">Alt:</span> ${escapeHtml(item.before)}</p>
       <p><span class="meta">Neu:</span> ${escapeHtml(item.after)}</p>
@@ -771,6 +773,7 @@ function renderPepCorrection(item) {
       <div>
         <strong>${escapeHtml(item.name)}</strong>
         <span class="meta">${escapeHtml(item.date)} - ${changeTypeLabel(item.type)} - Quelle: ${escapeHtml(item.source || "Import")}</span>
+        ${item.editorInitials ? `<span class="badge subtle">Von ${escapeHtml(item.editorInitials)}</span>` : ""}
         <p><span class="meta">Alt:</span> ${escapeHtml(item.before)}</p>
         <p><span class="meta">Neu:</span> ${escapeHtml(item.after)}</p>
         <p class="correction-note">In PEP korrigieren: ${escapeHtml(correctionShortInstruction(item))}</p>
@@ -973,7 +976,7 @@ function renderInspection() {
   const issues = filterDailyBreakIssues(inspected.issues || [], inspected.shifts || []);
   const missingEmployees = inspected.missingEmployees || [];
   updateInspectFilterOptions();
-  issueList.innerHTML = `${renderInspectActions()}${renderShiftEditForm()}${issues.length ? `
+  issueList.innerHTML = `${renderInspectActions()}${renderSickEntryForm()}${renderShiftEditForm()}${issues.length ? `
     <div class="issue-box">
       <strong>${issues.length} Hinweise im Plan</strong>
       ${issues.slice(0, 12).map(issue => `<p>${escapeHtml(issue.message)}</p>`).join("")}
@@ -1030,12 +1033,23 @@ function renderInspection() {
     });
   });
   document.querySelector("#addInspectionShift")?.addEventListener("click", () => {
+    sickEntry = null;
     editShift = newInspectionShift();
     renderInspection();
     document.querySelector("#shiftEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
+  document.querySelector("#addInspectionSick")?.addEventListener("click", () => {
+    editShift = null;
+    sickEntry = newSickEntry();
+    renderInspection();
+    document.querySelector("#sickEntryBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   document.querySelector("#cancelShiftEdit")?.addEventListener("click", () => {
     editShift = null;
+    renderInspection();
+  });
+  document.querySelector("#cancelSickEntry")?.addEventListener("click", () => {
+    sickEntry = null;
     renderInspection();
   });
   document.querySelectorAll("#editStart, #editEnd").forEach(input => {
@@ -1050,6 +1064,14 @@ function renderInspection() {
       renderInspection();
     });
   });
+  document.querySelectorAll("[data-sick-date-choice]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (!sickEntry) return;
+      sickEntry.date = button.dataset.sickDateChoice;
+      renderInspection();
+    });
+  });
+  document.querySelector("#saveSickEntry")?.addEventListener("click", saveSickEntry);
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
   document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
 }
@@ -1072,7 +1094,10 @@ function renderInspectActions() {
         <strong>Plan pruefen und korrigieren</strong>
         <p class="hint">Hier kontrollierst du den geladenen Plan, bearbeitest Dienste oder fuegst fehlende Schichten hinzu.</p>
       </div>
-      <button id="addInspectionShift" class="secondary" type="button">+ Schicht hinzufuegen</button>
+      <div class="inspection-action-buttons">
+        <button id="addInspectionSick" class="secondary" type="button">Krank melden</button>
+        <button id="addInspectionShift" class="secondary" type="button">+ Schicht hinzufuegen</button>
+      </div>
     </div>
   `;
 }
@@ -1344,6 +1369,76 @@ function newInspectionShift() {
   };
 }
 
+function teamLeadershipOptions() {
+  return [
+    "Demircan, Emirkan",
+    "Brockling, Angelina",
+    "Konxheli, Dafina",
+    "Konxhelli, Blerina",
+    "Hammer, Pascal",
+    "Rode, Joanna"
+  ];
+}
+
+function newSickEntry() {
+  const selectedDay = document.querySelector("#inspectDay")?.value || "";
+  const planRange = planDateRange(inspected.plan);
+  const date = selectedDay || inspected.shifts[0]?.date || (planRange ? formatGermanDate(planRange.start) : "") || formatGermanDate(new Date());
+  return {
+    name: document.querySelector("#inspectEmployee")?.value || (inspected.shifts[0]?.name || ""),
+    date,
+    wholeWeek: false
+  };
+}
+
+function renderSickEntryForm() {
+  if (!sickEntry) return "";
+  const employeeOptions = editEmployeeOptions();
+  const dateValues = editDateValues(sickEntry.date);
+  const leadership = teamLeadershipOptions();
+  return `
+    <div id="sickEntryBox" class="shift-edit-box sick-entry-box">
+      <strong>Mitarbeiter krank melden</strong>
+      <p class="hint">Ersetzt die Dienste der Person durch Krankheit. Bei ganzer Woche werden alle Dienste dieser Woche entfernt.</p>
+      <div class="shift-edit-grid">
+        <label>Mitarbeiter
+          <input id="sickName" list="sickEmployeeOptions" value="${escapeHtml(sickEntry.name)}" placeholder="Name auswaehlen oder eingeben">
+          <datalist id="sickEmployeeOptions">
+            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
+          </datalist>
+        </label>
+        <label>Datum
+          <input id="sickDate" type="hidden" value="${escapeHtml(sickEntry.date)}">
+          ${renderEditDatePicker(dateValues, sickEntry.date, "data-sick-date-choice")}
+        </label>
+        <label class="checkbox-label">
+          <input id="sickWholeWeek" type="checkbox" ${sickEntry.wholeWeek ? "checked" : ""}>
+          Ganze Woche krank
+        </label>
+        <label>Benachrichtigung
+          <select id="sickNotifyMode">
+            <option value="leadership" selected>Team Marktleitung</option>
+            <option value="selected_leadership">Einzelne Marktleitung auswaehlen</option>
+            <option value="none">Niemand</option>
+          </select>
+        </label>
+        <label class="full-row">Eigene Push-Nachricht
+          <input id="sickPushMessage" maxlength="180" placeholder="Leer = Standardtext mit alter/neuer Info">
+        </label>
+      </div>
+      <div class="leadership-checks">
+        ${leadership.map(name => `
+          <label><input type="checkbox" class="sick-leadership-name" value="${escapeHtml(name)}"> ${escapeHtml(name)}</label>
+        `).join("")}
+      </div>
+      <div class="actions">
+        <button id="saveSickEntry" class="danger" type="button">Krank melden</button>
+        <button id="cancelSickEntry" class="secondary" type="button">Abbrechen</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderShiftEditForm() {
   if (!editShift) return "";
   const departmentOptions = editDepartmentOptions();
@@ -1527,6 +1622,38 @@ async function saveShiftEdit() {
   }
 }
 
+async function saveSickEntry() {
+  if (!sickEntry || !inspected.plan?.id) return;
+  const planId = inspected.plan.id;
+  const msg = document.querySelector("#inspectMsg");
+  if (msg) {
+    msg.textContent = "Krankmeldung wird gespeichert...";
+    msg.classList.remove("error");
+  }
+  try {
+    await api(`/api/admin/plans/${encodeURIComponent(planId)}/sick`, {
+      method: "POST",
+      body: {
+        name: document.querySelector("#sickName")?.value || "",
+        date: document.querySelector("#sickDate")?.value || "",
+        wholeWeek: Boolean(document.querySelector("#sickWholeWeek")?.checked),
+        notifyMode: document.querySelector("#sickNotifyMode")?.value || "leadership",
+        notifyNames: Array.from(document.querySelectorAll(".sick-leadership-name:checked")).map(input => input.value),
+        pushMessage: document.querySelector("#sickPushMessage")?.value || ""
+      }
+    });
+    sickEntry = null;
+    await loadAdmin();
+    await loadInspection(planId, true);
+    if (msg) msg.textContent = "Krankmeldung gespeichert. Dienste wurden ersetzt und PEP-Korrektur wurde angelegt.";
+  } catch (error) {
+    if (msg) {
+      msg.textContent = error.message;
+      msg.classList.add("error");
+    }
+  }
+}
+
 function filterDailyBreakIssues(issues, shifts) {
   const dayBreaks = new Map();
   for (const shift of shifts || []) {
@@ -1598,6 +1725,7 @@ function renderInspectionChangeItem(change) {
         <strong>${escapeHtml(change.name)}</strong>
         <span class="badge subtle">${escapeHtml(changeTypeLabel(change.type))}</span>
         ${change.isLatestForPersonDay ? '<span class="badge">Aktuell gueltig</span>' : ""}
+        ${change.editorInitials ? `<span class="badge subtle">Von ${escapeHtml(change.editorInitials)}</span>` : ""}
       </div>
       <div class="change-before-after">
         <p><span class="meta">Alt:</span> ${escapeHtml(change.before)}</p>

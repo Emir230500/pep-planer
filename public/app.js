@@ -8,6 +8,7 @@ const pushBtn = document.querySelector("#pushBtn");
 const pushMsg = document.querySelector("#pushMsg");
 let currentTeamData = null;
 let teamEditShift = null;
+let teamSickEntry = null;
 let teamEditMap = new Map();
 let activeViewPanel = "own";
 
@@ -115,8 +116,11 @@ function showTeamShifts(data) {
       ${ownWeeks.map(week => renderWeek(week)).join("")}
     </section>
     <section class="team-plan-block view-panel ${activeViewPanel === "team" ? "" : "hidden"}" data-view-content="team">
-      <h2>Teamplan</h2>
-      ${activeViewPanel === "team" ? renderTeamEditForm() : ""}
+      <div class="team-section-head">
+        <h2>Teamplan</h2>
+        <button id="showTeamSick" class="mini-button secondary" type="button">Krank melden</button>
+      </div>
+      ${activeViewPanel === "team" ? `${renderTeamSickForm()}${renderTeamEditForm()}` : ""}
       <nav class="week-nav">
         ${teamWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="team-kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
       </nav>
@@ -159,6 +163,7 @@ function showTeamShifts(data) {
   document.querySelectorAll("[data-team-edit]").forEach(button => {
     button.addEventListener("click", event => {
       event.stopPropagation();
+      teamSickEntry = null;
       teamEditShift = teamEditMap.get(button.dataset.teamEdit) || null;
       activeViewPanel = button.dataset.editView || activeViewPanel;
       showTeamShifts(currentTeamData);
@@ -168,6 +173,7 @@ function showTeamShifts(data) {
   document.querySelectorAll("[data-team-add]").forEach(button => {
     button.addEventListener("click", event => {
       event.stopPropagation();
+      teamSickEntry = null;
       const plan = (currentTeamData?.plans || []).find(item => item.id === button.dataset.planId);
       teamEditShift = newTeamShift(button.dataset.planId, button.dataset.date, plan);
       activeViewPanel = button.dataset.editView || "team";
@@ -175,8 +181,19 @@ function showTeamShifts(data) {
       document.querySelector("#teamEditBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
+  document.querySelector("#showTeamSick")?.addEventListener("click", () => {
+    teamEditShift = null;
+    teamSickEntry = newTeamSickEntry();
+    activeViewPanel = "team";
+    showTeamShifts(currentTeamData);
+    document.querySelector("#teamSickBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   document.querySelector("#cancelTeamEdit")?.addEventListener("click", () => {
     teamEditShift = null;
+    showTeamShifts(currentTeamData);
+  });
+  document.querySelector("#cancelTeamSick")?.addEventListener("click", () => {
+    teamSickEntry = null;
     showTeamShifts(currentTeamData);
   });
   document.querySelectorAll("#teamEditStart, #teamEditEnd").forEach(input => {
@@ -191,6 +208,23 @@ function showTeamShifts(data) {
       showTeamShifts(currentTeamData);
     });
   });
+  document.querySelectorAll("[data-team-sick-date-choice]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (!teamSickEntry) return;
+      teamSickEntry.date = button.dataset.teamSickDateChoice;
+      showTeamShifts(currentTeamData);
+    });
+  });
+  document.querySelector("#teamSickPlan")?.addEventListener("change", event => {
+    if (!teamSickEntry) return;
+    const plan = (currentTeamData?.plans || []).find(item => item.id === event.target.value);
+    teamSickEntry.planId = event.target.value;
+    teamSickEntry.planRange = plan?.range || "";
+    const values = teamEditDateValues(teamSickEntry);
+    teamSickEntry.date = values[0] || teamSickEntry.date;
+    showTeamShifts(currentTeamData);
+  });
+  document.querySelector("#saveTeamSick")?.addEventListener("click", saveTeamSick);
   document.querySelector("#saveTeamEdit")?.addEventListener("click", saveTeamEdit);
   document.querySelector("#deleteTeamEdit")?.addEventListener("click", deleteTeamEdit);
 }
@@ -496,6 +530,88 @@ function teamShiftKey(shift) {
   ].join("|");
 }
 
+function teamLeadershipOptions() {
+  return [
+    "Demircan, Emirkan",
+    "Brockling, Angelina",
+    "Konxheli, Dafina",
+    "Konxhelli, Blerina",
+    "Hammer, Pascal",
+    "Rode, Joanna"
+  ];
+}
+
+function newTeamSickEntry() {
+  const plans = currentTeamData?.plans || [];
+  const currentPlan = plans.find(plan => isCurrentPlanRange(plan.range)) || plans[0] || {};
+  const range = datesFromPlanRange(currentPlan.range || "");
+  return {
+    planId: currentPlan.id || "",
+    planRange: currentPlan.range || "",
+    name: "",
+    date: range.start ? formatGermanDate(range.start) : formatGermanDate(new Date()),
+    wholeWeek: false
+  };
+}
+
+function isCurrentPlanRange(rangeText) {
+  const range = datesFromPlanRange(rangeText || "");
+  const today = new Date();
+  return Boolean(range.start && range.end && today >= range.start && today <= range.end);
+}
+
+function renderTeamSickForm() {
+  if (!teamSickEntry) return "";
+  const plans = currentTeamData?.plans || [];
+  const employees = editEmployeeOptions();
+  const leadership = teamLeadershipOptions();
+  const dateValues = teamEditDateValues(teamSickEntry);
+  return `
+    <div id="teamSickBox" class="shift-edit-box team-edit-box sick-entry-box">
+      <strong>Mitarbeiter krank melden</strong>
+      <p class="hint">Ersetzt die Dienste der Person durch Krankheit. Bei ganzer Woche werden alle Dienste dieser Woche entfernt.</p>
+      <div class="shift-edit-grid">
+        <label>Plan
+          <select id="teamSickPlan">
+            ${plans.map(plan => `<option value="${escapeHtml(plan.id)}" ${plan.id === teamSickEntry.planId ? "selected" : ""}>${escapeHtml(plan.title || plan.range || "Plan")}</option>`).join("")}
+          </select>
+        </label>
+        <label>Mitarbeiter
+          <input id="teamSickName" list="teamSickEmployeeOptions" value="${escapeHtml(teamSickEntry.name)}" placeholder="Mitarbeiter auswaehlen">
+          <datalist id="teamSickEmployeeOptions">
+            ${employees.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
+          </datalist>
+        </label>
+        <label>Datum
+          <input id="teamSickDate" type="hidden" value="${escapeHtml(teamSickEntry.date)}">
+          ${renderTeamEditDatePicker(dateValues, teamSickEntry.date, "data-team-sick-date-choice")}
+        </label>
+        <label class="checkbox-label">
+          <input id="teamSickWholeWeek" type="checkbox" ${teamSickEntry.wholeWeek ? "checked" : ""}>
+          Ganze Woche krank
+        </label>
+        <label>Benachrichtigung
+          <select id="teamSickNotifyMode">
+            <option value="leadership" selected>Team Marktleitung</option>
+            <option value="selected_leadership">Einzelne Marktleitung auswaehlen</option>
+            <option value="none">Niemand</option>
+          </select>
+        </label>
+        <label>Eigene Push-Nachricht<input id="teamSickPushMessage" maxlength="180" placeholder="Leer = Standardtext"></label>
+      </div>
+      <div class="leadership-checks">
+        ${leadership.map(name => `
+          <label><input type="checkbox" class="team-sick-leadership-name" value="${escapeHtml(name)}"> ${escapeHtml(name)}</label>
+        `).join("")}
+      </div>
+      <div class="actions">
+        <button id="saveTeamSick" class="danger" type="button">Krank melden</button>
+        <button id="cancelTeamSick" class="secondary" type="button">Abbrechen</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderTeamEditForm() {
   if (!teamEditShift) return "";
   const dateValues = teamEditDateValues(teamEditShift);
@@ -560,14 +676,14 @@ function teamEditDateValues(shift) {
   return teamEditDateOptions(shift).map(option => option.value);
 }
 
-function renderTeamEditDatePicker(values, selectedDate) {
+function renderTeamEditDatePicker(values, selectedDate, dataAttr = "data-team-edit-date-choice") {
   return `
     <div class="edit-date-picker">
       <div class="edit-date-selected">${escapeHtml(weekdayLong(parseGermanDate(selectedDate)) || "")}, ${escapeHtml(selectedDate)}</div>
       <div class="edit-date-grid">
         ${values.map(value => {
           const parsed = parseGermanDate(value);
-          return `<button class="edit-date-chip ${value === selectedDate ? "selected" : ""}" data-team-edit-date-choice="${escapeHtml(value)}" type="button">
+          return `<button class="edit-date-chip ${value === selectedDate ? "selected" : ""}" ${dataAttr}="${escapeHtml(value)}" type="button">
             <span>${escapeHtml(weekdayShort(parsed))}</span>
             <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
           </button>`;
@@ -673,6 +789,30 @@ async function saveTeamEdit() {
     await loadMine();
   } catch (error) {
     const box = document.querySelector("#teamEditBox");
+    if (box && !box.querySelector(".team-edit-error")) {
+      box.insertAdjacentHTML("beforeend", `<p class="msg error team-edit-error">${escapeHtml(error.message)}</p>`);
+    }
+  }
+}
+
+async function saveTeamSick() {
+  if (!teamSickEntry?.planId) return;
+  try {
+    await api(`/api/me/plans/${encodeURIComponent(teamSickEntry.planId)}/sick`, {
+      method: "POST",
+      body: {
+        name: document.querySelector("#teamSickName")?.value || "",
+        date: document.querySelector("#teamSickDate")?.value || "",
+        wholeWeek: Boolean(document.querySelector("#teamSickWholeWeek")?.checked),
+        notifyMode: document.querySelector("#teamSickNotifyMode")?.value || "leadership",
+        notifyNames: Array.from(document.querySelectorAll(".team-sick-leadership-name:checked")).map(input => input.value),
+        pushMessage: document.querySelector("#teamSickPushMessage")?.value || ""
+      }
+    });
+    teamSickEntry = null;
+    await loadMine();
+  } catch (error) {
+    const box = document.querySelector("#teamSickBox");
     if (box && !box.querySelector(".team-edit-error")) {
       box.insertAdjacentHTML("beforeend", `<p class="msg error team-edit-error">${escapeHtml(error.message)}</p>`);
     }

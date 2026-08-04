@@ -12,7 +12,7 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "push-team-marktleitung-pausenfix-20260803";
+const BUILD_VERSION = "krankmelden-teamleitung-20260804";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
@@ -178,6 +178,16 @@ function employeeKey(name) {
     .toLowerCase();
 }
 
+function initialsFromName(name) {
+  const value = normalizeName(name).normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  const parts = value.includes(",")
+    ? value.split(",").map(part => part.trim())
+    : value.split(/\s+/).filter(Boolean).reverse();
+  const last = parts[0] || "";
+  const first = parts[1] || "";
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "AD";
+}
+
 function canSeeTeamPlan(name) {
   return teamLeadershipNames()
     .map(employeeKey)
@@ -205,10 +215,38 @@ function formatGermanDate(date) {
   return `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
 }
 
+function weekdayShort(date) {
+  if (!date) return "";
+  return ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][date.getDay()] || "";
+}
+
 function planRange(shifts) {
   const dates = shifts.map(shift => parseGermanDate(shift.date)).filter(Boolean).sort((a, b) => a - b);
   if (!dates.length) return "";
   return `${formatGermanDate(dates[0])} bis ${formatGermanDate(dates[dates.length - 1])}`;
+}
+
+function datesFromRangeText(range) {
+  const matches = Array.from(String(range || "").matchAll(/(\d{1,2}\.\d{1,2}\.\d{4})/g))
+    .map(match => parseGermanDate(match[1]))
+    .filter(Boolean);
+  if (!matches.length) return [];
+  const start = matches[0];
+  const end = matches[1] || matches[0];
+  const dates = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    dates.push(formatGermanDate(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
+function datesFromPlan(plan) {
+  const rangeDates = datesFromRangeText(plan?.range || "");
+  if (rangeDates.length) return rangeDates;
+  return Array.from(new Set((plan?.shifts || []).map(shift => shift.date).filter(Boolean)))
+    .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
 }
 
 function hashPin(pin, salt = crypto.randomBytes(16).toString("hex")) {
@@ -589,10 +627,13 @@ function correctionKey(planId, change) {
   return `${planId}|${employeeKey(change.name)}|${change.date}|${change.type}|${change.before}|${change.after}`;
 }
 
-function changeFromShifts(before, after, source = "Import") {
+function changeFromShifts(before, after, source = "Import", editorName = "") {
   return {
     type: before && after ? "changed" : before ? "removed" : "added",
     source,
+    editorName: normalizeName(editorName),
+    editorInitials: editorName ? initialsFromName(editorName) : "",
+    createdAt: new Date().toISOString(),
     name: (after || before)?.name || "",
     date: (after || before)?.date || "",
     before: before ? daySignature([before]) : "Keine Schicht",
@@ -617,6 +658,8 @@ function createPepCorrections(db, plan) {
       before: change.before,
       after: change.after,
       source: change.source || "Import",
+      editorName: change.editorName || "",
+      editorInitials: change.editorInitials || "",
       createdAt,
       done: false,
       doneAt: ""
@@ -642,6 +685,8 @@ function createManualPepCorrection(db, plan, change) {
     date: change.date,
     before: change.before,
     after: change.after,
+    editorName: change.editorName || "",
+    editorInitials: change.editorInitials || "",
     createdAt: new Date().toISOString(),
     done: false,
     doneAt: ""
@@ -728,6 +773,33 @@ function changedDepartmentText(plan, targetNames = null) {
     .join(", ");
 }
 
+function compactShiftSignature(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "Keine Schicht") return "Keine Schicht";
+  return text
+    .replace(/\|/g, " ")
+    .replace(/\s*\/\s*/g, " + ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 70);
+}
+
+function relevantPushChange(plan, targetNames = null) {
+  const targetKeys = Array.isArray(targetNames) && targetNames.length
+    ? new Set(targetNames.map(employeeKey).filter(Boolean))
+    : null;
+  return (plan.changes || []).find(change => !targetKeys || targetKeys.has(employeeKey(change.name))) || (plan.changes || [])[0] || null;
+}
+
+function defaultPushBody(plan, targetNames = null) {
+  const change = relevantPushChange(plan, targetNames);
+  if (!change) return `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`;
+  const date = parseGermanDate(change.date);
+  const day = weekdayShort(date);
+  const editor = change.editorInitials ? ` (${change.editorInitials})` : "";
+  return `${day ? `${day} ` : ""}${change.date}: ${change.name}${editor} - Alt: ${compactShiftSignature(change.before)} | Neu: ${compactShiftSignature(change.after)}`;
+}
+
 function pushTargetKeys(plan, mode, targetNames = null) {
   const sourceNames = Array.isArray(targetNames) && targetNames.length
     ? targetNames
@@ -751,9 +823,8 @@ async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options
     : db.pushSubscriptions;
   const hasChanges = Array.isArray(plan.changes) && plan.changes.length > 0;
   const customMessage = sanitizePushMessage(options.message || options.pushMessage || "");
-  const departments = changedDepartmentText(plan, targetNames);
   const body = customMessage || (hasChanges
-    ? `${plan.title || "Dienstplan"}: Planaenderung${departments ? ` bei ${departments}` : ""}.`
+    ? defaultPushBody(plan, targetNames)
     : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`);
 
   const payload = JSON.stringify({
@@ -803,7 +874,7 @@ function publishNotifyMode(db, plan, requestedMode) {
   return defaultPublishNotifyMode(db, plan);
 }
 
-async function editPlanShift(db, planId, before, after, notifyMode = "affected", pushMessage = "") {
+async function editPlanShift(db, planId, before, after, notifyMode = "affected", pushMessage = "", editorName = "") {
   const addShift = !before && Boolean(after);
   const cleanBefore = addShift ? null : cleanShift(before || {});
   const deleteShift = !after;
@@ -838,7 +909,7 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected",
   if (cleanAfter) applyLegalBreakForManualDay(plan.shifts, cleanAfter.name, cleanAfter.date);
   plan.updatedAt = new Date().toISOString();
   plan.range = planRange(plan.shifts || []);
-  const change = changeFromShifts(oldShift, cleanAfter, "Haendisch");
+  const change = changeFromShifts(oldShift, cleanAfter, "Haendisch", editorName);
   plan.changes = [change, ...(plan.changes || [])];
   const correction = createManualPepCorrection(db, plan, change);
   const mode = validNotifyMode(notifyMode) ? notifyMode : "affected";
@@ -846,6 +917,87 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected",
     ? await sendPlanPush(db, plan, mode, [change.name], { pushMessage })
     : { sent: 0, removed: 0, skipped: true, mode };
   return { plan, correction, push };
+}
+
+function sickNotifyMode(mode) {
+  return ["leadership", "selected_leadership", "none"].includes(mode) ? mode : "leadership";
+}
+
+function selectedLeadershipNames(names) {
+  const leadershipKeys = new Set(teamLeadershipNames().map(employeeKey));
+  return (Array.isArray(names) ? names : [])
+    .map(normalizeName)
+    .filter(name => leadershipKeys.has(employeeKey(name)));
+}
+
+async function markEmployeeSick(db, planId, name, date, wholeWeek = false, notifyMode = "leadership", notifyNames = [], pushMessage = "", editorName = "") {
+  const plan = db.plans.find(item => item.id === planId);
+  if (!plan) return { error: "Plan nicht gefunden.", status: 404 };
+
+  const cleanName = normalizeName(name);
+  if (!cleanName) return { error: "Bitte Mitarbeiter auswaehlen.", status: 400 };
+
+  const targetDates = wholeWeek ? datesFromPlan(plan) : [String(date || "").trim()];
+  const validDates = targetDates.filter(Boolean);
+  if (!validDates.length) return { error: "Bitte Datum auswaehlen.", status: 400 };
+
+  plan.shifts = Array.isArray(plan.shifts) ? plan.shifts : [];
+  const changes = [];
+
+  for (const dateValue of validDates) {
+    const beforeItems = plan.shifts
+      .filter(shift => employeeKey(shift.name) === employeeKey(cleanName) && String(shift.date || "") === dateValue)
+      .map(cleanShift);
+    const sickShift = cleanShift({
+      name: cleanName,
+      date: dateValue,
+      start: "00:00",
+      end: "00:00",
+      department: "Krankheit",
+      break: ""
+    });
+    const beforeText = beforeItems.length ? daySignature(beforeItems) : "Keine Schicht";
+    const afterText = daySignature([sickShift]) || "Keine Schicht";
+    if (beforeText === afterText) continue;
+
+    plan.shifts = plan.shifts.filter(shift =>
+      !(employeeKey(shift.name) === employeeKey(cleanName) && String(shift.date || "") === dateValue)
+    );
+    plan.shifts.push(sickShift);
+    changes.push({
+      type: beforeItems.length ? "changed" : "added",
+      source: "Haendisch",
+      editorName: normalizeName(editorName),
+      editorInitials: editorName ? initialsFromName(editorName) : "",
+      createdAt: new Date().toISOString(),
+      name: cleanName,
+      date: dateValue,
+      before: beforeText,
+      after: afterText
+    });
+  }
+
+  if (!changes.length) return { error: "Keine Aenderung: Mitarbeiter ist fuer diese Auswahl bereits krank eingetragen.", status: 400 };
+
+  plan.updatedAt = new Date().toISOString();
+  plan.range = planRange(plan.shifts || []);
+  plan.changes = [...changes, ...(plan.changes || [])];
+  const corrections = changes.map(change => createManualPepCorrection(db, plan, change)).filter(Boolean);
+
+  const mode = sickNotifyMode(notifyMode);
+  let push = { sent: 0, removed: 0, skipped: true, mode };
+  if (publishedIds(db).includes(plan.id) && mode !== "none") {
+    if (mode === "selected_leadership") {
+      const selectedNames = selectedLeadershipNames(notifyNames);
+      push = selectedNames.length
+        ? await sendPlanPush(db, plan, "affected", selectedNames, { pushMessage })
+        : { sent: 0, removed: 0, skipped: true, mode };
+    } else {
+      push = await sendPlanPush(db, plan, "leadership", null, { pushMessage });
+    }
+  }
+
+  return { plan, corrections, push };
 }
 
 async function handleApi(req, res, pathname) {
@@ -1016,10 +1168,31 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, process.env.ADMIN_NAME || "Demircan, Emirkan");
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
+    }
+
+    if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/sick$/) && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const id = decodeURIComponent(pathname.split("/")[4]);
+      const body = await readBody(req);
+      const db = await readDb();
+      const result = await markEmployeeSick(
+        db,
+        id,
+        body.name,
+        body.date,
+        Boolean(body.wholeWeek),
+        body.notifyMode,
+        body.notifyNames,
+        body.pushMessage,
+        process.env.ADMIN_NAME || "Demircan, Emirkan"
+      );
+      if (result.error) return json(res, result.status || 400, { error: result.error });
+      await writeDb(db);
+      return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), corrections: result.corrections, push: result.push });
     }
 
     if (pathname.match(/^\/api\/me\/plans\/[^/]+\/shifts\/edit$/) && req.method === "POST") {
@@ -1029,10 +1202,23 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, editorName);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
+    }
+
+    if (pathname.match(/^\/api\/me\/plans\/[^/]+\/sick$/) && req.method === "POST") {
+      const editorName = requireEmployee(req, res);
+      if (!editorName) return;
+      if (!canSeeTeamPlan(editorName)) return json(res, 403, { error: "Du darfst den Teamplan nicht bearbeiten." });
+      const id = decodeURIComponent(pathname.split("/")[4]);
+      const body = await readBody(req);
+      const db = await readDb();
+      const result = await markEmployeeSick(db, id, body.name, body.date, Boolean(body.wholeWeek), body.notifyMode, body.notifyNames, body.pushMessage, editorName);
+      if (result.error) return json(res, result.status || 400, { error: result.error });
+      await writeDb(db);
+      return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), corrections: result.corrections, push: result.push });
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/publish$/) && req.method === "POST") {
