@@ -858,7 +858,7 @@ function validPushSubscription(subscription) {
 }
 
 function validNotifyMode(mode) {
-  return ["all", "affected", "leadership", "affected_leadership", "none"].includes(mode);
+  return ["all", "affected", "leadership", "selected_leadership", "affected_leadership", "none"].includes(mode);
 }
 
 function sanitizePushMessage(value) {
@@ -970,6 +970,14 @@ async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options
   return { sent, removed, mode, affected: targetKeys ? Array.from(targetKeys) : [] };
 }
 
+async function safeSendPlanPush(db, plan, mode = "auto", targetNames = null, options = {}) {
+  try {
+    return await sendPlanPush(db, plan, mode, targetNames, options);
+  } catch (error) {
+    return { sent: 0, removed: 0, skipped: true, mode, error: error.message || "Push fehlgeschlagen" };
+  }
+}
+
 function shouldNotifyOnPublish(db, plan) {
   if (!plan) return false;
   if (plan.uploadMode === "correction") return Array.isArray(plan.changes) && plan.changes.length > 0;
@@ -990,7 +998,7 @@ function publishNotifyMode(db, plan, requestedMode) {
   return defaultPublishNotifyMode(db, plan);
 }
 
-async function editPlanShift(db, planId, before, after, notifyMode = "affected", pushMessage = "", editorName = "") {
+async function editPlanShift(db, planId, before, after, notifyMode = "affected", pushMessage = "", editorName = "", notifyNames = []) {
   const addShift = !before && Boolean(after);
   const cleanBefore = addShift ? null : cleanShift(before || {});
   const deleteShift = !after;
@@ -1029,9 +1037,17 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected",
   plan.changes = [change, ...(plan.changes || [])];
   const correction = createManualPepCorrection(db, plan, change);
   const mode = validNotifyMode(notifyMode) ? notifyMode : "affected";
-  const push = publishedIds(db).includes(plan.id) && mode !== "none"
-    ? await sendPlanPush(db, plan, mode, [change.name], { pushMessage })
-    : { sent: 0, removed: 0, skipped: true, mode };
+  let push = { sent: 0, removed: 0, skipped: true, mode };
+  if (publishedIds(db).includes(plan.id) && mode !== "none") {
+    if (mode === "selected_leadership") {
+      const selectedNames = selectedLeadershipNames(notifyNames);
+      push = selectedNames.length
+        ? await safeSendPlanPush(db, plan, "affected", selectedNames, { pushMessage })
+        : { sent: 0, removed: 0, skipped: true, mode };
+    } else {
+      push = await safeSendPlanPush(db, plan, mode, [change.name], { pushMessage });
+    }
+  }
   return { plan, correction, push };
 }
 
@@ -1309,7 +1325,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, process.env.ADMIN_NAME || "Demircan, Emirkan");
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, process.env.ADMIN_NAME || "Demircan, Emirkan", body.notifyNames);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
@@ -1360,7 +1376,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, editorName);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, editorName, body.notifyNames);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });

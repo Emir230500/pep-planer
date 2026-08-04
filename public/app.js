@@ -303,6 +303,9 @@ function showTeamShifts(data) {
   document.querySelector("#saveTeamSick")?.addEventListener("click", saveTeamSick);
   document.querySelector("#saveTeamEdit")?.addEventListener("click", saveTeamEdit);
   document.querySelector("#deleteTeamEdit")?.addEventListener("click", deleteTeamEdit);
+  document.querySelector("#teamEditNotifyMode")?.addEventListener("change", event => {
+    document.querySelector("#teamEditNotifyPeople")?.classList.toggle("hidden", event.target.value !== "selected_leadership");
+  });
 }
 
 function groupByPlans(plans) {
@@ -556,6 +559,8 @@ function sortOverviewEmployees(employees, week) {
     }
     const byTime = overviewFirstStart(shiftsA) - overviewFirstStart(shiftsB);
     if (byTime) return byTime;
+    const byDepartment = departmentSortRank(overviewPrimaryDepartment(shiftsA)) - departmentSortRank(overviewPrimaryDepartment(shiftsB));
+    if (byDepartment) return byDepartment;
     return a.localeCompare(b, "de");
   });
 }
@@ -1004,6 +1009,7 @@ function renderTeamEditForm() {
   const dateValues = teamEditDateValues(teamEditShift);
   const departments = editDepartmentOptions();
   const employees = editEmployeeOptions();
+  const leadership = teamLeadershipOptions();
   const isNew = Boolean(teamEditShift.isNew);
   return `
     <div id="teamEditBox" class="shift-edit-box team-edit-box">
@@ -1033,12 +1039,21 @@ function renderTeamEditForm() {
             <option value="affected" selected>Nur betroffene Person</option>
             <option value="affected_leadership">Betroffene Person + Team Marktleitung</option>
             <option value="leadership">Team Marktleitung</option>
+            <option value="selected_leadership">Einzelne Marktleiter</option>
             <option value="none">Niemand</option>
             <option value="all">Alle Mitarbeiter</option>
           </select>
         </label>
         <label>Eigene Push-Nachricht<input id="teamEditPushMessage" maxlength="180" placeholder="Leer = Standardtext"></label>
       </div>
+      <details id="teamEditNotifyPeople" class="person-picker hidden">
+        <summary>Marktleiter auswaehlen</summary>
+        <div class="leadership-checks">
+          ${leadership.map(name => `
+            <label><input type="checkbox" class="team-edit-leadership-name" value="${escapeHtml(name)}"> ${escapeHtml(name)}</label>
+          `).join("")}
+        </div>
+      </details>
       <div class="actions">
         ${isNew ? "" : '<button id="deleteTeamEdit" class="danger" type="button">Schicht loeschen</button>'}
         <button id="saveTeamEdit" type="button">Speichern</button>
@@ -1140,6 +1155,7 @@ async function deleteTeamEdit() {
         before: teamEditShift,
         after: null,
         notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected",
+        notifyNames: selectedTeamEditNotifyNames(),
         pushMessage: document.querySelector("#teamEditPushMessage")?.value || ""
       }
     });
@@ -1169,6 +1185,7 @@ async function saveTeamEdit() {
           break: normalizeBreakValue(document.querySelector("#teamEditBreak").value)
         },
         notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected",
+        notifyNames: selectedTeamEditNotifyNames(),
         pushMessage: document.querySelector("#teamEditPushMessage")?.value || ""
       }
     });
@@ -1180,6 +1197,10 @@ async function saveTeamEdit() {
       box.insertAdjacentHTML("beforeend", `<p class="msg error team-edit-error">${escapeHtml(error.message)}</p>`);
     }
   }
+}
+
+function selectedTeamEditNotifyNames() {
+  return Array.from(document.querySelectorAll(".team-edit-leadership-name:checked")).map(input => input.value);
 }
 
 async function saveTeamSick() {

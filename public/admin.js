@@ -1118,6 +1118,9 @@ function renderInspection() {
   });
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
   document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
+  document.querySelector("#editNotifyMode")?.addEventListener("change", event => {
+    document.querySelector("#editNotifyPeople")?.classList.toggle("hidden", event.target.value !== "selected_leadership");
+  });
 }
 
 function renderInspectPanelHeader() {
@@ -1591,6 +1594,7 @@ function renderShiftEditForm() {
   if (!editShift) return "";
   const departmentOptions = editDepartmentOptions();
   const employeeOptions = editEmployeeOptions();
+  const leadership = teamLeadershipOptions();
   const isNew = Boolean(editShift.isNew);
   const dateValues = editDateValues(editShift.date);
   return `
@@ -1621,6 +1625,7 @@ function renderShiftEditForm() {
             <option value="affected" selected>Nur betroffene Person</option>
             <option value="affected_leadership">Betroffene Person + Team Marktleitung</option>
             <option value="leadership">Team Marktleitung</option>
+            <option value="selected_leadership">Einzelne Marktleiter</option>
             <option value="all">Alle Mitarbeiter</option>
             <option value="none">Keine Benachrichtigung</option>
           </select>
@@ -1629,6 +1634,14 @@ function renderShiftEditForm() {
           <input id="editPushMessage" maxlength="180" placeholder="Leer = Standardtext">
         </label>
       </div>
+      <details id="editNotifyPeople" class="person-picker hidden">
+        <summary>Marktleiter auswaehlen</summary>
+        <div class="leadership-checks">
+          ${leadership.map(name => `
+            <label><input type="checkbox" class="edit-leadership-name" value="${escapeHtml(name)}"> ${escapeHtml(name)}</label>
+          `).join("")}
+        </div>
+      </details>
       <div class="actions">
         ${isNew ? "" : '<button id="deleteShiftEdit" class="danger" type="button">Schicht loeschen</button>'}
         <button id="saveShiftEdit" type="button">Speichern</button>
@@ -1718,6 +1731,7 @@ async function deleteShiftEdit() {
         before: editShift,
         after: null,
         notifyMode: document.querySelector("#editNotifyMode")?.value || "affected",
+        notifyNames: selectedEditNotifyNames(),
         pushMessage: document.querySelector("#editPushMessage")?.value || ""
       }
     });
@@ -1755,6 +1769,7 @@ async function saveShiftEdit() {
           break: normalizeBreakValue(document.querySelector("#editBreak").value)
         },
         notifyMode: document.querySelector("#editNotifyMode")?.value || "affected",
+        notifyNames: selectedEditNotifyNames(),
         pushMessage: document.querySelector("#editPushMessage")?.value || ""
       }
     });
@@ -1768,6 +1783,10 @@ async function saveShiftEdit() {
       msg.classList.add("error");
     }
   }
+}
+
+function selectedEditNotifyNames() {
+  return Array.from(document.querySelectorAll(".edit-leadership-name:checked")).map(input => input.value);
 }
 
 async function saveSickEntry() {
