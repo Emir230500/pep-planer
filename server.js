@@ -178,6 +178,75 @@ function employeeKey(name) {
     .toLowerCase();
 }
 
+function looseEmployeeKey(name) {
+  return normalizeName(name)
+    .toLowerCase()
+    .replace(/ä/g, "a")
+    .replace(/ö/g, "o")
+    .replace(/ü/g, "u")
+    .replace(/ß/g, "ss")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ae/g, "a")
+    .replace(/oe/g, "o")
+    .replace(/ue/g, "u")
+    .replace(/[^a-z0-9,\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function nameInputVariants(name) {
+  const value = normalizeName(name);
+  const variants = [value];
+  if (value.includes(",")) {
+    const [last, first] = value.split(",").map(part => part.trim());
+    if (last && first) variants.push(`${first} ${last}`);
+  } else {
+    const parts = value.split(" ").filter(Boolean);
+    if (parts.length >= 2) {
+      const last = parts.slice(1).join(" ");
+      const first = parts[0];
+      variants.push(`${last}, ${first}`);
+    }
+  }
+  return Array.from(new Set(variants.filter(Boolean)));
+}
+
+function findEmployeeByName(db, name) {
+  const direct = db.employees?.[employeeKey(name)];
+  if (direct) return direct;
+  const targetKeys = new Set(nameInputVariants(name).flatMap(variant => [employeeKey(variant), looseEmployeeKey(variant)]));
+  return Object.values(db.employees || {}).find(employee =>
+    nameInputVariants(employee.name).some(variant =>
+      targetKeys.has(employeeKey(variant)) || targetKeys.has(looseEmployeeKey(variant))
+    )
+  );
+}
+
+function ensureEmployeeRecord(db, name, newPins = null) {
+  const cleanName = normalizeName(name);
+  if (!cleanName || isSuspiciousName(cleanName)) return false;
+  db.employees = db.employees && typeof db.employees === "object" ? db.employees : {};
+  if (findEmployeeByName(db, cleanName)) return false;
+  const pin = generatePin();
+  db.employees[employeeKey(cleanName)] = { name: cleanName, pinHash: hashPin(pin), initialPin: pin };
+  if (Array.isArray(newPins)) newPins.push({ name: cleanName, pin });
+  return true;
+}
+
+function ensureEmployeesFromPlans(db) {
+  let changed = false;
+  for (const plan of db.plans || []) {
+    for (const shift of plan.shifts || []) {
+      if (ensureEmployeeRecord(db, shift.name)) changed = true;
+    }
+    for (const name of plan.seenEmployees || []) {
+      if (ensureEmployeeRecord(db, name)) changed = true;
+    }
+  }
+  return changed;
+}
+
 function initialsFromName(name) {
   const value = normalizeName(name).normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
   const parts = value.includes(",")
@@ -1039,8 +1108,9 @@ async function handleApi(req, res, pathname) {
     if (pathname === "/api/employee/login" && req.method === "POST") {
       const body = await readBody(req);
       const db = await readDb();
+      if (ensureEmployeesFromPlans(db)) await writeDb(db);
       const name = normalizeName(body.name);
-      const employee = db.employees[employeeKey(name)];
+      const employee = findEmployeeByName(db, name);
       if (!employee || !verifyPin(body.pin, employee.pinHash)) return json(res, 403, { error: "Name oder PIN stimmt nicht." });
       setSession(res, { role: "employee", name: employee.name });
       return json(res, 200, { ok: true });
@@ -1075,6 +1145,8 @@ async function handleApi(req, res, pathname) {
       if (!requireAdmin(req, res)) return;
       const db = await readDb();
       cleanupPepCorrections(db);
+      const employeeSyncChanged = ensureEmployeesFromPlans(db);
+      if (employeeSyncChanged) await writeDb(db);
       const ids = publishedIds(db);
       const publishedPlans = db.plans.filter(plan => ids.includes(plan.id));
       return json(res, 200, {
@@ -1111,7 +1183,7 @@ async function handleApi(req, res, pathname) {
       const pin = String(body.pin || "").trim();
       if (!/^\d{4,8}$/.test(pin)) return json(res, 400, { error: "PIN muss 4 bis 8 Zahlen haben." });
       const db = await readDb();
-      const employee = db.employees[employeeKey(name)];
+      const employee = findEmployeeByName(db, name);
       if (!employee) return json(res, 404, { error: "Mitarbeiter nicht gefunden." });
       employee.pinHash = hashPin(pin);
       employee.initialPin = pin;
@@ -1147,12 +1219,10 @@ async function handleApi(req, res, pathname) {
       const version = uploadMode === "correction" ? nextPlanVersion(db, rangeKey) : 1;
       const newPins = [];
       for (const shift of shifts) {
-        const key = employeeKey(shift.name);
-        if (!db.employees[key]) {
-          const pin = generatePin();
-          db.employees[key] = { name: shift.name, pinHash: hashPin(pin), initialPin: pin };
-          newPins.push({ name: shift.name, pin });
-        }
+        ensureEmployeeRecord(db, shift.name, newPins);
+      }
+      for (const name of body.seenEmployees || []) {
+        ensureEmployeeRecord(db, name, newPins);
       }
 
       const plan = {
