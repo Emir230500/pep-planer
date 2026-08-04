@@ -364,6 +364,143 @@ button:disabled {
   margin-top: 6px;
 }
 
+.week-overview-block {
+  margin-top: 6px;
+}
+
+.sort-switch {
+  background: #e8e8ed;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 4px;
+  margin: 4px 0 12px;
+  padding: 4px;
+}
+
+.sort-switch button {
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text);
+  min-height: 36px;
+  padding: 7px 12px;
+  width: auto;
+}
+
+.sort-switch button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.overview-scroll {
+  overflow-x: auto;
+  padding: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: 150px repeat(var(--overview-days), minmax(150px, 1fr));
+  min-width: 1080px;
+  gap: 1px;
+  background: #e5e5ea;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.overview-name,
+.overview-day-head,
+.overview-cell {
+  background: #fff;
+  min-height: 72px;
+  padding: 10px;
+}
+
+.overview-name {
+  align-items: center;
+  color: #1d1d1f;
+  display: flex;
+  font-weight: 800;
+  left: 0;
+  position: sticky;
+  z-index: 2;
+}
+
+.overview-corner {
+  background: #f5f5f7;
+  min-height: 56px;
+  z-index: 4;
+}
+
+.overview-day-head {
+  background: #f5f5f7;
+  min-height: 56px;
+  text-align: center;
+}
+
+.overview-day-head strong {
+  display: block;
+  font-size: 14px;
+}
+
+.overview-day-head span {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.today-overview-head {
+  background: #007aff;
+  color: #fff;
+}
+
+.today-overview-head span {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.today-overview-cell {
+  background: #f2f8ff;
+}
+
+.overview-cell {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.overview-empty {
+  color: #a1a1aa;
+  font-weight: 700;
+}
+
+.overview-shift {
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+  border-left: 4px solid var(--accent);
+  border-radius: 7px;
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+}
+
+.overview-shift strong {
+  font-size: 13px;
+}
+
+.overview-shift span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.overview-shift small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .week {
   background: #fff;
   border: 1px solid var(--line);

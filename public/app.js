@@ -11,6 +11,7 @@ let teamEditShift = null;
 let teamSickEntry = null;
 let teamEditMap = new Map();
 let activeViewPanel = "own";
+let activeWeekOverviewSort = "time";
 
 async function api(url, options = {}) {
   const res = await fetch(url, {
@@ -110,6 +111,7 @@ function showTeamShifts(data) {
     <nav class="view-switch" aria-label="Ansicht wechseln">
       <button class="${activeViewPanel === "own" ? "active" : ""}" data-view-panel="own" type="button">Mein Plan</button>
       <button class="${activeViewPanel === "team" ? "active" : ""}" data-view-panel="team" type="button">Teamplan</button>
+      <button class="${activeViewPanel === "week" ? "active" : ""}" data-view-panel="week" type="button">Wochenplan</button>
     </nav>
     <section class="own-plan-block view-panel ${activeViewPanel === "own" ? "" : "hidden"}" data-view-content="own">
       <h2>Mein Plan</h2>
@@ -130,6 +132,23 @@ function showTeamShifts(data) {
       </nav>
       ${teamWeeks.map(week => renderTeamWeek(week)).join("")}
     </section>
+    <section class="week-overview-block view-panel ${activeViewPanel === "week" ? "" : "hidden"}" data-view-content="week">
+      <div class="team-section-head">
+        <div>
+          <h2>Wochenplan</h2>
+          <p class="hint">Ganze Woche als ruhige Uebersicht. Seitlich wischen, wenn es eng wird.</p>
+        </div>
+      </div>
+      <div class="sort-switch" aria-label="Wochenplan sortieren">
+        <button class="${activeWeekOverviewSort === "time" ? "active" : ""}" data-week-overview-sort="time" type="button">Frueh -> Spaet</button>
+        <button class="${activeWeekOverviewSort === "department" ? "active" : ""}" data-week-overview-sort="department" type="button">Abteilung</button>
+        <button class="${activeWeekOverviewSort === "name" ? "active" : ""}" data-week-overview-sort="name" type="button">Name</button>
+      </div>
+      <nav class="week-nav">
+        ${teamWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="overview-kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
+      </nav>
+      ${teamWeeks.map(week => renderWeekOverview(week)).join("")}
+    </section>
   `;
 
   document.querySelectorAll("[data-view-panel]").forEach(button => {
@@ -147,6 +166,13 @@ function showTeamShifts(data) {
       const week = document.querySelector(`#${button.dataset.weekTarget}`);
       week?.classList.remove("collapsed");
       week?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+  document.querySelectorAll("[data-week-overview-sort]").forEach(button => {
+    button.addEventListener("click", () => {
+      activeWeekOverviewSort = button.dataset.weekOverviewSort || "time";
+      activeViewPanel = "week";
+      showTeamShifts(currentTeamData);
     });
   });
   document.querySelectorAll("[data-week-toggle]").forEach(button => {
@@ -469,6 +495,91 @@ function renderTeamWeek(week) {
       </div>
     </section>
   `;
+}
+
+function renderWeekOverview(week) {
+  const isOpen = week.isCurrent || week.isOpen;
+  const startDate = week.displayStart || week.startDate;
+  const endDate = week.displayEnd || week.endDate;
+  const days = datesBetween(startDate, endDate);
+  const employees = unique(week.shifts.map(shift => shift.name).filter(Boolean)).sort((a, b) => a.localeCompare(b, "de"));
+
+  return `
+    <section id="overview-kw-${week.year}-${week.week}" class="week overview-week ${week.isCurrent ? "current-week" : ""} ${isOpen ? "" : "collapsed"}">
+      <button class="week-head" data-week-toggle type="button">
+        <div>
+          <h2>KW ${week.week} - ${formatShortDate(startDate)} bis ${formatGermanDate(endDate)}</h2>
+          <p>${escapeHtml(week.shifts[0]?.planTitle || week.planTitle || "")}</p>
+        </div>
+        <span class="week-actions">
+          <span class="badge subtle">${week.shifts.length} Eintraege</span>
+          ${week.isCurrent ? '<span class="badge">Aktuelle Woche</span>' : ""}
+        </span>
+      </button>
+      <div class="week-body">
+        <div class="overview-scroll">
+          <div class="overview-grid" style="--overview-days:${days.length}">
+            <div class="overview-name overview-corner">Mitarbeiter</div>
+            ${days.map(date => `<div class="overview-day-head ${isToday(date) ? "today-overview-head" : ""}">
+              <strong>${weekdayLong(date)}</strong>
+              <span>${formatGermanDate(date)}</span>
+            </div>`).join("")}
+            ${employees.map(name => renderOverviewEmployeeRow(name, days, week)).join("")}
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderOverviewEmployeeRow(name, days, week) {
+  return `
+    <div class="overview-name">${escapeHtml(name)}</div>
+    ${days.map(date => {
+      const dateValue = formatGermanDate(date);
+      const dayShifts = (week.days.get(dateValue) || []).filter(shift => employeeKey(shift.name) === employeeKey(name));
+      return `<div class="overview-cell ${isToday(date) ? "today-overview-cell" : ""}">
+        ${renderOverviewCell(dayShifts)}
+      </div>`;
+    }).join("")}
+  `;
+}
+
+function renderOverviewCell(shifts) {
+  if (!shifts.length) return '<span class="overview-empty">-</span>';
+  return sortOverviewShifts(shifts).map(shift => {
+    const status = detectStatus(shift);
+    const label = status || shift.department || "Abteilung pruefen";
+    const time = status ? "Kein Dienst" : `${shift.start}-${shift.end}`;
+    return `
+      <div class="overview-shift ${departmentClass(label)} ${status ? `status-row ${statusClassName(status)}` : ""}">
+        <strong>${escapeHtml(time)}</strong>
+        <span>${escapeHtml(label)}</span>
+        ${status ? "" : `<small>${escapeHtml(renderPausePlain(shift))}</small>`}
+      </div>
+    `;
+  }).join("");
+}
+
+function sortOverviewShifts(shifts) {
+  return shifts.slice().sort((a, b) => {
+    if (activeWeekOverviewSort === "department") {
+      const byDepartment = departmentLabel(a).localeCompare(departmentLabel(b), "de");
+      if (byDepartment) return byDepartment;
+    }
+    if (activeWeekOverviewSort === "name") {
+      const byName = a.name.localeCompare(b.name, "de");
+      if (byName) return byName;
+    }
+    const byTime = timeToMinutes(a.start) - timeToMinutes(b.start);
+    if (byTime) return byTime;
+    return departmentLabel(a).localeCompare(departmentLabel(b), "de");
+  });
+}
+
+function renderPausePlain(shift) {
+  if (shift.break) return `Pause ${shift.break}`;
+  return needsBreakCheck(shift) ? "Pause pruefen" : "keine Pause";
 }
 
 function renderTeamDay(dateValue, dayShifts, week) {
