@@ -270,7 +270,8 @@ function groupByPlans(plans) {
       continue;
     }
     for (const original of plan.shifts) {
-      const shift = { ...original, planId: plan.id, planTitle: plan.title, planRange: plan.range, changed: (plan.changes || []).some(change => employeeKey(change.name) === employeeKey(original.name) && change.date === original.date) };
+      const change = latestChangeForShift(plan, original);
+      const shift = { ...original, planId: plan.id, planTitle: plan.title, planRange: plan.range, changed: Boolean(change), change };
       const date = parseGermanDate(shift.date);
       if (!date) continue;
       const info = isoWeekInfo(date);
@@ -296,7 +297,8 @@ function groupTeamByPlans(plans) {
   for (const plan of plans) {
     const rangeDates = datesFromPlanRange(plan.range);
     for (const original of plan.shifts) {
-      const shift = { ...original, planId: plan.id, planTitle: plan.title, planRange: plan.range, changed: (plan.changes || []).some(change => employeeKey(change.name) === employeeKey(original.name) && change.date === original.date) };
+      const change = latestChangeForShift(plan, original);
+      const shift = { ...original, planId: plan.id, planTitle: plan.title, planRange: plan.range, changed: Boolean(change), change };
       const date = parseGermanDate(shift.date);
       if (!date) continue;
       const info = isoWeekInfo(date);
@@ -313,6 +315,12 @@ function groupTeamByPlans(plans) {
     }
   }
   return Array.from(grouped.values()).sort((a, b) => a.startDate - b.startDate);
+}
+
+function latestChangeForShift(plan, shift) {
+  return (plan.changes || [])
+    .filter(change => employeeKey(change.name) === employeeKey(shift.name) && change.date === shift.date)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
 }
 
 function findNextWorkDay(weeks) {
@@ -529,16 +537,45 @@ function renderTeamShift(shift, dayShifts = []) {
   const splitInfo = teamSplitInfo(shift, dayShifts);
   const splitClass = splitInfo ? " split-shift" : "";
   const editKey = teamShiftKey(shift);
+  const changeNote = renderShiftChangeNote(shift);
   teamEditMap.set(editKey, shift);
   return `
-    <div class="team-shift${statusClass}${splitClass} ${departmentClass(shift.department)}">
+    <div class="team-shift${statusClass}${splitClass} ${departmentClass(shift.department)} ${shift.changed ? "changed-shift" : ""}">
       <span class="team-name">${escapeHtml(shift.name)}</span>
       <span class="team-time">${status ? "Kein Dienst" : `${escapeHtml(shift.start)}-${escapeHtml(shift.end)}`}</span>
       <span class="team-department">${status ? escapeHtml(statusLabel) : escapeHtml(shift.department || "Abteilung pruefen")}</span>
       <span class="team-pause">${status ? "" : splitInfo || renderPauseText(shift)}</span>
+      ${changeNote}
       <button class="mini-button secondary team-edit-btn" data-team-edit="${escapeHtml(editKey)}" type="button">Bearbeiten</button>
     </div>
   `;
+}
+
+function renderShiftChangeNote(shift) {
+  const change = shift.change;
+  if (!change) return "";
+  const editor = change.editorInitials || "";
+  const before = compactSignatureForDisplay(change.before);
+  const after = compactSignatureForDisplay(change.after);
+  return `
+    <span class="change-note">
+      <b>Aktuell</b>${editor ? ` von ${escapeHtml(editor)}` : ""}: ${escapeHtml(after)}
+      ${before ? `<small>Vorher: ${escapeHtml(before)}</small>` : ""}
+    </span>
+  `;
+}
+
+function compactSignatureForDisplay(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "Keine Schicht") return "Keine Schicht";
+  return text
+    .split(" / ")
+    .map(part => {
+      const [time = "", department = "", pause = ""] = part.split("|");
+      const shortTime = time.replace(/:00\b/g, "");
+      return `${shortTime} ${shortDepartment(department)}${pause ? ` Pause ${pause}` : ""}`.trim();
+    })
+    .join(" + ");
 }
 
 function teamShiftKey(shift) {
@@ -626,14 +663,14 @@ function renderTeamSickForm() {
         </label>
         <label>Eigene Push-Nachricht<input id="teamSickPushMessage" maxlength="180" value="${escapeHtml(teamSickEntry.pushMessage || "")}" placeholder="Leer = Standardtext"></label>
       </div>
-      <details class="person-picker" ${teamSickEntry.notifyMode === "selected_leadership" ? "open" : ""}>
+      ${teamSickEntry.notifyMode === "selected_leadership" ? `<details class="person-picker" open>
         <summary>Personen fuer Benachrichtigung auswaehlen</summary>
         <div class="leadership-checks">
           ${leadership.map(name => `
             <label><input type="checkbox" class="team-sick-leadership-name" value="${escapeHtml(name)}" ${(teamSickEntry.notifyNames || []).includes(name) ? "checked" : ""}> ${escapeHtml(name)}</label>
           `).join("")}
         </div>
-      </details>
+      </details>` : ""}
       <div class="actions">
         <button id="saveTeamSick" class="danger" type="button">Krank melden</button>
         <button id="cancelTeamSick" class="secondary" type="button">Abbrechen</button>
@@ -956,9 +993,10 @@ function renderShift(shift, compactPause = false, dayShifts = []) {
   if (status) {
     const statusLabel = status;
     return `
-      <div class="shift-row status-row ${statusClassName(status)}">
+      <div class="shift-row status-row ${statusClassName(status)} ${shift.changed ? "changed-shift" : ""}">
         <span class="time">Kein Dienst</span>
         <span class="department">${escapeHtml(statusLabel)}</span>
+        ${renderShiftChangeNote(shift)}
         ${canEdit ? `<button class="mini-button secondary own-edit-btn" data-team-edit="${escapeHtml(editKey)}" data-edit-view="own" type="button">Bearbeiten</button>` : ""}
       </div>
     `;
@@ -970,6 +1008,7 @@ function renderShift(shift, compactPause = false, dayShifts = []) {
       <span class="department">${escapeHtml(shift.department || "Abteilung pruefen")}</span>
       ${shift.changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
       ${compactPause ? '<span class="pause">Teilblock</span>' : renderPause(shift, dayShifts)}
+      ${renderShiftChangeNote(shift)}
       ${canEdit ? `<button class="mini-button secondary own-edit-btn" data-team-edit="${escapeHtml(editKey)}" data-edit-view="own" type="button">Bearbeiten</button>` : ""}
     </div>
   `;

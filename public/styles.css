@@ -651,6 +651,24 @@ button:disabled {
   border-left-color: #d97706;
 }
 
+.change-note {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 800;
+  grid-column: 1 / -1;
+  padding: 6px 10px;
+}
+
+.change-note small {
+  color: #7c2d12;
+  display: block;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
 .time {
   font-weight: 700;
   color: #0f172a;

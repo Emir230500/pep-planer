@@ -939,6 +939,22 @@ function selectedLeadershipNames(names) {
     .filter(name => leadershipKeys.has(employeeKey(name)));
 }
 
+function sickPushBody(name, dates, editorName = "") {
+  const sortedDates = (dates || [])
+    .map(value => ({ value, date: parseGermanDate(value) }))
+    .filter(item => item.date)
+    .sort((a, b) => a.date - b.date);
+  const editor = editorName ? ` (${initialsFromName(editorName)})` : "";
+  if (!sortedDates.length) return `${name}${editor} krank gemeldet.`;
+  if (sortedDates.length === 1) {
+    const item = sortedDates[0];
+    return `Krankmeldung: ${name}${editor} ${weekdayShort(item.date)} ${item.value}`;
+  }
+  const first = sortedDates[0];
+  const last = sortedDates[sortedDates.length - 1];
+  return `Krankmeldung: ${name}${editor} ${weekdayShort(first.date)} ${first.value} bis ${weekdayShort(last.date)} ${last.value}`;
+}
+
 async function markEmployeeSick(db, planId, name, date, wholeWeek = false, notifyMode = "leadership", notifyNames = [], pushMessage = "", editorName = "") {
   const plan = db.plans.find(item => item.id === planId);
   if (!plan) return { error: "Plan nicht gefunden.", status: 404 };
@@ -995,15 +1011,16 @@ async function markEmployeeSick(db, planId, name, date, wholeWeek = false, notif
   const corrections = changes.map(change => createManualPepCorrection(db, plan, change)).filter(Boolean);
 
   const mode = sickNotifyMode(notifyMode);
+  const notificationText = pushMessage || sickPushBody(cleanName, validDates, editorName);
   let push = { sent: 0, removed: 0, skipped: true, mode };
   if (publishedIds(db).includes(plan.id) && mode !== "none") {
     if (mode === "selected_leadership") {
       const selectedNames = selectedLeadershipNames(notifyNames);
       push = selectedNames.length
-        ? await sendPlanPush(db, plan, "affected", selectedNames, { pushMessage })
+        ? await sendPlanPush(db, plan, "affected", selectedNames, { pushMessage: notificationText })
         : { sent: 0, removed: 0, skipped: true, mode };
     } else {
-      push = await sendPlanPush(db, plan, "leadership", null, { pushMessage });
+      push = await sendPlanPush(db, plan, "leadership", null, { pushMessage: notificationText });
     }
   }
 

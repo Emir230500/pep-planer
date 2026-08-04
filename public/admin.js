@@ -1456,14 +1456,14 @@ function renderSickEntryForm() {
           <input id="sickPushMessage" maxlength="180" value="${escapeHtml(sickEntry.pushMessage || "")}" placeholder="Leer = Standardtext mit alter/neuer Info">
         </label>
       </div>
-      <details class="person-picker" ${sickEntry.notifyMode === "selected_leadership" ? "open" : ""}>
+      ${sickEntry.notifyMode === "selected_leadership" ? `<details class="person-picker" open>
         <summary>Personen fuer Benachrichtigung auswaehlen</summary>
         <div class="leadership-checks">
           ${leadership.map(name => `
             <label><input type="checkbox" class="sick-leadership-name" value="${escapeHtml(name)}" ${(sickEntry.notifyNames || []).includes(name) ? "checked" : ""}> ${escapeHtml(name)}</label>
           `).join("")}
         </div>
-      </details>
+      </details>` : ""}
       <div class="actions">
         <button id="saveSickEntry" class="danger" type="button">Krank melden</button>
         <button id="cancelSickEntry" class="secondary" type="button">Abbrechen</button>
