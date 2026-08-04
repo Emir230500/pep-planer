@@ -502,7 +502,7 @@ function renderWeekOverview(week) {
   const startDate = week.displayStart || week.startDate;
   const endDate = week.displayEnd || week.endDate;
   const days = datesBetween(startDate, endDate);
-  const employees = unique(week.shifts.map(shift => shift.name).filter(Boolean)).sort((a, b) => a.localeCompare(b, "de"));
+  const employees = sortOverviewEmployees(unique(week.shifts.map(shift => shift.name).filter(Boolean)), week);
 
   return `
     <section id="overview-kw-${week.year}-${week.week}" class="week overview-week ${week.isCurrent ? "current-week" : ""} ${isOpen ? "" : "collapsed"}">
@@ -543,6 +543,35 @@ function renderOverviewEmployeeRow(name, days, week) {
       </div>`;
     }).join("")}
   `;
+}
+
+function sortOverviewEmployees(employees, week) {
+  return employees.slice().sort((a, b) => {
+    const shiftsA = overviewEmployeeShifts(a, week);
+    const shiftsB = overviewEmployeeShifts(b, week);
+    if (activeWeekOverviewSort === "name") return a.localeCompare(b, "de");
+    if (activeWeekOverviewSort === "department") {
+      const byDepartment = overviewPrimaryDepartment(shiftsA).localeCompare(overviewPrimaryDepartment(shiftsB), "de");
+      if (byDepartment) return byDepartment;
+    }
+    const byTime = overviewFirstStart(shiftsA) - overviewFirstStart(shiftsB);
+    if (byTime) return byTime;
+    return a.localeCompare(b, "de");
+  });
+}
+
+function overviewEmployeeShifts(name, week) {
+  return week.shifts.filter(shift => employeeKey(shift.name) === employeeKey(name));
+}
+
+function overviewFirstStart(shifts) {
+  const values = shifts.filter(isWorkShift).map(shift => timeToMinutes(shift.start)).filter(value => value !== 9999);
+  return values.length ? Math.min(...values) : 9999;
+}
+
+function overviewPrimaryDepartment(shifts) {
+  const work = shifts.filter(isWorkShift).sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+  return departmentLabel(work[0] || shifts[0] || {});
 }
 
 function renderOverviewCell(shifts) {
