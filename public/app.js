@@ -601,7 +601,10 @@ function renderOverviewCell(shifts) {
       <strong>${escapeHtml(mainLabel)}</strong>
       <span>${escapeHtml(mainDepartment)}</span>
       ${workShifts.map(shift => `
-        <small class="overview-part">${escapeHtml(shift.start)}-${escapeHtml(shift.end)} ${escapeHtml(shift.department || "Abteilung pruefen")}</small>
+        <small class="overview-part ${departmentClass(shift.department)}">
+          <b>${escapeHtml(shift.start)}-${escapeHtml(shift.end)}</b>
+          ${escapeHtml(shift.department || "Abteilung pruefen")}
+        </small>
       `).join("")}
       ${statusShifts.map(shift => `<small class="overview-part">${escapeHtml(detectStatus(shift) || "Abwesenheit")}</small>`).join("")}
       <small>${escapeHtml(dayPauseText(workShifts))}</small>

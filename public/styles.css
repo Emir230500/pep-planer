@@ -509,9 +509,60 @@ button:disabled {
 }
 
 .overview-part {
-  background: rgba(255, 255, 255, 0.74);
-  border-radius: 5px;
-  padding: 2px 4px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(210, 210, 215, 0.72);
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  color: #1d1d1f;
+  display: grid;
+  gap: 1px;
+  line-height: 1.18;
+  padding: 4px 5px;
+}
+
+.overview-part b {
+  display: block;
+  font-size: 11px;
+}
+
+.overview-part.dept-marktleitung {
+  border-left-color: #111827;
+}
+
+.overview-part.dept-marktaufsicht {
+  border-left-color: #111827;
+}
+
+.overview-part.dept-kasse {
+  border-left-color: #ef4444;
+}
+
+.overview-part.dept-food {
+  border-left-color: #0ea5e9;
+}
+
+.overview-part.dept-getraenke {
+  border-left-color: #f97316;
+}
+
+.overview-part.dept-bakeoff {
+  border-left-color: #92400e;
+}
+
+.overview-part.dept-autodispo {
+  border-left-color: #8b5cf6;
+}
+
+.overview-part.dept-mopro {
+  border-left-color: #67e8f9;
+}
+
+.overview-part.dept-tiefkuehl {
+  border-left-color: #2563eb;
+}
+
+.overview-part.dept-obst {
+  border-left-color: #22c55e;
 }
 
 .week {
