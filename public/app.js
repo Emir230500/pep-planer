@@ -551,7 +551,7 @@ function sortOverviewEmployees(employees, week) {
     const shiftsB = overviewEmployeeShifts(b, week);
     if (activeWeekOverviewSort === "name") return a.localeCompare(b, "de");
     if (activeWeekOverviewSort === "department") {
-      const byDepartment = overviewPrimaryDepartment(shiftsA).localeCompare(overviewPrimaryDepartment(shiftsB), "de");
+      const byDepartment = departmentSortRank(overviewPrimaryDepartment(shiftsA)) - departmentSortRank(overviewPrimaryDepartment(shiftsB));
       if (byDepartment) return byDepartment;
     }
     const byTime = overviewFirstStart(shiftsA) - overviewFirstStart(shiftsB);
@@ -571,7 +571,12 @@ function overviewFirstStart(shifts) {
 
 function overviewPrimaryDepartment(shifts) {
   const work = shifts.filter(isWorkShift).sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
-  return departmentLabel(work[0] || shifts[0] || {});
+  const selected = work[0] || shifts[0] || {};
+  const status = detectStatus(selected);
+  if (status) return status;
+  const department = String(selected.department || "");
+  if (department.toLowerCase().includes("sco kasse")) return "Kasse";
+  return department || departmentLabel(selected);
 }
 
 function renderOverviewCell(shifts) {
@@ -593,7 +598,7 @@ function renderOverviewCell(shifts) {
 function sortOverviewShifts(shifts) {
   return shifts.slice().sort((a, b) => {
     if (activeWeekOverviewSort === "department") {
-      const byDepartment = departmentLabel(a).localeCompare(departmentLabel(b), "de");
+      const byDepartment = departmentSortRank(departmentLabel(a)) - departmentSortRank(departmentLabel(b));
       if (byDepartment) return byDepartment;
     }
     if (activeWeekOverviewSort === "name") {
@@ -602,6 +607,8 @@ function sortOverviewShifts(shifts) {
     }
     const byTime = timeToMinutes(a.start) - timeToMinutes(b.start);
     if (byTime) return byTime;
+    const byDepartment = departmentSortRank(departmentLabel(a)) - departmentSortRank(departmentLabel(b));
+    if (byDepartment) return byDepartment;
     return departmentLabel(a).localeCompare(departmentLabel(b), "de");
   });
 }
@@ -668,7 +675,11 @@ function groupTeamDayByDepartment(shifts) {
       start: Math.min(...groupShifts.map(shift => timeToMinutes(shift.start))),
       shifts: groupShifts.slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start) || a.name.localeCompare(b.name, "de"))
     }))
-    .sort((a, b) => a.start - b.start || a.department.localeCompare(b.department, "de"));
+    .sort((a, b) => {
+      const byDepartment = departmentSortRank(a.department) - departmentSortRank(b.department);
+      if (byDepartment) return byDepartment;
+      return a.start - b.start || a.department.localeCompare(b.department, "de");
+    });
 }
 
 function departmentLabel(shift) {
@@ -679,6 +690,23 @@ function departmentLabel(shift) {
   if (lower.includes("marktleitung") || lower.includes("marktaufsicht")) return "Marktleitung / Marktaufsicht";
   if (department.toLowerCase().includes("sco kasse")) return "Kasse";
   return department || "Abteilung pruefen";
+}
+
+function departmentSortRank(value) {
+  const text = String(value || "").toLowerCase();
+  if (text.includes("marktleitung")) return 10;
+  if (text.includes("marktaufsicht")) return 20;
+  if (text.includes("werbung")) return 30;
+  if (text.includes("obst")) return 40;
+  if (text.includes("kasse")) return 50;
+  if (text.includes("bakeoff") || text.includes("backshop")) return 60;
+  if (text.includes("getraenke") || text.includes("getränke")) return 70;
+  if (text.includes("mopro")) return 80;
+  if (text.includes("tiefkuehl") || text.includes("tiefkühl")) return 90;
+  if (text.includes("food")) return 100;
+  if (text.includes("auto dispo") || text.includes("autodispo")) return 110;
+  if (text.includes("abwesenheit") || text.includes("frei") || text.includes("urlaub") || text.includes("krank")) return 999;
+  return 500;
 }
 
 function departmentClass(value) {
