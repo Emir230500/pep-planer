@@ -1749,6 +1749,18 @@ button:disabled {
   border-top: 1px solid var(--line);
 }
 
+.change-day.today-change-day,
+.correction-day.today-correction-day {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+}
+
+.change-day.today-change-day > summary,
+.correction-day.today-correction-day > summary {
+  background: #edf4ff;
+  border-left: 6px solid #007aff;
+}
+
 .change-item {
   background: #fff;
   border-top: 1px solid #f0f0f2;

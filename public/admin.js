@@ -685,11 +685,15 @@ function renderPepCorrectionGroups(corrections, doneList) {
           <div class="correction-day-list">
             ${week.days.map(day => {
               const parsed = parseGermanDate(day.date);
+              const isToday = isSameGermanDate(parsed, new Date());
               return `
-                <details class="correction-day">
+                <details class="correction-day ${isToday ? "today-correction-day" : ""}">
                   <summary>
                     <span><strong>${escapeHtml(weekdayLong(parsed))}</strong>, ${escapeHtml(day.date)}</span>
-                    <span class="badge subtle">${day.changes.length}</span>
+                    <span class="correction-summary-badges">
+                      ${isToday ? '<span class="badge">Heute</span>' : ""}
+                      <span class="badge subtle">${day.changes.length}</span>
+                    </span>
                   </summary>
                   <div class="correction-list">
                     ${groupCorrectionsByPerson(day.changes).map(group => renderPepCorrectionPerson(group, doneList)).join("")}
@@ -1845,7 +1849,6 @@ async function deleteInspectionChange(changeId) {
   if (!inspected.plan?.id) return;
   const change = inspectionChangeMap.get(changeId);
   if (!change) return;
-  if (!window.confirm("Diese Aenderung nur aus der Liste entfernen? Der aktuelle Dienstplan bleibt unveraendert.")) return;
   const planId = inspected.plan.id;
   const msg = document.querySelector("#inspectMsg");
   if (msg) {
@@ -1912,11 +1915,15 @@ function renderInspectionChanges(changes) {
             <div class="change-day-list">
               ${week.days.map(day => {
                 const parsed = parseGermanDate(day.date);
+                const isToday = isSameGermanDate(parsed, new Date());
                 return `
-                  <details class="change-day" open>
+                  <details class="change-day ${isToday ? "today-change-day" : ""}">
                     <summary>
                       <span><strong>${escapeHtml(weekdayLong(parsed))}</strong>, ${escapeHtml(day.date)}</span>
-                      <span class="badge subtle">${day.changes.length}</span>
+                      <span class="correction-summary-badges">
+                        ${isToday ? '<span class="badge">Heute</span>' : ""}
+                        <span class="badge subtle">${day.changes.length}</span>
+                      </span>
                     </summary>
                     <div class="change-items">
                       ${day.changes.map(change => renderInspectionChangeItem(change)).join("")}
