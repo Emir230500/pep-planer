@@ -1025,9 +1025,11 @@ async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options
     : db.pushSubscriptions;
   const hasChanges = Array.isArray(plan.changes) && plan.changes.length > 0;
   const customMessage = sanitizePushMessage(options.message || options.pushMessage || "");
-  const body = customMessage || (hasChanges
+  const appendMessage = sanitizePushMessage(options.appendMessage || options.pushAppendMessage || "");
+  const defaultBody = hasChanges
     ? defaultPushBody(plan, targetNames)
-    : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`);
+    : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`;
+  const body = customMessage || (appendMessage ? `${defaultBody} - ${appendMessage}` : defaultBody);
 
   const payload = JSON.stringify({
     title: customMessage ? "Arbeitsplan Info" : hasChanges ? "Planaenderung" : "Neuer Arbeitsplan online",
@@ -1084,7 +1086,7 @@ function publishNotifyMode(db, plan, requestedMode) {
   return defaultPublishNotifyMode(db, plan);
 }
 
-async function editPlanShift(db, planId, before, after, notifyMode = "affected", pushMessage = "", editorName = "", notifyNames = []) {
+async function editPlanShift(db, planId, before, after, notifyMode = "affected", pushMessage = "", editorName = "", notifyNames = [], pushAppendMessage = "") {
   const addShift = !before && Boolean(after);
   const cleanBefore = addShift ? null : cleanShift(before || {});
   const deleteShift = !after;
@@ -1133,10 +1135,10 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected",
     if (mode === "selected_leadership") {
       const selectedNames = selectedLeadershipNames(notifyNames);
       push = selectedNames.length
-        ? await safeSendPlanPush(db, plan, "affected", selectedNames, { pushMessage })
+        ? await safeSendPlanPush(db, plan, "affected", selectedNames, { pushMessage, pushAppendMessage })
         : { sent: 0, removed: 0, skipped: true, mode };
     } else {
-      push = await safeSendPlanPush(db, plan, mode, [change.name], { pushMessage });
+      push = await safeSendPlanPush(db, plan, mode, [change.name], { pushMessage, pushAppendMessage });
     }
   }
   return { plan, correction, push };
@@ -1415,7 +1417,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, process.env.ADMIN_NAME || "Demircan, Emirkan", body.notifyNames);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, process.env.ADMIN_NAME || "Demircan, Emirkan", body.notifyNames, body.pushAppendMessage);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });
@@ -1466,7 +1468,7 @@ async function handleApi(req, res, pathname) {
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
-      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, editorName, body.notifyNames);
+      const result = await editPlanShift(db, id, body.before, body.after, body.notifyMode, body.pushMessage, editorName, body.notifyNames, body.pushAppendMessage);
       if (result.error) return json(res, result.status || 400, { error: result.error });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(result.plan, { isPublished: publishedIds(db).includes(result.plan.id) }), correction: result.correction, push: result.push });

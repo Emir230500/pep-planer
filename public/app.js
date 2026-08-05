@@ -331,6 +331,7 @@ function showTeamShifts(data) {
   document.querySelector("#teamEditNameSelect")?.addEventListener("change", syncTeamEditNameMode);
   document.querySelector("#teamEditNameCustom")?.addEventListener("input", syncTeamEditNameMode);
   document.querySelector("#teamEditDepartment")?.addEventListener("change", syncTeamEditNameMode);
+  document.querySelector("#teamEditProbeArea")?.addEventListener("change", syncTeamEditNameMode);
   document.querySelector("#teamEditBreak")?.addEventListener("blur", event => {
     event.target.value = normalizeBreakValue(event.target.value);
   });
@@ -1104,10 +1105,13 @@ function renderTeamEditForm() {
   if (!teamEditShift) return "";
   const dateValues = teamEditDateValues(teamEditShift);
   const departments = editDepartmentOptions();
+  const probeAreas = probeAreaOptions();
   const employees = editEmployeeOptions();
   const leadership = teamLeadershipOptions();
   const isNew = Boolean(teamEditShift.isNew);
-  const isProbe = departmentOptionKey(teamEditShift.department) === "probearbeiten";
+  const isProbe = isProbearbeitenDepartment(teamEditShift.department);
+  const selectedDepartmentKey = isProbe ? "probearbeiten" : departmentOptionKey(teamEditShift.department);
+  const probeArea = probeAreaFromDepartment(teamEditShift.department);
   const selectedKnownEmployee = employees.some(name => employeeKey(name) === employeeKey(teamEditShift.name));
   return `
     <div id="teamEditBox" class="shift-edit-box team-edit-box">
@@ -1130,7 +1134,13 @@ function renderTeamEditForm() {
         <label>Ende<input id="teamEditEnd" value="${escapeHtml(teamEditShift.end)}" placeholder="14:00"></label>
         <label>Abteilung
           <select id="teamEditDepartment">
-            ${departments.map(department => `<option value="${escapeHtml(department)}" ${departmentOptionKey(department) === departmentOptionKey(teamEditShift.department) ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}
+            ${departments.map(department => `<option value="${escapeHtml(department)}" ${departmentOptionKey(department) === selectedDepartmentKey ? "selected" : ""}>${escapeHtml(department)}</option>`).join("")}
+          </select>
+        </label>
+        <label id="teamEditProbeAreaWrap" class="${isProbe ? "" : "hidden"}">Bereich fuer Probearbeiten
+          <select id="teamEditProbeArea" ${isProbe ? "" : "disabled"}>
+            <option value="">Bereich auswaehlen</option>
+            ${probeAreas.map(area => `<option value="${escapeHtml(area)}" ${departmentOptionKey(area) === departmentOptionKey(probeArea) ? "selected" : ""}>${escapeHtml(area)}</option>`).join("")}
           </select>
         </label>
         <label>Pause<input id="teamEditBreak" value="${escapeHtml(teamEditShift.break || "")}" placeholder="00:30"></label>
@@ -1145,6 +1155,7 @@ function renderTeamEditForm() {
           </select>
         </label>
         <label>Eigene Push-Nachricht<input id="teamEditPushMessage" maxlength="180" placeholder="Leer = Standardtext"></label>
+        <label>+ Zusatz zur Vorlage<input id="teamEditPushAppend" maxlength="120" placeholder="Optional, wird angehaengt"></label>
       </div>
       <details id="teamEditNotifyPeople" class="person-picker hidden">
         <summary>Marktleiter auswaehlen</summary>
@@ -1165,14 +1176,18 @@ function renderTeamEditForm() {
 
 function syncTeamEditNameMode() {
   const department = document.querySelector("#teamEditDepartment")?.value || "";
-  const isProbe = departmentOptionKey(department) === "probearbeiten";
+  const isProbe = isProbearbeitenDepartment(department);
   const hidden = document.querySelector("#teamEditName");
   const select = document.querySelector("#teamEditNameSelect");
   const custom = document.querySelector("#teamEditNameCustom");
+  const probeArea = document.querySelector("#teamEditProbeArea");
+  const probeAreaWrap = document.querySelector("#teamEditProbeAreaWrap");
   if (!hidden || !select || !custom) return;
   select.disabled = isProbe;
   custom.disabled = !isProbe;
   custom.classList.toggle("hidden", !isProbe);
+  if (probeArea) probeArea.disabled = !isProbe;
+  probeAreaWrap?.classList.toggle("hidden", !isProbe);
   hidden.value = isProbe ? custom.value : select.value;
 }
 
@@ -1246,8 +1261,37 @@ function editDepartmentOptions() {
   const fromPlans = (currentTeamData?.plans || [])
     .flatMap(plan => plan.shifts || [])
     .map(shift => shift.department || "")
+    .map(department => isProbearbeitenDepartment(department) ? "Probearbeiten" : department)
     .filter(Boolean);
   return uniqueDepartments([...knownDepartments(), ...fromPlans]).sort((a, b) => a.localeCompare(b, "de"));
+}
+
+function isProbearbeitenDepartment(value) {
+  return departmentOptionKey(value).startsWith("probearbeiten");
+}
+
+function probeAreaFromDepartment(value) {
+  const text = fixMojibake(value).trim();
+  if (!isProbearbeitenDepartment(text)) return "";
+  return text
+    .replace(/^probearbeiten\s*[-:|]?\s*/i, "")
+    .trim();
+}
+
+function composeProbeDepartment(area) {
+  const cleanArea = fixMojibake(area).trim();
+  return cleanArea ? `Probearbeiten ${cleanArea}` : "Probearbeiten";
+}
+
+function probeAreaOptions() {
+  const blocked = new Set(["probearbeiten", "frei", "urlaub", "krankheit", "krank", "abwesenheit"]);
+  return uniqueDepartments(editDepartmentOptions()
+    .map(department => probeAreaFromDepartment(department) || department)
+    .filter(department => {
+      const key = departmentOptionKey(department);
+      return key && !blocked.has(key);
+    }))
+    .sort((a, b) => departmentSortRank(a) - departmentSortRank(b) || a.localeCompare(b, "de"));
 }
 
 function editEmployeeOptions() {
@@ -1286,21 +1330,29 @@ async function deleteTeamEdit() {
 async function saveTeamEdit() {
   if (!teamEditShift?.planId) return;
   try {
+    const selectedDepartment = document.querySelector("#teamEditDepartment")?.value || "";
+    const isProbe = isProbearbeitenDepartment(selectedDepartment);
+    const probeArea = document.querySelector("#teamEditProbeArea")?.value || "";
+    const finalDepartment = isProbe ? composeProbeDepartment(probeArea) : selectedDepartment;
+    if (isProbe && !probeArea.trim()) throw new Error("Bitte Bereich fuer Probearbeiten auswaehlen.");
+    const finalName = (document.querySelector("#teamEditName")?.value || "").trim();
+    if (isProbe && finalName.length < 3) throw new Error("Bitte Namen fuer Probearbeiten eingeben.");
     await api(`/api/me/plans/${encodeURIComponent(teamEditShift.planId)}/shifts/edit`, {
       method: "POST",
       body: {
         before: teamEditShift.isNew ? null : teamEditShift,
         after: {
-          name: document.querySelector("#teamEditName").value,
+          name: finalName,
           date: document.querySelector("#teamEditDate").value,
           start: normalizeTimeValue(document.querySelector("#teamEditStart").value),
           end: normalizeTimeValue(document.querySelector("#teamEditEnd").value),
-          department: document.querySelector("#teamEditDepartment").value,
+          department: finalDepartment,
           break: normalizeBreakValue(document.querySelector("#teamEditBreak").value)
         },
         notifyMode: document.querySelector("#teamEditNotifyMode")?.value || "affected",
         notifyNames: selectedTeamEditNotifyNames(),
-        pushMessage: document.querySelector("#teamEditPushMessage")?.value || ""
+        pushMessage: document.querySelector("#teamEditPushMessage")?.value || "",
+        pushAppendMessage: document.querySelector("#teamEditPushAppend")?.value || ""
       }
     });
     teamEditShift = null;
