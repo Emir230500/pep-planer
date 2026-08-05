@@ -83,6 +83,11 @@ function showShifts(data) {
       week?.classList.toggle("collapsed");
     });
   });
+  document.querySelectorAll("[data-own-day-toggle]").forEach(button => {
+    button.addEventListener("click", () => {
+      button.closest(".day")?.classList.toggle("collapsed");
+    });
+  });
 }
 
 function showTeamShifts(data) {
@@ -193,6 +198,11 @@ function showTeamShifts(data) {
   document.querySelectorAll("[data-week-toggle]").forEach(button => {
     button.addEventListener("click", () => {
       button.closest(".week")?.classList.toggle("collapsed");
+    });
+  });
+  document.querySelectorAll("[data-own-day-toggle]").forEach(button => {
+    button.addEventListener("click", () => {
+      button.closest(".day")?.classList.toggle("collapsed");
     });
   });
   document.querySelectorAll("[data-team-day-toggle]").forEach(button => {
@@ -443,13 +453,14 @@ function renderNextWorkDay(nextWorkDay) {
   const multiDepartment = new Set(nextWorkDay.shifts.map(shift => shift.department).filter(Boolean)).size > 1;
   const multiBlock = nextWorkDay.shifts.length > 1;
   const showDayPause = multiBlock || multiDepartment;
+  const nextRange = escapeHtml(dayTimeRange(nextWorkDay.shifts));
   return `
     <section class="next-card ${multiBlock || multiDepartment ? "" : "compact-next-card"}">
       <p class="next-label">Naechste Schicht</p>
       <div class="next-main">
         <div>
           <h2>${weekdayLong(nextWorkDay.date)}, ${formatGermanDate(nextWorkDay.date)}</h2>
-          <p>${escapeHtml(dayTimeRange(nextWorkDay.shifts))}${multiDepartment ? " - mehrere Abteilungen" : ""}</p>
+          <p>${nextRange}${multiDepartment ? " - mehrere Abteilungen" : ""}</p>
         </div>
         <span class="badge">Anstehend</span>
       </div>
@@ -1391,16 +1402,25 @@ function shortDepartment(value) {
 }
 
 function renderFreeDay(date, changed = false) {
+  const currentDay = isToday(date);
+  const isCollapsed = !currentDay;
   return `
-    <article class="day free-day ${isToday(date) ? "today-day" : ""} ${changed ? "changed-day" : ""}">
-      <div class="day-title">
-        <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
-        ${isToday(date) ? '<span class="badge">Heute</span>' : ""}
-        ${changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
-      </div>
-      <div class="shift-row status-row">
-        <span class="time">X</span>
-        <span class="department">Keine Schicht</span>
+    <article class="day free-day own-day ${currentDay ? "today-day" : ""} ${changed ? "changed-day" : ""} ${isCollapsed ? "collapsed" : ""}">
+      <button class="day-title own-day-head" data-own-day-toggle type="button">
+        <span>
+          <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
+          <small>X</small>
+        </span>
+        <span class="own-day-actions">
+          ${currentDay ? '<span class="badge">Heute</span>' : ""}
+          ${changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
+        </span>
+      </button>
+      <div class="own-day-body">
+        <div class="shift-row status-row">
+          <span class="time">X</span>
+          <span class="department">Keine Schicht</span>
+        </div>
       </div>
     </article>
   `;
@@ -1414,18 +1434,27 @@ function renderDay(dateValue, dayShifts, changed = false) {
   const multiBlock = sorted.length > 1;
   const dayPause = dayPauseText(sorted);
   const showDaySummary = multiBlock || multiDepartment;
+  const isCollapsed = !currentDay;
+  const shortSummary = `${escapeHtml(dayTimeRange(sorted))}${dayPause ? ` | ${escapeHtml(dayPause)}` : ""}${multiDepartment ? " | mehrere Abteilungen" : ""}`;
 
   return `
-    <article class="day ${currentDay ? "today-day" : ""} ${changed ? "changed-day" : ""}">
-      <div class="day-title">
-        <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
-        ${currentDay ? '<span class="badge">Heute</span>' : ""}
-        ${changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
-        ${multiDepartment ? '<span class="badge subtle">Mehrere Abteilungen</span>' : ""}
-      </div>
-      ${showDaySummary ? `<div class="day-summary">Gesamt: ${escapeHtml(dayTimeRange(sorted))} - Tagespause: ${dayPause}</div>` : ""}
-      <div class="day-shifts">
-        ${sorted.map(shift => renderShift(shift, multiBlock || multiDepartment, sorted)).join("")}
+    <article class="day own-day ${currentDay ? "today-day" : ""} ${changed ? "changed-day" : ""} ${isCollapsed ? "collapsed" : ""}">
+      <button class="day-title own-day-head" data-own-day-toggle type="button">
+        <span>
+          <strong>${weekdayLong(date)}, ${formatGermanDate(date)}</strong>
+          <small>${shortSummary}</small>
+        </span>
+        <span class="own-day-actions">
+          ${currentDay ? '<span class="badge">Heute</span>' : ""}
+          ${changed ? '<span class="badge warn-badge">Geaendert</span>' : ""}
+          ${multiDepartment ? '<span class="badge subtle">Mehrere Abteilungen</span>' : ""}
+        </span>
+      </button>
+      <div class="own-day-body">
+        ${showDaySummary ? `<div class="day-summary">Gesamt: ${escapeHtml(dayTimeRange(sorted))} - Tagespause: ${dayPause}</div>` : ""}
+        <div class="day-shifts">
+          ${sorted.map(shift => renderShift(shift, multiBlock || multiDepartment, sorted)).join("")}
+        </div>
       </div>
     </article>
   `;
@@ -1461,16 +1490,16 @@ function renderShift(shift, compactPause = false, dayShifts = []) {
 }
 
 function renderPause(shift, dayShifts = []) {
-  if (shift.break) return `<span class="pause">Pause ${escapeHtml(shift.break)}</span>`;
-  if (dayHasBreak(dayShifts)) return '<span class="pause">Pause im Tag</span>';
+  if (shift.break) return `<span class="pause">${escapeHtml(shift.break)}</span>`;
+  if (dayHasBreak(dayShifts)) return '<span class="pause">im Tag</span>';
   if (needsBreakCheck(shift)) return '<span class="pause warn">Pause pruefen</span>';
-  return '<span class="pause">keine Pause</span>';
+  return '<span class="pause"></span>';
 }
 
 function renderPauseText(shift) {
-  if (shift.break) return `Pause ${shift.break}`;
+  if (shift.break) return shift.break;
   if (needsBreakCheck(shift)) return "Pause pruefen";
-  return "keine Pause";
+  return "";
 }
 
 function dayHasBreak(shifts) {
