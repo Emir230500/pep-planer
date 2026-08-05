@@ -303,6 +303,12 @@ function showTeamShifts(data) {
   document.querySelector("#saveTeamSick")?.addEventListener("click", saveTeamSick);
   document.querySelector("#saveTeamEdit")?.addEventListener("click", saveTeamEdit);
   document.querySelector("#deleteTeamEdit")?.addEventListener("click", deleteTeamEdit);
+  document.querySelector("#teamEditNameSelect")?.addEventListener("change", syncTeamEditNameMode);
+  document.querySelector("#teamEditNameCustom")?.addEventListener("input", syncTeamEditNameMode);
+  document.querySelector("#teamEditDepartment")?.addEventListener("change", syncTeamEditNameMode);
+  document.querySelector("#teamEditBreak")?.addEventListener("blur", event => {
+    event.target.value = normalizeBreakValue(event.target.value);
+  });
   document.querySelector("#teamEditNotifyMode")?.addEventListener("change", event => {
     document.querySelector("#teamEditNotifyPeople")?.classList.toggle("hidden", event.target.value !== "selected_leadership");
   });
@@ -421,9 +427,9 @@ function renderNextWorkDay(nextWorkDay) {
 
   const multiDepartment = new Set(nextWorkDay.shifts.map(shift => shift.department).filter(Boolean)).size > 1;
   const multiBlock = nextWorkDay.shifts.length > 1;
-  const showDayPause = multiBlock || multiDepartment || dayHasBreak(nextWorkDay.shifts);
+  const showDayPause = multiBlock || multiDepartment;
   return `
-    <section class="next-card">
+    <section class="next-card ${multiBlock || multiDepartment ? "" : "compact-next-card"}">
       <p class="next-label">Naechste Schicht</p>
       <div class="next-main">
         <div>
@@ -1075,16 +1081,20 @@ function renderTeamEditForm() {
   const employees = editEmployeeOptions();
   const leadership = teamLeadershipOptions();
   const isNew = Boolean(teamEditShift.isNew);
+  const isProbe = departmentOptionKey(teamEditShift.department) === "probearbeiten";
+  const selectedKnownEmployee = employees.some(name => employeeKey(name) === employeeKey(teamEditShift.name));
   return `
     <div id="teamEditBox" class="shift-edit-box team-edit-box">
       <strong>${isNew ? "Teamplan-Schicht hinzufuegen" : "Teamplan-Schicht bearbeiten"}</strong>
       <p class="hint">${isNew ? "Neue Schicht" : `${escapeHtml(teamEditShift.name)} - ${escapeHtml(teamEditShift.date)}`}. Nach dem Speichern landet es als haendische PEP-Korrektur in der Admin-Liste.</p>
       <div class="shift-edit-grid">
         <label>Mitarbeiter
-          <input id="teamEditName" list="teamEditNameOptions" value="${escapeHtml(teamEditShift.name || "")}" placeholder="Mitarbeiter auswaehlen oder neuen Namen eingeben">
-          <datalist id="teamEditNameOptions">
-            ${employees.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
-          </datalist>
+          <input id="teamEditName" type="hidden" value="${escapeHtml(teamEditShift.name || "")}">
+          <select id="teamEditNameSelect" ${isProbe ? "disabled" : ""}>
+            <option value="">Mitarbeiter auswaehlen</option>
+            ${employees.map(name => `<option value="${escapeHtml(name)}" ${!isProbe && employeeKey(name) === employeeKey(teamEditShift.name) ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
+          </select>
+          <input id="teamEditNameCustom" class="${isProbe ? "" : "hidden"}" value="${escapeHtml(isProbe && !selectedKnownEmployee ? teamEditShift.name || "" : "")}" placeholder="Name fuer Probearbeiten eingeben" ${isProbe ? "" : "disabled"}>
         </label>
         <label>Datum
           <input id="teamEditDate" type="hidden" value="${escapeHtml(teamEditShift.date)}">
@@ -1125,6 +1135,19 @@ function renderTeamEditForm() {
       </div>
     </div>
   `;
+}
+
+function syncTeamEditNameMode() {
+  const department = document.querySelector("#teamEditDepartment")?.value || "";
+  const isProbe = departmentOptionKey(department) === "probearbeiten";
+  const hidden = document.querySelector("#teamEditName");
+  const select = document.querySelector("#teamEditNameSelect");
+  const custom = document.querySelector("#teamEditNameCustom");
+  if (!hidden || !select || !custom) return;
+  select.disabled = isProbe;
+  custom.disabled = !isProbe;
+  custom.classList.toggle("hidden", !isProbe);
+  hidden.value = isProbe ? custom.value : select.value;
 }
 
 function teamEditDateValues(shift) {
@@ -1375,7 +1398,7 @@ function renderDay(dateValue, dayShifts, changed = false) {
   const multiDepartment = new Set(sorted.map(shift => shift.department).filter(Boolean)).size > 1;
   const multiBlock = sorted.length > 1;
   const dayPause = dayPauseText(sorted);
-  const showDaySummary = multiBlock || multiDepartment || dayHasBreak(sorted);
+  const showDaySummary = multiBlock || multiDepartment;
 
   return `
     <article class="day ${currentDay ? "today-day" : ""} ${changed ? "changed-day" : ""}">
@@ -1626,7 +1649,11 @@ function timeToMinutes(value) {
 function normalizeBreakValue(value) {
   const text = String(value || "").trim();
   if (!text) return "";
-  if (/^\d{1,2}$/.test(text)) return `00:${String(Number(text)).padStart(2, "0")}`;
+  if (/^\d{1,2}$/.test(text)) {
+    const number = Number(text);
+    if (number === 1 || number === 60) return "01:00";
+    return `00:${String(number).padStart(2, "0")}`;
+  }
   const match = text.match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return text;
   return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;

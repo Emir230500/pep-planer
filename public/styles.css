@@ -323,6 +323,22 @@ button:disabled {
   margin: 10px 0 0;
 }
 
+.compact-next-card {
+  padding: 12px 14px;
+}
+
+.compact-next-card .next-main {
+  margin-bottom: 8px;
+}
+
+.compact-next-card .next-main h2 {
+  font-size: 20px;
+}
+
+.compact-next-card .shift-row {
+  padding: 8px 10px;
+}
+
 .team-view-note {
   color: var(--accent-dark);
   font-size: 13px;

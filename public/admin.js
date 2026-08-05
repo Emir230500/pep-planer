@@ -1122,6 +1122,12 @@ function renderInspection() {
   });
   document.querySelector("#saveShiftEdit")?.addEventListener("click", saveShiftEdit);
   document.querySelector("#deleteShiftEdit")?.addEventListener("click", deleteShiftEdit);
+  document.querySelector("#editNameSelect")?.addEventListener("change", syncEditNameMode);
+  document.querySelector("#editNameCustom")?.addEventListener("input", syncEditNameMode);
+  document.querySelector("#editDepartment")?.addEventListener("change", syncEditNameMode);
+  document.querySelector("#editBreak")?.addEventListener("blur", event => {
+    event.target.value = normalizeBreakValue(event.target.value);
+  });
   document.querySelector("#editNotifyMode")?.addEventListener("change", event => {
     document.querySelector("#editNotifyPeople")?.classList.toggle("hidden", event.target.value !== "selected_leadership");
   });
@@ -1601,16 +1607,20 @@ function renderShiftEditForm() {
   const leadership = teamLeadershipOptions();
   const isNew = Boolean(editShift.isNew);
   const dateValues = editDateValues(editShift.date);
+  const isProbe = departmentOptionKey(editShift.department) === "probearbeiten";
+  const selectedKnownEmployee = employeeOptions.some(name => employeeKey(name) === employeeKey(editShift.name));
   return `
     <div id="shiftEditBox" class="shift-edit-box">
       <strong>${isNew ? "Schicht hinzufuegen" : "Schicht bearbeiten"}</strong>
       <p class="hint">${isNew ? "Neue Schicht" : `${escapeHtml(editShift.name)} - ${escapeHtml(editShift.date)}`}. Nach dem Speichern wird automatisch eine PEP-Korrektur mit Quelle Haendisch angelegt.</p>
       <div class="shift-edit-grid">
         <label>Mitarbeiter
-          <input id="editName" list="editNameOptions" value="${escapeHtml(editShift.name || "")}" placeholder="Mitarbeiter auswaehlen oder neuen Namen eingeben">
-          <datalist id="editNameOptions">
-            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
-          </datalist>
+          <input id="editName" type="hidden" value="${escapeHtml(editShift.name || "")}">
+          <select id="editNameSelect" ${isProbe ? "disabled" : ""}>
+            <option value="">Mitarbeiter auswaehlen</option>
+            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}" ${!isProbe && employeeKey(name) === employeeKey(editShift.name) ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
+          </select>
+          <input id="editNameCustom" class="${isProbe ? "" : "hidden"}" value="${escapeHtml(isProbe && !selectedKnownEmployee ? editShift.name || "" : "")}" placeholder="Name fuer Probearbeiten eingeben" ${isProbe ? "" : "disabled"}>
         </label>
         <label>Datum
           <input id="editDate" type="hidden" value="${escapeHtml(editShift.date)}">
@@ -1653,6 +1663,19 @@ function renderShiftEditForm() {
       </div>
     </div>
   `;
+}
+
+function syncEditNameMode() {
+  const department = document.querySelector("#editDepartment")?.value || "";
+  const isProbe = departmentOptionKey(department) === "probearbeiten";
+  const hidden = document.querySelector("#editName");
+  const select = document.querySelector("#editNameSelect");
+  const custom = document.querySelector("#editNameCustom");
+  if (!hidden || !select || !custom) return;
+  select.disabled = isProbe;
+  custom.disabled = !isProbe;
+  custom.classList.toggle("hidden", !isProbe);
+  hidden.value = isProbe ? custom.value : select.value;
 }
 
 function editDateValues(selectedDate) {
@@ -2870,9 +2893,9 @@ function normalizeBreakValue(value) {
     if (decimal[1] === "75") return "00:45";
   }
 
-  if (/^\s*(15|30|45|60)\s*$/.test(lower)) {
+  if (/^\s*(1|15|30|45|60)\s*$/.test(lower)) {
     const onlyMinutes = lower.match(/\d+/)[0];
-    return onlyMinutes === "60" ? "01:00" : `00:${onlyMinutes}`;
+    return onlyMinutes === "1" || onlyMinutes === "60" ? "01:00" : `00:${onlyMinutes}`;
   }
 
   return "";

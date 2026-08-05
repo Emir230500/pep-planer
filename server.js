@@ -342,6 +342,11 @@ function weekdayShort(date) {
   return ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][date.getDay()] || "";
 }
 
+function weekdayLong(date) {
+  if (!date) return "";
+  return ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][date.getDay()] || "";
+}
+
 function planRange(shifts) {
   const dates = shifts.map(shift => parseGermanDate(shift.date)).filter(Boolean).sort((a, b) => a - b);
   if (!dates.length) return "";
@@ -957,6 +962,23 @@ function compactShiftSignature(value) {
     .slice(0, 70);
 }
 
+function firstShiftFromSignature(value) {
+  const part = String(value || "").split("/")[0] || "";
+  const [timeRange = "", department = "", pause = ""] = part.split("|").map(item => item.trim());
+  const [start = "", end = ""] = timeRange.split("-").map(item => item.trim());
+  return { start, end, department, pause };
+}
+
+function formatProbePushBody(change) {
+  if (!change || change.type !== "added") return "";
+  const shift = firstShiftFromSignature(change.after);
+  if (!isProbearbeitenShift(shift)) return "";
+  const date = parseGermanDate(change.date);
+  const day = weekdayLong(date);
+  const pause = shift.pause ? ` ${shift.pause}` : "";
+  return `${day ? `${day}, ` : ""}${change.date}: ${change.name}: ${shift.start} Uhr - ${shift.end} Uhr ${shift.department}${pause}`;
+}
+
 function relevantPushChange(plan, targetNames = null) {
   const targetKeys = Array.isArray(targetNames) && targetNames.length
     ? employeeKeysForNames(targetNames)
@@ -967,6 +989,8 @@ function relevantPushChange(plan, targetNames = null) {
 function defaultPushBody(plan, targetNames = null) {
   const change = relevantPushChange(plan, targetNames);
   if (!change) return `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`;
+  const probeBody = formatProbePushBody(change);
+  if (probeBody) return probeBody;
   const date = parseGermanDate(change.date);
   const day = weekdayShort(date);
   const editor = change.editorInitials ? ` (${change.editorInitials})` : "";
