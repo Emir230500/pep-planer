@@ -558,13 +558,29 @@ button:disabled {
   box-shadow: 12px 0 18px rgba(0, 0, 0, 0.14);
   color: #1d1d1f;
   display: flex;
+  flex-direction: column;
   font-weight: 800;
+  gap: 3px;
+  justify-content: center;
   left: 0;
   max-width: 180px;
   min-width: 180px;
   position: -webkit-sticky;
   position: sticky;
   z-index: 10;
+}
+
+.overview-name span {
+  width: 100%;
+}
+
+.overview-name small {
+  color: #6e6e73;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.15;
+  width: 100%;
 }
 
 .overview-corner {
@@ -2271,15 +2287,42 @@ button:disabled {
 }
 
 .sick-week-select {
+  align-items: center;
   background: #f5f5f7;
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--text);
+  display: flex;
   font-size: 12px;
   font-weight: 800;
+  justify-content: space-between;
   margin-bottom: 8px;
   min-height: 34px;
   padding: 6px 10px;
+  width: 100%;
+}
+
+.sick-week-select strong {
+  background: #eaf3ff;
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.sick-week-group.collapsed .sick-week-body {
+  display: none;
+}
+
+.sick-week-all {
+  background: #111;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+  margin: 0 0 8px;
+  min-height: 32px;
+  padding: 5px 10px;
+  width: auto;
 }
 
 .sick-preview {
@@ -2324,6 +2367,7 @@ button:disabled {
 }
 
 .edit-date-chip {
+  -webkit-tap-highlight-color: transparent;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2334,6 +2378,10 @@ button:disabled {
   min-height: 46px;
   padding: 5px 3px;
   text-align: center;
+}
+
+.edit-date-chip:active {
+  transform: scale(0.98);
 }
 
 .edit-date-chip span {

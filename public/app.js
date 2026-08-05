@@ -14,6 +14,7 @@ let teamEditMap = new Map();
 let activeViewPanel = "own";
 let activeWeekOverviewSort = "time";
 let weekOverviewSearch = "";
+let openSickWeeks = new Set();
 
 async function api(url, options = {}) {
   const res = await fetch(url, {
@@ -286,26 +287,32 @@ function showTeamShifts(data) {
       syncTeamSickFormState();
       const value = button.dataset.teamSickDateChoice;
       const current = new Set(teamSickEntry.dates || []);
-      if (current.has(value) && current.size > 1) current.delete(value);
+      if (current.has(value)) current.delete(value);
       else current.add(value);
-      teamSickEntry.dates = Array.from(current);
-      teamSickEntry.date = teamSickEntry.dates[0] || value;
+      teamSickEntry.dates = Array.from(current).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+      teamSickEntry.date = teamSickEntry.dates[0] || "";
       teamSickEntry.wholeWeek = false;
       showTeamShifts(currentTeamData);
     });
   });
-  document.querySelectorAll("[data-team-sick-week]").forEach(button => {
+  document.querySelectorAll("[data-team-sick-week-toggle]").forEach(button => {
     button.addEventListener("click", () => {
       if (!teamSickEntry) return;
+      const key = button.dataset.teamSickWeekToggle;
+      if (openSickWeeks.has(key)) openSickWeeks.delete(key);
+      else openSickWeeks.add(key);
+      showTeamShifts(currentTeamData);
+    });
+  });
+  document.querySelectorAll("[data-team-sick-week-select]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      if (!teamSickEntry) return;
       syncTeamSickFormState();
-      const values = button.dataset.teamSickWeek.split("|").filter(Boolean);
-      const current = new Set(teamSickEntry.dates || []);
-      const allSelected = values.every(value => current.has(value));
-      values.forEach(value => allSelected ? current.delete(value) : current.add(value));
-      if (!current.size) values.forEach(value => current.add(value));
-      teamSickEntry.dates = Array.from(current).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
-      teamSickEntry.date = teamSickEntry.dates[0] || values[0] || teamSickEntry.date;
-      teamSickEntry.wholeWeek = values.every(value => teamSickEntry.dates.includes(value));
+      const values = button.dataset.teamSickWeekSelect.split("|").filter(Boolean);
+      teamSickEntry.dates = values;
+      teamSickEntry.date = values[0] || "";
+      teamSickEntry.wholeWeek = true;
       showTeamShifts(currentTeamData);
     });
   });
@@ -318,6 +325,7 @@ function showTeamShifts(data) {
     const values = teamEditDateValues(teamSickEntry);
     teamSickEntry.date = values[0] || teamSickEntry.date;
     teamSickEntry.dates = [teamSickEntry.date].filter(Boolean);
+    openSickWeeks = new Set();
     showTeamShifts(currentTeamData);
   });
   document.querySelector("#teamSickWholeWeek")?.addEventListener("change", event => {
@@ -327,6 +335,7 @@ function showTeamShifts(data) {
     if (teamSickEntry.wholeWeek) {
       const week = groupTeamSickDatesByWeek(teamSickDateValues()).find(group => group.dates.includes(teamSickEntry.date));
       teamSickEntry.dates = week?.dates || teamEditDateValues(teamSickEntry);
+      if (week?.key) openSickWeeks.add(week.key);
     }
     showTeamShifts(currentTeamData);
   });
@@ -571,8 +580,8 @@ function renderWeekOverview(week) {
   const endDate = week.displayEnd || week.endDate;
   const days = datesBetween(startDate, endDate);
   const searchKey = employeeKey(weekOverviewSearch);
-  const employees = sortOverviewEmployees(unique(week.shifts.map(shift => shift.name).filter(Boolean)), week, days)
-    .filter(name => !searchKey || employeeKey(name).includes(searchKey));
+  const rows = overviewRowsForWeek(week, days)
+    .filter(row => !searchKey || employeeKey(row.name).includes(searchKey));
 
   return `
     <section id="overview-kw-${week.year}-${week.week}" class="week overview-week ${week.isCurrent ? "current-week" : ""} ${isOpen ? "" : "collapsed"}">
@@ -594,7 +603,7 @@ function renderWeekOverview(week) {
               <strong>${weekdayLong(date)}</strong>
               <span>${formatGermanDate(date)}</span>
             </div>`).join("")}
-            ${employees.map(name => renderOverviewEmployeeRow(name, days, week)).join("")}
+            ${rows.map(row => renderOverviewEmployeeRow(row, days, week)).join("")}
           </div>
         </div>
       </div>
@@ -602,17 +611,82 @@ function renderWeekOverview(week) {
   `;
 }
 
-function renderOverviewEmployeeRow(name, days, week) {
+function overviewRowsForWeek(week, days = []) {
+  const employees = unique(week.shifts.map(shift => shift.name).filter(Boolean));
+  if (activeWeekOverviewSort !== "department") {
+    return sortOverviewEmployees(employees, week, days).map(name => ({ name }));
+  }
+  const rows = [];
+  employees.forEach(name => {
+    const shifts = overviewEmployeeShifts(name, week);
+    const departments = overviewDistinctDepartments(shifts.filter(isWorkShift));
+    if (!departments.length) {
+      rows.push({ name, departmentKey: "__status", departmentLabel: "Abwesenheit" });
+      return;
+    }
+    departments.forEach(department => rows.push({
+      name,
+      departmentKey: department.key,
+      departmentLabel: department.label
+    }));
+  });
+  return sortOverviewRows(rows, week, days);
+}
+
+function renderOverviewEmployeeRow(row, days, week) {
+  const name = typeof row === "string" ? row : row.name;
+  const label = typeof row === "string" ? "" : row.departmentLabel;
   return `
-    <div class="overview-name">${escapeHtml(name)}</div>
+    <div class="overview-name">
+      <span>${escapeHtml(name)}</span>
+      ${label ? `<small>${escapeHtml(label)}</small>` : ""}
+    </div>
     ${days.map(date => {
       const dateValue = formatGermanDate(date);
-      const dayShifts = (week.days.get(dateValue) || []).filter(shift => employeeKey(shift.name) === employeeKey(name));
+      const dayShifts = overviewRowDayShifts(row, week, dateValue);
       return `<div class="overview-cell ${isToday(date) ? "today-overview-cell" : ""}">
         ${renderOverviewCell(dayShifts)}
       </div>`;
     }).join("")}
   `;
+}
+
+function overviewRowDayShifts(row, week, dateValue) {
+  const normalized = typeof row === "string" ? { name: row } : row;
+  const shifts = (week.days.get(dateValue) || [])
+    .filter(shift => employeeKey(shift.name) === employeeKey(normalized.name));
+  if (!normalized.departmentKey) return shifts;
+  if (normalized.departmentKey === "__status") return shifts.filter(shift => !isWorkShift(shift));
+  return shifts.filter(shift => isWorkShift(shift) && departmentOptionKey(overviewDepartmentLabel(shift)) === normalized.departmentKey);
+}
+
+function overviewRowShifts(row, week) {
+  const normalized = typeof row === "string" ? { name: row } : row;
+  const shifts = overviewEmployeeShifts(normalized.name, week);
+  if (!normalized.departmentKey) return shifts;
+  if (normalized.departmentKey === "__status") return shifts.filter(shift => !isWorkShift(shift));
+  return shifts.filter(shift => isWorkShift(shift) && departmentOptionKey(overviewDepartmentLabel(shift)) === normalized.departmentKey);
+}
+
+function sortOverviewRows(rows, week, days = []) {
+  const focusDate = overviewFocusDate(week, days);
+  return rows.slice().sort((a, b) => {
+    const shiftsA = overviewRowShifts(a, week);
+    const shiftsB = overviewRowShifts(b, week);
+    const focusA = overviewRelevantShifts(shiftsA, focusDate);
+    const focusB = overviewRelevantShifts(shiftsB, focusDate);
+    const hasFocusA = focusA.some(isWorkShift) ? 0 : 1;
+    const hasFocusB = focusB.some(isWorkShift) ? 0 : 1;
+    const byFocus = hasFocusA - hasFocusB;
+    if (byFocus) return byFocus;
+    const byDepartment = departmentSortRank(a.departmentLabel) - departmentSortRank(b.departmentLabel);
+    if (byDepartment) return byDepartment;
+    const byTime = overviewFirstWorkOrder(focusA) - overviewFirstWorkOrder(focusB);
+    if (byTime) return byTime;
+    const byDate = overviewFirstWorkDate(focusA) - overviewFirstWorkDate(focusB);
+    if (byDate) return byDate;
+    return a.name.localeCompare(b.name, "de");
+  });
 }
 
 function sortOverviewEmployees(employees, week, days = []) {
@@ -674,6 +748,11 @@ function overviewFirstWorkOrder(shifts) {
     .map(shift => timeToMinutes(shift.start))
     .filter(value => value !== 9999);
   return starts.length ? Math.min(...starts) : 9999;
+}
+
+function overviewFirstWorkDate(shifts) {
+  const values = shifts.filter(isWorkShift).map(shift => dateSortValue(shift.date)).filter(value => value !== 999999);
+  return values.length ? Math.min(...values) : 999999;
 }
 
 function overviewDepartmentSortInfo(shifts) {
@@ -1071,12 +1150,18 @@ function renderTeamSickDatePicker(values, selectedDates, dataAttr) {
   return `
     <div class="edit-date-picker">
       <div class="edit-date-selected">${escapeHtml(label)}</div>
-      ${weeks.map(week => `
-        <div class="sick-week-group">
-          <button class="sick-week-select" data-team-sick-week="${escapeHtml(week.dates.join("|"))}" type="button">
-            KW ${escapeHtml(week.week)} - ${escapeHtml(week.dates[0])} bis ${escapeHtml(week.dates[week.dates.length - 1])}
+      ${weeks.map(week => {
+        const hasSelection = week.dates.some(value => selectedSet.has(value));
+        const isOpen = week.isCurrent || hasSelection || openSickWeeks.has(week.key);
+        return `
+        <div class="sick-week-group ${isOpen ? "" : "collapsed"}">
+          <button class="sick-week-select" data-team-sick-week-toggle="${escapeHtml(week.key)}" type="button">
+            <span>KW ${escapeHtml(week.week)} - ${escapeHtml(week.dates[0])} bis ${escapeHtml(week.dates[week.dates.length - 1])}</span>
+            <strong>${isOpen ? "Zuklappen" : "Aufklappen"}</strong>
           </button>
-          <div class="edit-date-grid">
+          <div class="sick-week-body">
+            <button class="sick-week-all" data-team-sick-week-select="${escapeHtml(week.dates.join("|"))}" type="button">Ganze KW waehlen</button>
+            <div class="edit-date-grid">
             ${week.dates.map(value => {
               const parsed = parseGermanDate(value);
               return `<button class="edit-date-chip ${selectedSet.has(value) ? "selected" : ""}" ${dataAttr}="${escapeHtml(value)}" type="button">
@@ -1084,9 +1169,10 @@ function renderTeamSickDatePicker(values, selectedDates, dataAttr) {
                 <strong>${escapeHtml(parsed ? String(parsed.getDate()).padStart(2, "0") : value)}</strong>
               </button>`;
             }).join("")}
+            </div>
           </div>
         </div>
-      `).join("")}
+      `}).join("")}
     </div>
   `;
 }
@@ -1098,7 +1184,7 @@ function groupTeamSickDatesByWeek(values) {
     if (!parsed) continue;
     const info = isoWeekInfo(parsed);
     const key = `${info.year}-${info.week}`;
-    if (!groups.has(key)) groups.set(key, { week: info.week, year: info.year, dates: [] });
+    if (!groups.has(key)) groups.set(key, { key, week: info.week, year: info.year, isCurrent: isCurrentWeek(parsed), dates: [] });
     groups.get(key).dates.push(value);
   }
   return Array.from(groups.values()).map(group => ({
