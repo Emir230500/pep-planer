@@ -14,6 +14,10 @@ let inspectCalendarOpen = false;
 let inspectCalendarMonth = "";
 let inspectPanelVisible = false;
 
+if (new URLSearchParams(window.location.search).get("embedded") === "1") {
+  document.body.classList.add("embedded-admin");
+}
+
 const loginBox = document.querySelector("#adminLogin");
 const adminArea = document.querySelector("#adminArea");
 const mapping = document.querySelector("#mapping");

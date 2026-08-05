@@ -6,6 +6,7 @@ const hello = document.querySelector("#hello");
 const pushBox = document.querySelector("#pushBox");
 const pushBtn = document.querySelector("#pushBtn");
 const pushMsg = document.querySelector("#pushMsg");
+const adminLink = document.querySelector("#adminLink");
 let currentTeamData = null;
 let teamEditShift = null;
 let teamSickEntry = null;
@@ -44,6 +45,7 @@ function showShifts(data) {
   plans.classList.add("page-enter");
   window.setTimeout(() => plans.classList.remove("page-enter"), 420);
   hello.textContent = data.name;
+  adminLink?.classList.add("hidden");
   setupPushButton();
 
   if (!data.plans.length) {
@@ -85,6 +87,7 @@ function showShifts(data) {
 
 function showTeamShifts(data) {
   currentTeamData = data;
+  if (activeViewPanel === "manage" && !data.canManage) activeViewPanel = "own";
   teamEditMap = new Map();
   const ownPlans = data.plans.map(plan => ({
     ...plan,
@@ -112,6 +115,7 @@ function showTeamShifts(data) {
       <button class="${activeViewPanel === "own" ? "active" : ""}" data-view-panel="own" type="button">Mein Plan</button>
       <button class="${activeViewPanel === "team" ? "active" : ""}" data-view-panel="team" type="button">Teamplan</button>
       <button class="${activeViewPanel === "week" ? "active" : ""}" data-view-panel="week" type="button">Wochenplan</button>
+      ${data.canManage ? `<button class="${activeViewPanel === "manage" ? "active" : ""}" data-view-panel="manage" type="button">Verwalten</button>` : ""}
     </nav>
     <section class="own-plan-block view-panel ${activeViewPanel === "own" ? "" : "hidden"}" data-view-content="own">
       <h2>Mein Plan</h2>
@@ -149,6 +153,17 @@ function showTeamShifts(data) {
       </nav>
       ${teamWeeks.map(week => renderWeekOverview(week)).join("")}
     </section>
+    ${data.canManage ? `
+      <section class="manage-plan-block view-panel ${activeViewPanel === "manage" ? "" : "hidden"}" data-view-content="manage">
+        <div class="team-section-head">
+          <div>
+            <h2>Verwalten</h2>
+            <p class="hint">Dienstplaene hochladen, veroeffentlichen, korrigieren und Mitarbeiter/PINs pflegen.</p>
+          </div>
+        </div>
+        <iframe class="admin-frame" src="/admin.html?embedded=1" title="Verwalten"></iframe>
+      </section>
+    ` : ""}
   `;
 
   document.querySelectorAll("[data-view-panel]").forEach(button => {
@@ -1773,6 +1788,7 @@ async function loadMine() {
   } catch {
     login.classList.remove("hidden");
     plans.classList.add("hidden");
+    adminLink?.classList.add("hidden");
   }
 }
 

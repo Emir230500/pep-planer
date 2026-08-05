@@ -316,6 +316,10 @@ function canSeeTeamPlan(name) {
   return teamLeadershipNames().some(leader => employeeNameMatches(leader, name));
 }
 
+function canManagePlans(name) {
+  return employeeNameMatches("Demircan, Emirkan", name);
+}
+
 function teamLeadershipNames() {
   return [
     "Demircan, Emirkan",
@@ -422,6 +426,7 @@ function clearSession(res) {
 function requireAdmin(req, res) {
   const session = readCookie(req);
   if (session?.role === "admin") return true;
+  if (session?.role === "employee" && canManagePlans(session.name)) return true;
   json(res, 401, { error: "Nicht angemeldet." });
   return false;
 }
@@ -1542,6 +1547,7 @@ async function handleApi(req, res, pathname) {
       if (ensureLegalBreaksInPlans(db)) await writeDb(db);
       const ids = publishedIds(db);
       const teamView = canSeeTeamPlan(name);
+      const canManage = canManagePlans(name);
       const plans = db.plans
         .filter(plan => ids.includes(plan.id))
         .map(plan => ({
@@ -1557,7 +1563,7 @@ async function handleApi(req, res, pathname) {
           shifts: teamView ? cleanedDisplayShifts(plan.shifts || []) : cleanedDisplayShifts(plan.shifts || []).filter(shift => employeeKey(shift.name) === employeeKey(name))
         }))
         .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
-      return json(res, 200, { name, teamView, employees: teamView ? allKnownEmployeeNames(db) : [], plans });
+      return json(res, 200, { name, teamView, canManage, employees: teamView ? allKnownEmployeeNames(db) : [], plans });
     }
 
     json(res, 404, { error: "Nicht gefunden." });
