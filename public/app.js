@@ -13,6 +13,7 @@ let teamSickEntry = null;
 let teamEditMap = new Map();
 let activeViewPanel = "own";
 let activeWeekOverviewSort = "time";
+let weekOverviewSearch = "";
 
 async function api(url, options = {}) {
   const res = await fetch(url, {
@@ -153,6 +154,9 @@ function showTeamShifts(data) {
         <button class="${activeWeekOverviewSort === "department" ? "active" : ""}" data-week-overview-sort="department" type="button">Abteilung</button>
         <button class="${activeWeekOverviewSort === "name" ? "active" : ""}" data-week-overview-sort="name" type="button">Name</button>
       </div>
+      <label class="week-overview-search">Mitarbeiter suchen
+        <input id="weekOverviewSearch" value="${escapeHtml(weekOverviewSearch)}" placeholder="z. B. Hammer, Javed, Blerina">
+      </label>
       <nav class="week-nav">
         ${teamWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="overview-kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
       </nav>
@@ -194,6 +198,14 @@ function showTeamShifts(data) {
       activeViewPanel = "week";
       showTeamShifts(currentTeamData);
     });
+  });
+  document.querySelector("#weekOverviewSearch")?.addEventListener("input", event => {
+    weekOverviewSearch = event.target.value || "";
+    activeViewPanel = "week";
+    showTeamShifts(currentTeamData);
+    const input = document.querySelector("#weekOverviewSearch");
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
   });
   document.querySelectorAll("[data-week-toggle]").forEach(button => {
     button.addEventListener("click", () => {
@@ -318,13 +330,22 @@ function showTeamShifts(data) {
     }
     showTeamShifts(currentTeamData);
   });
-  document.querySelector("#teamSickName")?.addEventListener("change", syncTeamSickFormState);
+  document.querySelector("#teamSickName")?.addEventListener("change", () => {
+    syncTeamSickFormState();
+    showTeamShifts(currentTeamData);
+  });
   document.querySelector("#teamSickNotifyMode")?.addEventListener("change", () => {
     syncTeamSickFormState();
     showTeamShifts(currentTeamData);
   });
-  document.querySelector("#teamSickPushMessage")?.addEventListener("input", syncTeamSickFormState);
-  document.querySelectorAll(".team-sick-leadership-name").forEach(input => input.addEventListener("change", syncTeamSickFormState));
+  document.querySelector("#teamSickPushMessage")?.addEventListener("input", () => {
+    syncTeamSickFormState();
+    updateTeamSickPreview();
+  });
+  document.querySelectorAll(".team-sick-leadership-name").forEach(input => input.addEventListener("change", () => {
+    syncTeamSickFormState();
+    updateTeamSickPreview();
+  }));
   document.querySelector("#saveTeamSick")?.addEventListener("click", saveTeamSick);
   document.querySelector("#saveTeamEdit")?.addEventListener("click", saveTeamEdit);
   document.querySelector("#deleteTeamEdit")?.addEventListener("click", deleteTeamEdit);
@@ -337,6 +358,17 @@ function showTeamShifts(data) {
   });
   document.querySelector("#teamEditNotifyMode")?.addEventListener("change", event => {
     document.querySelector("#teamEditNotifyPeople")?.classList.toggle("hidden", event.target.value !== "selected_leadership");
+    updateTeamEditPreview();
+  });
+  document.querySelectorAll("#teamEditNameSelect, #teamEditNameCustom, #teamEditStart, #teamEditEnd, #teamEditDepartment, #teamEditProbeArea, #teamEditBreak, #teamEditPushMessage, #teamEditPushAppend").forEach(input => {
+    input.addEventListener("input", updateTeamEditPreview);
+    input.addEventListener("change", () => {
+      syncTeamEditNameMode();
+      updateTeamEditPreview();
+    });
+  });
+  document.querySelectorAll(".team-edit-leadership-name").forEach(input => {
+    input.addEventListener("change", updateTeamEditPreview);
   });
 }
 
@@ -538,7 +570,9 @@ function renderWeekOverview(week) {
   const startDate = week.displayStart || week.startDate;
   const endDate = week.displayEnd || week.endDate;
   const days = datesBetween(startDate, endDate);
-  const employees = sortOverviewEmployees(unique(week.shifts.map(shift => shift.name).filter(Boolean)), week);
+  const searchKey = employeeKey(weekOverviewSearch);
+  const employees = sortOverviewEmployees(unique(week.shifts.map(shift => shift.name).filter(Boolean)), week, days)
+    .filter(name => !searchKey || employeeKey(name).includes(searchKey));
 
   return `
     <section id="overview-kw-${week.year}-${week.week}" class="week overview-week ${week.isCurrent ? "current-week" : ""} ${isOpen ? "" : "collapsed"}">
@@ -581,14 +615,21 @@ function renderOverviewEmployeeRow(name, days, week) {
   `;
 }
 
-function sortOverviewEmployees(employees, week) {
+function sortOverviewEmployees(employees, week, days = []) {
+  const focusDate = overviewFocusDate(week, days);
   return employees.slice().sort((a, b) => {
     const shiftsA = overviewEmployeeShifts(a, week);
     const shiftsB = overviewEmployeeShifts(b, week);
     if (activeWeekOverviewSort === "name") return a.localeCompare(b, "de");
+    const focusA = overviewRelevantShifts(shiftsA, focusDate);
+    const focusB = overviewRelevantShifts(shiftsB, focusDate);
+    const hasFocusA = focusA.some(isWorkShift) ? 0 : 1;
+    const hasFocusB = focusB.some(isWorkShift) ? 0 : 1;
+    const byFocus = hasFocusA - hasFocusB;
+    if (byFocus) return byFocus;
     if (activeWeekOverviewSort === "department") {
-      const sortA = overviewDepartmentSortInfo(shiftsA);
-      const sortB = overviewDepartmentSortInfo(shiftsB);
+      const sortA = overviewDepartmentSortInfo(focusA);
+      const sortB = overviewDepartmentSortInfo(focusB);
       const byDepartment = sortA.rank - sortB.rank;
       if (byDepartment) return byDepartment;
       const byTimeInDepartment = sortA.start - sortB.start;
@@ -596,9 +637,9 @@ function sortOverviewEmployees(employees, week) {
       const byFirstDayInDepartment = sortA.date - sortB.date;
       if (byFirstDayInDepartment) return byFirstDayInDepartment;
     }
-    const byTime = overviewFirstWorkOrder(shiftsA) - overviewFirstWorkOrder(shiftsB);
+    const byTime = overviewFirstWorkOrder(focusA) - overviewFirstWorkOrder(focusB);
     if (byTime) return byTime;
-    const byDepartment = departmentSortRank(overviewPrimaryDepartment(shiftsA)) - departmentSortRank(overviewPrimaryDepartment(shiftsB));
+    const byDepartment = departmentSortRank(overviewPrimaryDepartment(focusA)) - departmentSortRank(overviewPrimaryDepartment(focusB));
     if (byDepartment) return byDepartment;
     return a.localeCompare(b, "de");
   });
@@ -606,6 +647,20 @@ function sortOverviewEmployees(employees, week) {
 
 function overviewEmployeeShifts(name, week) {
   return week.shifts.filter(shift => employeeKey(shift.name) === employeeKey(name));
+}
+
+function overviewFocusDate(week, days = []) {
+  const todayValue = formatGermanDate(new Date());
+  if (week.days?.has(todayValue)) return todayValue;
+  const firstDayWithWork = (days || [])
+    .map(formatGermanDate)
+    .find(value => (week.days?.get(value) || []).some(isWorkShift));
+  return firstDayWithWork || (days[0] ? formatGermanDate(days[0]) : "");
+}
+
+function overviewRelevantShifts(shifts, focusDate) {
+  const dayShifts = focusDate ? shifts.filter(shift => shift.date === focusDate) : [];
+  return dayShifts.length ? dayShifts : shifts;
 }
 
 function overviewFirstStart(shifts) {
@@ -985,7 +1040,7 @@ function renderTeamSickForm() {
           `).join("")}
         </div>
       </details>` : ""}
-      ${renderTeamSickNotificationPreview(teamSickEntry)}
+      <div id="teamSickPreview">${renderTeamSickNotificationPreview(teamSickEntry)}</div>
       <div class="actions">
         <button id="saveTeamSick" class="danger" type="button">Krank melden</button>
         <button id="cancelTeamSick" class="secondary" type="button">Abbrechen</button>
@@ -1054,6 +1109,7 @@ function groupTeamSickDatesByWeek(values) {
 
 function renderTeamSickNotificationPreview(entry) {
   const selectedDates = Array.from(new Set((entry.dates || []).filter(Boolean))).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+  const lostShifts = shiftsRemovedBySick(entry.name, selectedDates);
   const notifyText = entry.notifyMode === "none"
     ? "Niemand bekommt eine Push-Nachricht."
     : entry.notifyMode === "selected_leadership"
@@ -1064,10 +1120,32 @@ function renderTeamSickNotificationPreview(entry) {
     <div class="sick-preview">
       <strong>Vorschau</strong>
       <p>${escapeHtml(entry.name || "Keine Person gewaehlt")} krank: ${escapeHtml(rangeText)}</p>
+      ${lostShifts.length ? `<p><b>Diese Dienste fallen weg:</b> ${lostShifts.map(item => escapeHtml(item)).join(" | ")}</p>` : ""}
       <p>${escapeHtml(notifyText)}</p>
       <small>${escapeHtml(entry.pushMessage || sickDefaultPushMessage(entry.name, selectedDates, initialsFromName(currentTeamData?.name || "")))}</small>
     </div>
   `;
+}
+
+function updateTeamSickPreview() {
+  const box = document.querySelector("#teamSickPreview");
+  if (!box || !teamSickEntry) return;
+  box.innerHTML = renderTeamSickNotificationPreview(teamSickEntry);
+}
+
+function shiftsRemovedBySick(name, dates = []) {
+  const nameKey = employeeKey(name);
+  if (!nameKey) return [];
+  const dateSet = new Set(dates);
+  const shifts = (currentTeamData?.plans || [])
+    .flatMap(plan => plan.shifts || [])
+    .filter(shift => employeeKey(shift.name) === nameKey && dateSet.has(shift.date) && isWorkShift(shift))
+    .sort((a, b) => dateSortValue(a.date) - dateSortValue(b.date) || timeToMinutes(a.start) - timeToMinutes(b.start));
+  return shifts.map(shift => {
+    const parsed = parseGermanDate(shift.date);
+    const pause = shift.break ? ` ${shift.break}` : "";
+    return `${weekdayShort(parsed)} ${shift.date}: ${shift.start}-${shift.end} ${overviewDepartmentLabel(shift)}${pause}`;
+  });
 }
 
 function sickDefaultPushMessage(name, dates, initials = "") {
@@ -1165,6 +1243,7 @@ function renderTeamEditForm() {
           `).join("")}
         </div>
       </details>
+      <div id="teamEditNotifyPreview">${renderTeamEditNotificationPreview(teamEditShift, false)}</div>
       <div class="actions">
         ${isNew ? "" : '<button id="deleteTeamEdit" class="danger" type="button">Schicht loeschen</button>'}
         <button id="saveTeamEdit" type="button">Speichern</button>
@@ -1189,6 +1268,50 @@ function syncTeamEditNameMode() {
   if (probeArea) probeArea.disabled = !isProbe;
   probeAreaWrap?.classList.toggle("hidden", !isProbe);
   hidden.value = isProbe ? custom.value : select.value;
+}
+
+function updateTeamEditPreview() {
+  const box = document.querySelector("#teamEditNotifyPreview");
+  if (!box || !teamEditShift) return;
+  box.innerHTML = renderTeamEditNotificationPreview(teamEditShift, true);
+}
+
+function renderTeamEditNotificationPreview(shift, readDom = true) {
+  const valueOf = selector => readDom ? document.querySelector(selector)?.value || "" : "";
+  const mode = valueOf("#teamEditNotifyMode") || "affected";
+  const selected = readDom ? selectedTeamEditNotifyNames() : [];
+  const hiddenName = valueOf("#teamEditName");
+  const name = hiddenName || shift.name || "Keine Person gewaehlt";
+  const selectedDepartment = valueOf("#teamEditDepartment") || shift.department || "";
+  const isProbe = isProbearbeitenDepartment(selectedDepartment);
+  const probeArea = valueOf("#teamEditProbeArea") || probeAreaFromDepartment(shift.department);
+  const department = isProbe ? composeProbeDepartment(probeArea) : selectedDepartment;
+  const start = normalizeTimeValue(valueOf("#teamEditStart") || shift.start || "");
+  const end = normalizeTimeValue(valueOf("#teamEditEnd") || shift.end || "");
+  const breakValue = normalizeBreakValue(valueOf("#teamEditBreak") || shift.break || "");
+  const append = valueOf("#teamEditPushAppend");
+  const custom = valueOf("#teamEditPushMessage");
+  const parsed = parseGermanDate(shift.date);
+  const defaultText = isProbe
+    ? `${weekdayLong(parsed)}, ${shift.date}: ${name}: ${start} Uhr - ${end} Uhr ${department}${breakValue ? ` ${breakValue}` : ""}`
+    : `${weekdayShort(parsed)} ${shift.date}: ${name} - ${start}-${end} ${department}${breakValue ? ` ${breakValue}` : ""}`;
+  const message = custom || (append ? `${defaultText} - ${append}` : defaultText);
+  return `
+    <div class="notify-preview">
+      <strong>Vorschau vor Benachrichtigung</strong>
+      <p>${escapeHtml(notificationTargetText(mode, selected))}</p>
+      <small>${escapeHtml(message)}</small>
+    </div>
+  `;
+}
+
+function notificationTargetText(mode, selected = []) {
+  if (mode === "none") return "Niemand bekommt eine Push-Nachricht.";
+  if (mode === "all") return "Alle Mitarbeiter mit Push bekommen eine Nachricht.";
+  if (mode === "leadership") return "Team Marktleitung bekommt eine Nachricht.";
+  if (mode === "affected_leadership") return "Betroffene Person und Team Marktleitung bekommen eine Nachricht.";
+  if (mode === "selected_leadership") return `${selected.length} ausgewaehlte Marktleiter bekommen eine Nachricht.`;
+  return "Nur die betroffene Person bekommt eine Nachricht.";
 }
 
 function teamEditDateValues(shift) {
