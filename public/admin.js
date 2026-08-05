@@ -53,12 +53,14 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
 
-document.querySelector("#adminLoginBtn").addEventListener("click", async () => {
-  await submitAdminLogin();
+document.querySelector("#adminLoginForm")?.addEventListener("submit", event => {
+  event.preventDefault();
+  submitAdminLogin();
 });
 
-document.querySelector("#adminPassword").addEventListener("keydown", event => {
-  if (event.key === "Enter") submitAdminLogin();
+document.querySelector("#adminLoginBtn")?.addEventListener("click", event => {
+  event.preventDefault();
+  submitAdminLogin();
 });
 
 document.querySelectorAll("[data-admin-view]").forEach(button => {

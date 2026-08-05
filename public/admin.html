@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260805-probearbeiten-bereich">
+  <link rel="stylesheet" href="/styles.css?v=20260805-login-speichern">
 </head>
 <body>
   <main class="shell wide">
@@ -18,9 +18,12 @@
 
     <section id="adminLogin" class="panel">
       <h2>Admin-Login</h2>
-      <label>Passwort<input id="adminPassword" type="password" placeholder="Admin-Passwort"></label>
-      <button id="adminLoginBtn">Anmelden</button>
-      <p id="adminLoginMsg" class="msg"></p>
+      <form id="adminLoginForm" autocomplete="on">
+        <label class="visually-hidden">Benutzer<input id="adminUsername" name="username" autocomplete="username" value="Admin"></label>
+        <label>Passwort<input id="adminPassword" name="password" type="password" autocomplete="current-password" placeholder="Admin-Passwort"></label>
+        <button id="adminLoginBtn" type="submit">Anmelden</button>
+        <p id="adminLoginMsg" class="msg"></p>
+      </form>
     </section>
 
     <section id="adminArea" class="hidden">
@@ -117,7 +120,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js?v=20260805-probearbeiten-bereich"></script>
+  <script src="/admin.js?v=20260805-login-speichern"></script>
 </body>
 </html>
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260805-probearbeiten-bereich">
+  <link rel="stylesheet" href="/styles.css?v=20260805-login-speichern">
 </head>
 <body>
   <main class="shell">
@@ -17,10 +17,12 @@
 
     <section id="login" class="panel">
       <h2>Mitarbeiter-Login</h2>
-      <label>Name<input id="name" autocomplete="name" placeholder="z. B. Demircan, Emirkan"></label>
-      <label>PIN<input id="pin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="4-stellige PIN"></label>
-      <button id="loginBtn">Anmelden</button>
-      <p id="loginMsg" class="msg"></p>
+      <form id="employeeLoginForm" autocomplete="on">
+        <label>Name<input id="name" name="username" autocomplete="username" placeholder="z. B. Demircan, Emirkan"></label>
+        <label>PIN<input id="pin" name="password" type="password" inputmode="numeric" autocomplete="current-password" placeholder="4-stellige PIN"></label>
+        <button id="loginBtn" type="submit">Anmelden</button>
+        <p id="loginMsg" class="msg"></p>
+      </form>
     </section>
 
     <section id="plans" class="hidden">
@@ -39,7 +41,7 @@
 
     <footer class="site-credit">Created by Demircan</footer>
   </main>
-  <script src="/app.js?v=20260805-probearbeiten-bereich"></script>
+  <script src="/app.js?v=20260805-login-speichern"></script>
 </body>
 </html>
 

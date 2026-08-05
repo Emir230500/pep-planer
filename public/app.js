@@ -1851,11 +1851,13 @@ async function submitLogin() {
   }
 }
 
-document.querySelector("#loginBtn").addEventListener("click", submitLogin);
-document.querySelectorAll("#name, #pin").forEach(input => {
-  input.addEventListener("keydown", event => {
-    if (event.key === "Enter") submitLogin();
-  });
+document.querySelector("#employeeLoginForm")?.addEventListener("submit", event => {
+  event.preventDefault();
+  submitLogin();
+});
+document.querySelector("#loginBtn")?.addEventListener("click", event => {
+  event.preventDefault();
+  submitLogin();
 });
 
 document.querySelector("#logoutBtn").addEventListener("click", async () => {
