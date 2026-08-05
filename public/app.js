@@ -292,6 +292,7 @@ function showTeamShifts(data) {
       teamSickEntry.dates = Array.from(current).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
       teamSickEntry.date = teamSickEntry.dates[0] || "";
       teamSickEntry.wholeWeek = false;
+      button.blur();
       showTeamShifts(currentTeamData);
     });
   });
@@ -1151,8 +1152,7 @@ function renderTeamSickDatePicker(values, selectedDates, dataAttr) {
     <div class="edit-date-picker">
       <div class="edit-date-selected">${escapeHtml(label)}</div>
       ${weeks.map(week => {
-        const hasSelection = week.dates.some(value => selectedSet.has(value));
-        const isOpen = week.isCurrent || hasSelection || openSickWeeks.has(week.key);
+        const isOpen = week.isCurrent || openSickWeeks.has(week.key);
         return `
         <div class="sick-week-group ${isOpen ? "" : "collapsed"}">
           <button class="sick-week-select" data-team-sick-week-toggle="${escapeHtml(week.key)}" type="button">
