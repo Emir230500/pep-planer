@@ -1607,10 +1607,10 @@ function renderShiftEditForm() {
       <p class="hint">${isNew ? "Neue Schicht" : `${escapeHtml(editShift.name)} - ${escapeHtml(editShift.date)}`}. Nach dem Speichern wird automatisch eine PEP-Korrektur mit Quelle Haendisch angelegt.</p>
       <div class="shift-edit-grid">
         <label>Mitarbeiter
-          <select id="editName">
-            <option value="">Mitarbeiter auswaehlen</option>
-            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}" ${employeeKey(name) === employeeKey(editShift.name) ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
-          </select>
+          <input id="editName" list="editNameOptions" value="${escapeHtml(editShift.name || "")}" placeholder="Mitarbeiter auswaehlen oder neuen Namen eingeben">
+          <datalist id="editNameOptions">
+            ${employeeOptions.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
+          </datalist>
         </label>
         <label>Datum
           <input id="editDate" type="hidden" value="${escapeHtml(editShift.date)}">
@@ -2914,7 +2914,7 @@ function knownDepartments() {
     "Tiefk\u00fchl", "Tiefkuehl", "Inventur", "Lotto", "Information",
     "Next Kurse", "Notdienst", "B\u00fcro", "Buero", "Zeitung", "Remision",
     "Auto Dispo",
-    "Lager", "Mopro", "Non Food", "Werbung", "Getr\u00e4nke Abteilung", "Getraenke Abteilung"
+    "Lager", "Mopro", "Non Food", "Werbung", "Probearbeiten", "Getr\u00e4nke Abteilung", "Getraenke Abteilung"
   ];
 }
 

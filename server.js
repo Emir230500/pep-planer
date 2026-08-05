@@ -212,15 +212,34 @@ function nameInputVariants(name) {
   return Array.from(new Set(variants.filter(Boolean)));
 }
 
+function employeeKeyVariants(name) {
+  return new Set(nameInputVariants(name).flatMap(variant => [employeeKey(variant), looseEmployeeKey(variant)]));
+}
+
+function employeeNameMatches(first, second) {
+  const targetKeys = employeeKeyVariants(second);
+  return nameInputVariants(first).some(variant =>
+    targetKeys.has(employeeKey(variant)) || targetKeys.has(looseEmployeeKey(variant))
+  );
+}
+
+function employeeMatchesKeySet(name, targetKeys) {
+  if (!targetKeys) return true;
+  return Array.from(employeeKeyVariants(name)).some(key => targetKeys.has(key));
+}
+
+function employeeKeysForNames(names) {
+  const keys = new Set();
+  for (const name of names || []) {
+    for (const key of employeeKeyVariants(name)) keys.add(key);
+  }
+  return keys;
+}
+
 function findEmployeeByName(db, name) {
   const direct = db.employees?.[employeeKey(name)];
   if (direct) return direct;
-  const targetKeys = new Set(nameInputVariants(name).flatMap(variant => [employeeKey(variant), looseEmployeeKey(variant)]));
-  return Object.values(db.employees || {}).find(employee =>
-    nameInputVariants(employee.name).some(variant =>
-      targetKeys.has(employeeKey(variant)) || targetKeys.has(looseEmployeeKey(variant))
-    )
-  );
+  return Object.values(db.employees || {}).find(employee => employeeNameMatches(employee.name, name));
 }
 
 function ensureEmployeeRecord(db, name, newPins = null) {
@@ -294,9 +313,7 @@ function initialsFromName(name) {
 }
 
 function canSeeTeamPlan(name) {
-  return teamLeadershipNames()
-    .map(employeeKey)
-    .includes(employeeKey(name));
+  return teamLeadershipNames().some(leader => employeeNameMatches(leader, name));
 }
 
 function teamLeadershipNames() {
@@ -515,6 +532,10 @@ function isBreakTimeValue(value) {
 
 function isStatusShift(shift) {
   return /\b(frei|urlaub|krank|krankheit|abwesenheit|sonderurlaub|seminar)\b/i.test(`${shift.department || ""} ${shift.start || ""} ${shift.end || ""}`);
+}
+
+function isProbearbeitenShift(shift) {
+  return /probearbeit/i.test(String(shift?.department || ""));
 }
 
 function cleanShift(shift) {
@@ -911,11 +932,11 @@ function departmentFromSignature(value) {
 
 function changedDepartmentText(plan, targetNames = null) {
   const targetKeys = Array.isArray(targetNames) && targetNames.length
-    ? new Set(targetNames.map(employeeKey).filter(Boolean))
+    ? employeeKeysForNames(targetNames)
     : null;
   const departments = [];
   for (const change of plan.changes || []) {
-    if (targetKeys && !targetKeys.has(employeeKey(change.name))) continue;
+    if (!employeeMatchesKeySet(change.name, targetKeys)) continue;
     departments.push(...departmentFromSignature(change.after));
     departments.push(...departmentFromSignature(change.before));
   }
@@ -938,9 +959,9 @@ function compactShiftSignature(value) {
 
 function relevantPushChange(plan, targetNames = null) {
   const targetKeys = Array.isArray(targetNames) && targetNames.length
-    ? new Set(targetNames.map(employeeKey).filter(Boolean))
+    ? employeeKeysForNames(targetNames)
     : null;
-  return (plan.changes || []).find(change => !targetKeys || targetKeys.has(employeeKey(change.name))) || (plan.changes || [])[0] || null;
+  return (plan.changes || []).find(change => employeeMatchesKeySet(change.name, targetKeys)) || (plan.changes || [])[0] || null;
 }
 
 function defaultPushBody(plan, targetNames = null) {
@@ -956,11 +977,11 @@ function pushTargetKeys(plan, mode, targetNames = null) {
   const sourceNames = Array.isArray(targetNames) && targetNames.length
     ? targetNames
     : (plan.changes || []).map(change => change.name);
-  const changedNames = new Set(sourceNames.map(name => employeeKey(name)).filter(Boolean));
+  const changedNames = employeeKeysForNames(sourceNames);
   if (mode === "affected_leadership") {
-    return new Set([...changedNames, ...teamLeadershipNames().map(employeeKey)]);
+    return new Set([...changedNames, ...employeeKeysForNames(teamLeadershipNames())]);
   }
-  if (mode === "leadership") return new Set(teamLeadershipNames().map(employeeKey));
+  if (mode === "leadership") return employeeKeysForNames(teamLeadershipNames());
   if (mode === "affected" || (mode === "auto" && changedNames.size)) return changedNames;
   return null;
 }
@@ -971,7 +992,7 @@ async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options
   }
   const targetKeys = pushTargetKeys(plan, mode, targetNames);
   const subscriptions = targetKeys
-    ? db.pushSubscriptions.filter(saved => targetKeys.has(employeeKey(saved.name)))
+    ? db.pushSubscriptions.filter(saved => employeeMatchesKeySet(saved.name, targetKeys))
     : db.pushSubscriptions;
   const hasChanges = Array.isArray(plan.changes) && plan.changes.length > 0;
   const customMessage = sanitizePushMessage(options.message || options.pushMessage || "");
@@ -1043,7 +1064,10 @@ async function editPlanShift(db, planId, before, after, notifyMode = "affected",
   if (cleanAfter && !cleanAfter.name) return { error: "Bitte Mitarbeiter auswaehlen.", status: 400 };
   if (!deleteShift) {
     const validationError = validateUploadedShifts([cleanAfter]);
-    if (validationError) return { error: validationError, status: 400 };
+    const allowedProbeName = isProbearbeitenShift(cleanAfter) && normalizeName(cleanAfter.name).length >= 3 && !isTime(cleanAfter.name);
+    if (validationError && !(allowedProbeName && validationError.includes("Mitarbeiter-Name"))) {
+      return { error: validationError, status: 400 };
+    }
   }
 
   const plan = db.plans.find(item => item.id === planId);
@@ -1094,10 +1118,9 @@ function sickNotifyMode(mode) {
 }
 
 function selectedLeadershipNames(names) {
-  const leadershipKeys = new Set(teamLeadershipNames().map(employeeKey));
   return (Array.isArray(names) ? names : [])
     .map(normalizeName)
-    .filter(name => leadershipKeys.has(employeeKey(name)));
+    .filter(name => teamLeadershipNames().some(leader => employeeNameMatches(leader, name)));
 }
 
 function sickPushBody(name, dates, editorName = "") {

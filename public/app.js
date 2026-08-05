@@ -554,10 +554,16 @@ function sortOverviewEmployees(employees, week) {
     const shiftsB = overviewEmployeeShifts(b, week);
     if (activeWeekOverviewSort === "name") return a.localeCompare(b, "de");
     if (activeWeekOverviewSort === "department") {
-      const byDepartment = departmentSortRank(overviewPrimaryDepartment(shiftsA)) - departmentSortRank(overviewPrimaryDepartment(shiftsB));
+      const sortA = overviewDepartmentSortInfo(shiftsA);
+      const sortB = overviewDepartmentSortInfo(shiftsB);
+      const byDepartment = sortA.rank - sortB.rank;
       if (byDepartment) return byDepartment;
+      const byTimeInDepartment = sortA.start - sortB.start;
+      if (byTimeInDepartment) return byTimeInDepartment;
+      const byFirstDayInDepartment = sortA.date - sortB.date;
+      if (byFirstDayInDepartment) return byFirstDayInDepartment;
     }
-    const byTime = overviewFirstStart(shiftsA) - overviewFirstStart(shiftsB);
+    const byTime = overviewFirstWorkOrder(shiftsA) - overviewFirstWorkOrder(shiftsB);
     if (byTime) return byTime;
     const byDepartment = departmentSortRank(overviewPrimaryDepartment(shiftsA)) - departmentSortRank(overviewPrimaryDepartment(shiftsB));
     if (byDepartment) return byDepartment;
@@ -572,6 +578,44 @@ function overviewEmployeeShifts(name, week) {
 function overviewFirstStart(shifts) {
   const values = shifts.filter(isWorkShift).map(shift => timeToMinutes(shift.start)).filter(value => value !== 9999);
   return values.length ? Math.min(...values) : 9999;
+}
+
+function overviewFirstWorkOrder(shifts) {
+  const starts = shifts
+    .filter(isWorkShift)
+    .map(shift => timeToMinutes(shift.start))
+    .filter(value => value !== 9999);
+  return starts.length ? Math.min(...starts) : 9999;
+}
+
+function overviewDepartmentSortInfo(shifts) {
+  const work = shifts.filter(isWorkShift).sort((a, b) => {
+    const byDepartment = departmentSortRank(overviewDepartmentLabel(a)) - departmentSortRank(overviewDepartmentLabel(b));
+    if (byDepartment) return byDepartment;
+    const byTime = timeToMinutes(a.start) - timeToMinutes(b.start);
+    if (byTime) return byTime;
+    return dateSortValue(a.date) - dateSortValue(b.date);
+  });
+  if (!work.length) {
+    const status = shifts.find(shift => detectStatus(shift));
+    return {
+      rank: status ? departmentSortRank(detectStatus(status)) : 9999,
+      start: 9999,
+      date: 999999
+    };
+  }
+  const selected = work[0];
+  return {
+    rank: departmentSortRank(overviewDepartmentLabel(selected)),
+    start: timeToMinutes(selected.start),
+    date: dateSortValue(selected.date)
+  };
+}
+
+function dateSortValue(value) {
+  const date = parseGermanDate(value);
+  if (!date) return 999999;
+  return Math.floor(date.getTime() / 86400000);
 }
 
 function overviewPrimaryDepartment(shifts) {
@@ -1037,10 +1081,10 @@ function renderTeamEditForm() {
       <p class="hint">${isNew ? "Neue Schicht" : `${escapeHtml(teamEditShift.name)} - ${escapeHtml(teamEditShift.date)}`}. Nach dem Speichern landet es als haendische PEP-Korrektur in der Admin-Liste.</p>
       <div class="shift-edit-grid">
         <label>Mitarbeiter
-          <select id="teamEditName">
-            <option value="">Mitarbeiter auswaehlen</option>
-            ${employees.map(name => `<option value="${escapeHtml(name)}" ${employeeKey(name) === employeeKey(teamEditShift.name) ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}
-          </select>
+          <input id="teamEditName" list="teamEditNameOptions" value="${escapeHtml(teamEditShift.name || "")}" placeholder="Mitarbeiter auswaehlen oder neuen Namen eingeben">
+          <datalist id="teamEditNameOptions">
+            ${employees.map(name => `<option value="${escapeHtml(name)}"></option>`).join("")}
+          </datalist>
         </label>
         <label>Datum
           <input id="teamEditDate" type="hidden" value="${escapeHtml(teamEditShift.date)}">
@@ -1480,7 +1524,7 @@ function knownDepartments() {
     "Getränke", "Getraenke", "Getränke Abteilung", "Getraenke Abteilung",
     "BakeOff", "Tiefkühl", "Tiefkuehl", "Inventur", "Lotto", "Information",
     "Next Kurse", "Notdienst", "Büro", "Buero", "Zeitung", "Remision",
-    "Auto Dispo", "Lager", "Mopro", "Non Food", "Werbung",
+    "Auto Dispo", "Lager", "Mopro", "Non Food", "Werbung", "Probearbeiten",
     "Urlaub", "Krankheit", "Krank angemeldet (aAu)", "Seminar", "Frei", "Abwesenheit"
   ];
 }
