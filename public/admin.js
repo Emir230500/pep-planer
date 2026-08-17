@@ -288,6 +288,7 @@ async function loadAdmin() {
       renderPepCorrections(data.pepCorrections || []);
       renderPlans(data.plans);
       renderPins(data.employees);
+      renderRevenue(data.revenue || {});
       refreshUploadModeChoice();
       const firstPlan = (data.publishedPlans || [])[0] || data.plans[0];
       renderInspectPlanOptions(data.plans, firstPlan?.id || "");
@@ -320,6 +321,151 @@ function renderAdminPushStatus(status = {}) {
     : "Push ist bei Render nicht aktiv. Bitte VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY und PUSH_CONTACT pruefen.";
   box.classList.toggle("error", !status.enabled || subscriptions === 0);
 }
+
+function revenueCurrency(value) {
+  return Number(value || 0).toLocaleString("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+}
+
+function revenuePercent(value) {
+  if (value === null || value === undefined || value === "") return "-";
+  const number = Number(value);
+  return `${number > 0 ? "+" : ""}${number.toLocaleString("de-DE", { maximumFractionDigits: 2 })} %`;
+}
+
+function revenueTrendClass(value) {
+  if (value === null || value === undefined || value === "") return "";
+  return Number(value) < 0 ? "negative" : "positive";
+}
+
+function revenueDate(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}.${match[2]}.${match[1]}` : String(value || "-");
+}
+
+function renderRevenue(revenue = {}) {
+  const dashboard = document.querySelector("#revenueDashboard");
+  const statusBox = document.querySelector("#revenueConnectionStatus");
+  const email = document.querySelector("#revenueEmail");
+  const marketCode = document.querySelector("#revenueMarketCode");
+  const settings = revenue.settings || {};
+  const importStatus = revenue.importStatus || {};
+  const entries = Array.isArray(revenue.entries) ? revenue.entries : [];
+  const comparison = Array.isArray(revenue.comparison) ? revenue.comparison : [];
+  if (email) email.value = settings.email || "edemircan@gmx.net";
+  if (marketCode) marketCode.value = settings.marketCode || "802163";
+  if (statusBox) {
+    const last = importStatus.lastSuccessAt ? ` Letzter erfolgreicher Abruf: ${formatDateTime(importStatus.lastSuccessAt)}.` : "";
+    statusBox.textContent = settings.configured
+      ? `GMX ist eingerichtet.${last}${importStatus.lastResult ? ` ${importStatus.lastResult}` : ""}`
+      : "GMX-Adresse ist vorbereitet. Anwendungspasswort noch speichern.";
+    statusBox.classList.toggle("error", Boolean(importStatus.lastError) || !settings.configured);
+    if (importStatus.lastError) statusBox.textContent += ` Fehler: ${importStatus.lastError}`;
+  }
+  if (!dashboard) return;
+  if (!entries.length) {
+    dashboard.innerHTML = '<div class="empty">Noch keine Umsatzdaten vorhanden. Sie erscheinen nach dem ersten automatischen GMX-Abruf.</div>';
+    return;
+  }
+  const latest = entries[0];
+  const chartEntries = entries.slice(0, 14).reverse();
+  const maxRevenue = Math.max(...chartEntries.map(item => Number(item.revenue || 0)), 1);
+  dashboard.innerHTML = `
+    <div class="revenue-kpis">
+      <article><small>Umsatz ${escapeHtml(revenueDate(latest.date))}</small><strong>${escapeHtml(revenueCurrency(latest.revenue))}</strong></article>
+      <article><small>Zum Vorjahr</small><strong class="${revenueTrendClass(latest.priorYearDeviationPercent)}">${latest.priorYearDeviationPercent == null ? "Noch kein Vergleich" : escapeHtml(revenuePercent(latest.priorYearDeviationPercent))}</strong></article>
+      <article><small>Umsatz Vorjahr</small><strong>${latest.priorYearRevenue == null ? "Noch kein Vergleich" : escapeHtml(revenueCurrency(latest.priorYearRevenue))}</strong></article>
+      <article><small>Abschriften</small><strong>${latest.writeOffsGross == null ? "-" : escapeHtml(revenueCurrency(latest.writeOffsGross))}</strong></article>
+    </div>
+    <div class="revenue-chart" aria-label="Umsatzverlauf">
+      ${chartEntries.map(item => `
+        <div class="revenue-bar-item" title="${escapeHtml(revenueDate(item.date))}: ${escapeHtml(revenueCurrency(item.revenue))}">
+          <span class="revenue-bar" style="height:${Math.max(8, Math.round(Number(item.revenue || 0) / maxRevenue * 130))}px"></span>
+          <small>${escapeHtml(revenueDate(item.date).slice(0, 5))}</small>
+        </div>
+      `).join("")}
+    </div>
+    <div class="revenue-table-wrap">
+      <h3>Alle Maerkte am ${escapeHtml(revenueDate(revenue.latestDate))}</h3>
+      <table class="revenue-table revenue-comparison-table">
+        <thead><tr><th>Rang</th><th>Markt</th><th>Umsatz</th><th>Vorjahr</th><th>Abweichung</th><th>Spanne</th></tr></thead>
+        <tbody>${comparison.map((item, index) => `
+          <tr class="${String(item.marketCode) === String(settings.marketCode) ? "own-market-row" : ""}">
+            <td>${index + 1}</td>
+            <td>${escapeHtml(item.marketName)}</td>
+            <td>${escapeHtml(revenueCurrency(item.revenue))}</td>
+            <td>${item.priorYearRevenue == null ? "Noch kein Vergleich" : escapeHtml(revenueCurrency(item.priorYearRevenue))}</td>
+            <td class="${revenueTrendClass(item.priorYearDeviationPercent)}">${item.priorYearDeviationPercent == null ? "Noch kein Vergleich" : escapeHtml(revenuePercent(item.priorYearDeviationPercent))}</td>
+            <td>${escapeHtml(revenuePercent(item.grossMarginPercent))}</td>
+          </tr>
+        `).join("")}</tbody>
+      </table>
+    </div>
+    <div class="revenue-table-wrap">
+      <h3>Verlauf Markt 14</h3>
+      <table class="revenue-table">
+        <thead><tr><th>Tag</th><th>Umsatz</th><th>Vorjahr</th><th>Abweichung</th><th>Spanne</th><th>Abschriften</th></tr></thead>
+        <tbody>${entries.slice(0, 31).map(item => `
+          <tr>
+            <td>${escapeHtml(revenueDate(item.date))}</td>
+            <td>${escapeHtml(revenueCurrency(item.revenue))}</td>
+            <td>${item.priorYearRevenue == null ? "Noch kein Vergleich" : escapeHtml(revenueCurrency(item.priorYearRevenue))}</td>
+            <td class="${revenueTrendClass(item.priorYearDeviationPercent)}">${item.priorYearDeviationPercent == null ? "Noch kein Vergleich" : escapeHtml(revenuePercent(item.priorYearDeviationPercent))}</td>
+            <td>${escapeHtml(revenuePercent(item.grossMarginPercent))}</td>
+            <td>${item.writeOffsGross == null ? "-" : escapeHtml(revenueCurrency(item.writeOffsGross))}</td>
+          </tr>
+        `).join("")}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function revenueAction(action) {
+  const msg = document.querySelector("#revenueMsg");
+  if (msg) {
+    msg.textContent = action === "import" ? "GMX wird nach einer neuen Umsatzmail durchsucht..." : "GMX-Verbindung wird geprueft...";
+    msg.classList.remove("error");
+  }
+  try {
+    const result = await api(`/api/admin/revenue/${action}`, { method: "POST" });
+    await loadAdmin();
+    activeAdminViewPanel = "revenue";
+    renderAdminViewSwitch();
+    if (msg) msg.textContent = result.message || "Erfolgreich.";
+  } catch (error) {
+    if (msg) {
+      msg.textContent = error.message;
+      msg.classList.add("error");
+    }
+  }
+}
+
+document.querySelector("#revenueSaveBtn")?.addEventListener("click", async () => {
+  const msg = document.querySelector("#revenueMsg");
+  try {
+    const result = await api("/api/admin/revenue/settings", {
+      method: "POST",
+      body: {
+        email: document.querySelector("#revenueEmail")?.value || "",
+        marketCode: document.querySelector("#revenueMarketCode")?.value || "802163",
+        appPassword: document.querySelector("#revenueAppPassword")?.value || ""
+      }
+    });
+    const password = document.querySelector("#revenueAppPassword");
+    if (password) password.value = "";
+    await loadAdmin();
+    activeAdminViewPanel = "revenue";
+    renderAdminViewSwitch();
+    if (msg) msg.textContent = result.message || "GMX ist eingerichtet und der automatische Abruf ist aktiv.";
+  } catch (error) {
+    if (msg) {
+      msg.textContent = error.message;
+      msg.classList.add("error");
+    }
+  }
+});
+
+document.querySelector("#revenueTestBtn")?.addEventListener("click", () => revenueAction("test"));
+document.querySelector("#revenueImportBtn")?.addEventListener("click", () => revenueAction("import"));
 
 function pushDeliveryFailed(push = {}) {
   return push.mode !== "none" && Number(push.sent || 0) === 0;

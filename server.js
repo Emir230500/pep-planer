@@ -12,7 +12,11 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "push-reparatur-personenauswahl-20260817";
+const BUILD_VERSION = "kpi-gmx-auto-clean-20260817";
+const CRON_SECRET = process.env.CRON_SECRET || "";
+const DEFAULT_GMX_EMAIL = process.env.GMX_EMAIL || "edemircan@gmx.net";
+const REVENUE_REPORT_SENDER = String(process.env.REVENUE_REPORT_SENDER || "NoReplyBerichtsexport@edeka.de").trim().toLowerCase();
+const REVENUE_REPORT_PREFIX = String(process.env.REVENUE_REPORT_PREFIX || "Umsatz_8453700_").trim().toLowerCase();
 // Keep the original key pair as a compatibility fallback so existing devices
 // continue receiving push messages until Render environment values are set.
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
@@ -40,7 +44,10 @@ const MIME = {
 };
 
 function defaultDb() {
-  return { employees: {}, plans: [], publishedPlanIds: [], pushSubscriptions: [], pepCorrections: [] };
+  return {
+    employees: {}, plans: [], publishedPlanIds: [], pushSubscriptions: [], pepCorrections: [],
+    revenueEntries: [], revenueSettings: {}, revenueImport: { processedMessageIds: [] }
+  };
 }
 
 function readOrCreateSessionSecret() {
@@ -68,6 +75,10 @@ function normalizeDb(db) {
   clean.publishedPlanIds = Array.isArray(clean.publishedPlanIds) ? clean.publishedPlanIds : [];
   clean.pushSubscriptions = Array.isArray(clean.pushSubscriptions) ? clean.pushSubscriptions : [];
   clean.pepCorrections = Array.isArray(clean.pepCorrections) ? clean.pepCorrections : [];
+  clean.revenueEntries = Array.isArray(clean.revenueEntries) ? clean.revenueEntries : [];
+  clean.revenueSettings = clean.revenueSettings && typeof clean.revenueSettings === "object" ? clean.revenueSettings : {};
+  clean.revenueImport = clean.revenueImport && typeof clean.revenueImport === "object" ? clean.revenueImport : {};
+  clean.revenueImport.processedMessageIds = Array.isArray(clean.revenueImport.processedMessageIds) ? clean.revenueImport.processedMessageIds : [];
   return clean;
 }
 
@@ -1252,7 +1263,326 @@ async function markEmployeeSick(db, planId, name, date, wholeWeek = false, notif
   return { plan, corrections, push };
 }
 
-async function handleApi(req, res, pathname) {
+function revenueSecretKey() {
+  return crypto.createHash("sha256").update(`pep-revenue:${SESSION_SECRET}`).digest();
+}
+
+function encryptRevenueSecret(value) {
+  const text = String(value || "");
+  if (!text) return "";
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", revenueSecretKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]);
+  return [iv, cipher.getAuthTag(), encrypted].map(item => item.toString("base64url")).join(".");
+}
+
+function decryptRevenueSecret(value) {
+  const parts = String(value || "").split(".");
+  if (parts.length !== 3) return "";
+  try {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", revenueSecretKey(), Buffer.from(parts[0], "base64url"));
+    decipher.setAuthTag(Buffer.from(parts[1], "base64url"));
+    return Buffer.concat([decipher.update(Buffer.from(parts[2], "base64url")), decipher.final()]).toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function revenueCredentials(db) {
+  const settings = db.revenueSettings || {};
+  return {
+    email: String(settings.email || DEFAULT_GMX_EMAIL).trim(),
+    password: process.env.GMX_APP_PASSWORD || decryptRevenueSecret(settings.passwordEncrypted),
+    marketCode: String(settings.marketCode || "802163").trim()
+  };
+}
+
+function publicRevenueState(db) {
+  const credentials = revenueCredentials(db);
+  const settings = db.revenueSettings || {};
+  const state = db.revenueImport || {};
+  const allEntries = (db.revenueEntries || []).slice();
+  const entries = allEntries
+    .filter(item => String(item.marketCode) === String(credentials.marketCode))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .slice(0, 400);
+  const latestDate = entries[0]?.date || allEntries.map(item => item.date).sort().pop() || "";
+  const comparison = allEntries
+    .filter(item => item.date === latestDate)
+    .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0));
+  return {
+    settings: {
+      email: credentials.email,
+      marketCode: credentials.marketCode,
+      configured: Boolean(credentials.email && credentials.password)
+    },
+    importStatus: {
+      lastRunAt: state.lastRunAt || "",
+      lastSuccessAt: state.lastSuccessAt || "",
+      lastError: state.lastError || "",
+      lastResult: state.lastResult || ""
+    },
+    entries,
+    comparison,
+    latestDate
+  };
+}
+
+function leadershipRevenueState(db) {
+  const revenue = publicRevenueState(db);
+  return {
+    entries: revenue.entries,
+    comparison: revenue.comparison,
+    latestDate: revenue.latestDate,
+    lastSuccessAt: revenue.importStatus.lastSuccessAt || ""
+  };
+}
+
+function excelDateText(value) {
+  const match = String(value || "").match(/AJ:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i)
+    || String(value || "").match(/(\d{1,2}\.\d{1,2}\.\d{4})/);
+  if (!match) return "";
+  const [day, month, year] = match[1].split(".");
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function revenueNumber(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const cleaned = String(value).replace(/\./g, "").replace(",", ".").replace(/[^0-9.-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === ".") return null;
+  const number = Number(cleaned);
+  return Number.isFinite(number) ? number : null;
+}
+
+const MARKET_CODES_BY_NUMBER = {
+  "03": "801514", "04": "801820", "06": "802170", "14": "802163", "15": "802276",
+  "16": "802162", "17": "801482", "18": "802323", "21": "801484", "23": "802325",
+  "26": "801470", "27": "802324", "35": "802322", "40": "802161", "41": "407092",
+  "55": "801393", "74": "802171", "79": "407091"
+};
+
+function marketCodeFromName(name) {
+  const number = String(name || "").trim().match(/^(\d{1,2})\b/)?.[1]?.padStart(2, "0") || "";
+  return MARKET_CODES_BY_NUMBER[number] || (number ? `markt-${number}` : "");
+}
+
+function percentageDeviation(current, previous) {
+  if (current == null || previous == null || previous === 0) return null;
+  return Math.round(((current / previous) - 1) * 10000) / 100;
+}
+
+function parseRevenueReport(buffer, marketCode = "802163") {
+  const XLSX = require("xlsx");
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  const dataSheet = workbook.Sheets.Tabelle || workbook.Sheets[workbook.SheetNames[0]];
+  const filterSheet = workbook.Sheets.Filter;
+  if (!dataSheet) throw new Error("Im Excel-Anhang wurde keine Umsatz-Tabelle gefunden.");
+  const rows = XLSX.utils.sheet_to_json(dataSheet, { header: 1, raw: true, defval: null });
+  const filterRows = filterSheet ? XLSX.utils.sheet_to_json(filterSheet, { header: 1, raw: false, defval: "" }) : [];
+  const date = filterRows.flat().map(excelDateText).find(Boolean) || "";
+  if (!date) throw new Error("Das Umsatzdatum konnte aus dem Bericht nicht gelesen werden.");
+  const header = rows.find(row => String(row?.[0] || "").trim() === "Markt") || [];
+  const compactLayout = String(header[1] || "").trim() === "Umsatz";
+  const markets = rows.map(row => {
+    if (compactLayout) {
+      const marketName = String(row?.[0] || "").trim();
+      if (!/^\d{1,2}\s+EDEKA/i.test(marketName)) return null;
+      const revenue = revenueNumber(row[1]);
+      const priorYearRevenue = revenueNumber(row[2]);
+      const customers = revenueNumber(row[5]);
+      const priorYearCustomers = revenueNumber(row[6]);
+      const writeOffsGross = revenueNumber(row[11]);
+      return {
+        date,
+        marketCode: marketCodeFromName(marketName),
+        marketName,
+        revenue,
+        priorYearRevenue,
+        priorYearDeviationPercent: percentageDeviation(revenue, priorYearRevenue),
+        revenueSharePercent: revenueNumber(row[3]),
+        quantity: revenueNumber(row[4]),
+        customers,
+        priorYearCustomers,
+        customerDeviationPercent: percentageDeviation(customers, priorYearCustomers),
+        averageBasket: revenueNumber(row[7]),
+        priorYearAverageBasket: revenueNumber(row[8]),
+        grossMarginPercent: revenueNumber(row[9]),
+        netMarginPercent: revenueNumber(row[10]),
+        writeOffsGross,
+        priorYearWriteOffsGross: revenueNumber(row[12]),
+        writeOffSharePercent: revenue && writeOffsGross != null ? Math.round(writeOffsGross / revenue * 10000) / 100 : null,
+        revaluationSharePercent: null,
+        privateBrandSharePercent: null,
+        appSharePercent: null,
+        promotionSharePercent: null
+      };
+    }
+    if (!/^\d{6}$/.test(String(row?.[0] ?? "").trim()) || !row?.[1]) return null;
+    return {
+      date,
+      marketCode: String(row[0]).trim(),
+      marketName: String(row[1] || ""),
+      revenue: revenueNumber(row[2]),
+      priorYearRevenue: revenueNumber(row[3]),
+      priorYearDeviationPercent: revenueNumber(row[4]),
+      customerDeviationPercent: revenueNumber(row[5]),
+      grossMarginPercent: revenueNumber(row[6]),
+      netMarginPercent: revenueNumber(row[7]),
+      writeOffsGross: revenueNumber(row[8]),
+      writeOffSharePercent: revenueNumber(row[9]),
+      revaluationSharePercent: revenueNumber(row[10]),
+      privateBrandSharePercent: revenueNumber(row[11]),
+      appSharePercent: revenueNumber(row[12]),
+      promotionSharePercent: revenueNumber(row[13])
+    };
+  }).filter(Boolean);
+  const primary = markets.find(item => item.marketCode === String(marketCode))
+    || markets.find(item => /14\s+EDEKA.*Schlo/i.test(item.marketName));
+  if (!primary) throw new Error(`Markt ${marketCode} wurde im Umsatzbericht nicht gefunden.`);
+  return { date, primary, markets };
+}
+
+function parseRevenueWorkbook(buffer, marketCode = "802163") {
+  return parseRevenueReport(buffer, marketCode).primary;
+}
+
+function saveRevenueEntry(db, entry, source = {}) {
+  const saved = {
+    ...entry,
+    sourceMessageId: String(source.messageId || ""),
+    sourceSubject: String(source.subject || ""),
+    importedAt: new Date().toISOString()
+  };
+  const index = (db.revenueEntries || []).findIndex(item => item.date === saved.date && String(item.marketCode) === String(saved.marketCode));
+  if (index >= 0) db.revenueEntries[index] = saved;
+  else db.revenueEntries.push(saved);
+  db.revenueEntries = db.revenueEntries.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-8000);
+  return saved;
+}
+
+async function testGmxConnection(db) {
+  const { ImapFlow } = require("imapflow");
+  const credentials = revenueCredentials(db);
+  if (!credentials.email || !credentials.password) throw new Error("Bitte zuerst GMX-Adresse und Anwendungspasswort speichern.");
+  const client = new ImapFlow({
+    host: "imap.gmx.net", port: 993, secure: true,
+    auth: { user: credentials.email, pass: credentials.password },
+    logger: false
+  });
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock("INBOX", { readOnly: true });
+    lock.release();
+    return { ok: true };
+  } finally {
+    if (client.usable) await client.logout().catch(() => {});
+  }
+}
+
+async function importRevenueFromGmx(db) {
+  const { ImapFlow } = require("imapflow");
+  const { simpleParser } = require("mailparser");
+  const credentials = revenueCredentials(db);
+  if (!credentials.email || !credentials.password) throw new Error("GMX ist noch nicht eingerichtet.");
+  const state = db.revenueImport || (db.revenueImport = { processedMessageIds: [] });
+  state.lastRunAt = new Date().toISOString();
+  state.lastError = "";
+  const processed = new Set(state.processedMessageIds || []);
+  const client = new ImapFlow({
+    host: "imap.gmx.net", port: 993, secure: true,
+    auth: { user: credentials.email, pass: credentials.password }, logger: false
+  });
+  let imported = 0;
+  let latest = null;
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock("INBOX");
+    try {
+      const since = new Date(Date.now() - 21 * 86400000);
+      const uids = await client.search({ since }, { uid: true });
+      for (const uid of uids.slice(-60).reverse()) {
+        const message = await client.fetchOne(uid, { envelope: true, source: true }, { uid: true });
+        if (!message?.source) continue;
+        const parsed = await simpleParser(message.source);
+        const senderMatches = (parsed.from?.value || []).some(sender => String(sender.address || "").trim().toLowerCase() === REVENUE_REPORT_SENDER);
+        const subjectMatches = String(parsed.subject || message.envelope?.subject || "").trim().toLowerCase().startsWith(REVENUE_REPORT_PREFIX);
+        if (!senderMatches || !subjectMatches) continue;
+        const messageId = String(parsed.messageId || `${message.envelope?.date?.toISOString?.() || ""}-${uid}`);
+        if (processed.has(messageId)) continue;
+        const attachment = (parsed.attachments || []).find(item => {
+          const filename = String(item.filename || "").trim().toLowerCase();
+          return filename.startsWith(REVENUE_REPORT_PREFIX) && /\.xlsx$/i.test(filename);
+        });
+        if (!attachment) continue;
+        try {
+          const report = parseRevenueReport(attachment.content, credentials.marketCode);
+          for (const entry of report.markets) {
+            const saved = saveRevenueEntry(db, entry, { messageId, subject: parsed.subject || message.envelope?.subject || "" });
+            if (entry.marketCode === report.primary.marketCode) latest = saved;
+          }
+          imported += 1;
+          processed.add(messageId);
+          await client.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
+        } catch (error) {
+          if (/Markt|Umsatzdatum|Umsatz-Tabelle/.test(error.message || "")) continue;
+          throw error;
+        }
+      }
+    } finally {
+      lock.release();
+    }
+    state.processedMessageIds = Array.from(processed).slice(-200);
+    state.lastSuccessAt = new Date().toISOString();
+    state.lastResult = imported ? `${imported} Umsatzbericht(e) importiert.` : "Keine neue passende Umsatzmail gefunden.";
+    return { ok: true, imported, entry: latest, message: state.lastResult };
+  } catch (error) {
+    state.lastError = error.message || "GMX-Import fehlgeschlagen.";
+    throw error;
+  } finally {
+    if (client.usable) await client.logout().catch(() => {});
+  }
+}
+
+let revenueAutoImportPromise = null;
+
+function berlinDay(value = new Date()) {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
+}
+
+function berlinHour(value = new Date()) {
+  return Number(new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", hourCycle: "h23" }).format(new Date(value)));
+}
+
+function revenueAutoImportDue(db) {
+  const credentials = revenueCredentials(db);
+  if (!credentials.email || !credentials.password || berlinHour() < 8) return false;
+  const state = db.revenueImport || {};
+  const today = berlinDay();
+  const successfulToday = state.lastSuccessAt && berlinDay(state.lastSuccessAt) === today && /^\d+ Umsatzbericht/.test(state.lastResult || "") && !/^0 Umsatzbericht/.test(state.lastResult || "");
+  if (successfulToday) return false;
+  const lastRun = state.lastRunAt ? new Date(state.lastRunAt).getTime() : 0;
+  return !lastRun || Date.now() - lastRun >= 45 * 60 * 1000;
+}
+
+async function ensureAutomaticRevenueImport() {
+  if (revenueAutoImportPromise) return revenueAutoImportPromise;
+  revenueAutoImportPromise = (async () => {
+    const db = await readDb();
+    if (!revenueAutoImportDue(db)) return;
+    try {
+      await importRevenueFromGmx(db);
+    } catch {
+      // The exact error is stored for the admin dashboard; employee pages keep working.
+    }
+    await writeDb(db);
+  })().finally(() => {
+    revenueAutoImportPromise = null;
+  });
+  return revenueAutoImportPromise;
+}
+
+async function handleApi(req, res, pathname, requestUrl) {
   try {
     if (pathname === "/api/admin/login" && req.method === "POST") {
       const body = await readBody(req);
@@ -1302,6 +1632,7 @@ async function handleApi(req, res, pathname) {
 
     if (pathname === "/api/admin/overview" && req.method === "GET") {
       if (!requireAdmin(req, res)) return;
+      await ensureAutomaticRevenueImport();
       const db = await readDb();
       cleanupPepCorrections(db);
       const employeeSyncChanged = ensureEmployeesFromPlans(db);
@@ -1319,8 +1650,106 @@ async function handleApi(req, res, pathname) {
         plans: db.plans.map(plan => publicPlan(plan, { isPublished: ids.includes(plan.id), recommendedNotifyMode: defaultPublishNotifyMode(db, plan) })),
         employees: employeePublic(db),
         pushStatus: { enabled: Boolean(webPush), subscriptions: Array.isArray(db.pushSubscriptions) ? db.pushSubscriptions.length : 0 },
-        pepCorrections: publicPepCorrections(db)
+        pepCorrections: publicPepCorrections(db),
+        revenue: publicRevenueState(db)
       });
+    }
+
+    if (pathname === "/api/admin/revenue/settings" && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const body = await readBody(req);
+      const email = String(body.email || "").trim().toLowerCase();
+      const marketCode = String(body.marketCode || "802163").trim();
+      if (!email.endsWith("@gmx.net")) return json(res, 400, { error: "Bitte eine gueltige GMX-Adresse eingeben." });
+      if (!/^\d{6}$/.test(marketCode)) return json(res, 400, { error: "Die Marktnummer muss sechsstellig sein." });
+      const db = await readDb();
+      db.revenueSettings.email = email;
+      db.revenueSettings.marketCode = marketCode;
+      if (String(body.appPassword || "").trim()) {
+        db.revenueSettings.passwordEncrypted = encryptRevenueSecret(String(body.appPassword).trim());
+      }
+      if (!revenueCredentials(db).password) {
+        return json(res, 400, { error: "Bitte das GMX-Passwort eingeben. Es wird nur einmal fuer die automatische Abholung benoetigt." });
+      }
+      try {
+        await testGmxConnection(db);
+        const result = await importRevenueFromGmx(db);
+        await writeDb(db);
+        return json(res, 200, {
+          ok: true,
+          message: `GMX ist eingerichtet. ${result.message}`,
+          revenue: publicRevenueState(db)
+        });
+      } catch (error) {
+        db.revenueImport.lastRunAt = new Date().toISOString();
+        db.revenueImport.lastError = error.message || "GMX-Einrichtung fehlgeschlagen.";
+        await writeDb(db);
+        return json(res, 400, { error: `GMX konnte nicht eingerichtet werden: ${db.revenueImport.lastError}` });
+      }
+    }
+
+    if (pathname === "/api/admin/revenue/upload" && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const body = await readBody(req);
+      const base64 = String(body.fileBase64 || "").replace(/^data:[^;]+;base64,/, "");
+      if (!base64) return json(res, 400, { error: "Bitte eine Umsatz-Exceldatei auswaehlen." });
+      const db = await readDb();
+      const credentials = revenueCredentials(db);
+      const report = parseRevenueReport(Buffer.from(base64, "base64"), credentials.marketCode);
+      let saved = null;
+      for (const entry of report.markets) {
+        const current = saveRevenueEntry(db, entry, { subject: `Manueller Import: ${String(body.filename || "Umsatzdatei")}` });
+        if (entry.marketCode === report.primary.marketCode) saved = current;
+      }
+      db.revenueImport.lastRunAt = new Date().toISOString();
+      db.revenueImport.lastSuccessAt = new Date().toISOString();
+      db.revenueImport.lastError = "";
+      db.revenueImport.lastResult = `${report.markets.length} Maerkte fuer ${report.date} wurden aus der Datei uebernommen.`;
+      await writeDb(db);
+      return json(res, 200, { ok: true, entry: saved, message: db.revenueImport.lastResult, revenue: publicRevenueState(db) });
+    }
+
+    if (pathname === "/api/admin/revenue/test" && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const db = await readDb();
+      await testGmxConnection(db);
+      db.revenueImport.lastRunAt = new Date().toISOString();
+      db.revenueImport.lastSuccessAt = new Date().toISOString();
+      db.revenueImport.lastError = "";
+      db.revenueImport.lastResult = "GMX-Verbindung erfolgreich getestet.";
+      await writeDb(db);
+      return json(res, 200, { ok: true, message: db.revenueImport.lastResult, revenue: publicRevenueState(db) });
+    }
+
+    if (pathname === "/api/admin/revenue/import" && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const db = await readDb();
+      try {
+        const result = await importRevenueFromGmx(db);
+        await writeDb(db);
+        return json(res, 200, { ...result, revenue: publicRevenueState(db) });
+      } catch (error) {
+        await writeDb(db);
+        return json(res, 500, { error: error.message || "GMX-Import fehlgeschlagen." });
+      }
+    }
+
+    if (pathname === "/api/jobs/revenue-import" && (req.method === "GET" || req.method === "POST")) {
+      const suppliedSecret = requestUrl?.searchParams.get("key") || req.headers["x-cron-secret"] || "";
+      const suppliedHash = crypto.createHash("sha256").update(String(suppliedSecret)).digest();
+      const expectedHash = crypto.createHash("sha256").update(String(CRON_SECRET)).digest();
+      if (!CRON_SECRET || !crypto.timingSafeEqual(suppliedHash, expectedHash)) {
+        return json(res, 403, { error: "Nicht erlaubt." });
+      }
+      const db = await readDb();
+      try {
+        const result = await importRevenueFromGmx(db);
+        await writeDb(db);
+        return json(res, 200, result);
+      } catch (error) {
+        await writeDb(db);
+        return json(res, 500, { error: error.message || "GMX-Import fehlgeschlagen." });
+      }
     }
 
     if (pathname === "/api/admin/employees" && req.method === "POST") {
@@ -1593,9 +2022,19 @@ async function handleApi(req, res, pathname) {
       return json(res, 200, { ok: true });
     }
 
+    if (pathname === "/api/me/revenue" && req.method === "GET") {
+      const name = requireEmployee(req, res);
+      if (!name) return;
+      if (!canSeeTeamPlan(name)) return json(res, 403, { error: "Die KPIs sind nur fuer die Marktleitung freigegeben." });
+      await ensureAutomaticRevenueImport();
+      const db = await readDb();
+      return json(res, 200, { name, revenue: leadershipRevenueState(db) });
+    }
+
     if (pathname === "/api/me/shifts" && req.method === "GET") {
       const name = requireEmployee(req, res);
       if (!name) return;
+      await ensureAutomaticRevenueImport();
       const db = await readDb();
       if (ensureLegalBreaksInPlans(db)) await writeDb(db);
       const ids = publishedIds(db);
@@ -1616,7 +2055,14 @@ async function handleApi(req, res, pathname) {
           shifts: teamView ? cleanedDisplayShifts(plan.shifts || []) : cleanedDisplayShifts(plan.shifts || []).filter(shift => employeeKey(shift.name) === employeeKey(name))
         }))
         .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
-      return json(res, 200, { name, teamView, canManage, employees: teamView ? allKnownEmployeeNames(db) : [], plans });
+      return json(res, 200, {
+        name,
+        teamView,
+        canManage,
+        canSeeRevenue: teamView,
+        employees: teamView ? allKnownEmployeeNames(db) : [],
+        plans
+      });
     }
 
     json(res, 404, { error: "Nicht gefunden." });
@@ -1637,18 +2083,37 @@ function serveStatic(req, res, pathname) {
   fs.createReadStream(full).pipe(res);
 }
 
-ensureDb().catch(error => {
-  console.error(error);
-  process.exit(1);
-});
+async function startServer() {
+  await ensureDb();
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    // A normal uptime-bot request is enough to wake Render and start the
+    // daily GMX revenue check after 08:00 without exposing mail credentials.
+    if (url.pathname === "/" || url.pathname === "/health") {
+      ensureAutomaticRevenueImport().catch(() => {});
+    }
+    if (url.pathname === "/health") return json(res, 200, { ok: true, buildVersion: BUILD_VERSION });
+    if (url.pathname.startsWith("/api/")) return handleApi(req, res, url.pathname, url);
+    serveStatic(req, res, url.pathname);
+  }).listen(PORT, () => {
+    console.log(`Arbeitsplan-App laeuft auf http://localhost:${PORT}`);
+    ensureAutomaticRevenueImport().catch(() => {});
+  });
+  const revenueTimer = setInterval(() => {
+    ensureAutomaticRevenueImport().catch(() => {});
+  }, 15 * 60 * 1000);
+  revenueTimer.unref();
+  return server;
+}
 
-http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  if (url.pathname.startsWith("/api/")) return handleApi(req, res, url.pathname);
-  serveStatic(req, res, url.pathname);
-}).listen(PORT, () => {
-  console.log(`Arbeitsplan-App laeuft auf http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  startServer().catch(error => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+module.exports = { parseRevenueWorkbook, parseRevenueReport, saveRevenueEntry, startServer };
 
 
 

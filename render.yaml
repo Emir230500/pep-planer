@@ -18,3 +18,5 @@ services:
         sync: false
       - key: PUSH_CONTACT
         sync: false
+      - key: CRON_SECRET
+        generateValue: true

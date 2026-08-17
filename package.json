@@ -8,8 +8,11 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "imapflow": "^1.7.1",
+    "mailparser": "^3.9.15",
     "pg": "^8.13.1",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "xlsx": "^0.18.5"
   },
   "engines": {
     "node": ">=18"

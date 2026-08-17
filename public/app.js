@@ -7,6 +7,7 @@ const pushBox = document.querySelector("#pushBox");
 const pushBtn = document.querySelector("#pushBtn");
 const pushMsg = document.querySelector("#pushMsg");
 const adminLink = document.querySelector("#adminLink");
+const kpiLink = document.querySelector("#kpiLink");
 let currentTeamData = null;
 let teamEditShift = null;
 let teamSickEntry = null;
@@ -48,6 +49,7 @@ function showShifts(data) {
   window.setTimeout(() => plans.classList.remove("page-enter"), 420);
   hello.textContent = data.name;
   adminLink?.classList.add("hidden");
+  kpiLink?.classList.toggle("hidden", !data.canSeeRevenue);
   setupPushButton();
 
   if (!data.plans.length) {
@@ -396,6 +398,78 @@ function showTeamShifts(data) {
   document.querySelectorAll(".team-edit-leadership-name").forEach(input => {
     input.addEventListener("change", updateTeamEditPreview);
   });
+}
+
+function revenueMoney(value) {
+  if (value === null || value === undefined || value === "") return "Noch kein Vergleich";
+  return Number(value).toLocaleString("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+}
+
+function revenueValue(value, suffix = "") {
+  if (value === null || value === undefined || value === "") return "Noch kein Vergleich";
+  const number = Number(value);
+  return `${number > 0 && suffix === " %" ? "+" : ""}${number.toLocaleString("de-DE", { maximumFractionDigits: 2 })}${suffix}`;
+}
+
+function revenueDisplayDate(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}.${match[2]}.${match[1]}` : String(value || "-");
+}
+
+function revenueTrend(value) {
+  if (value === null || value === undefined || value === "") return "";
+  return Number(value) < 0 ? "negative" : "positive";
+}
+
+function renderLeadershipRevenue(revenue) {
+  const entries = Array.isArray(revenue.entries) ? revenue.entries : [];
+  const comparison = Array.isArray(revenue.comparison) ? revenue.comparison : [];
+  const latest = entries[0];
+  if (!latest) return '<div class="panel empty">Noch keine Umsatzmail eingelesen. Die Daten erscheinen nach dem automatischen GMX-Abruf.</div>';
+  const ownRank = comparison.findIndex(item => String(item.marketCode) === String(latest.marketCode)) + 1;
+  return `
+    <section class="revenue-hero">
+      <small>Umsatz Vortag · ${escapeHtml(revenueDisplayDate(latest.date))}</small>
+      <strong>${escapeHtml(revenueMoney(latest.revenue))}</strong>
+      <span class="${revenueTrend(latest.priorYearDeviationPercent)}">
+        ${latest.priorYearDeviationPercent == null ? "Noch kein Vorjahresvergleich" : `${escapeHtml(revenueValue(latest.priorYearDeviationPercent, " %"))} zum Vorjahr`}
+      </span>
+    </section>
+    <section class="revenue-summary-grid">
+      <article><small>Umsatz Vorjahr</small><strong>${escapeHtml(revenueMoney(latest.priorYearRevenue))}</strong></article>
+      <article><small>Kunden</small><strong>${latest.customers == null ? "-" : escapeHtml(revenueValue(latest.customers))}</strong></article>
+      <article><small>Durchschnittsbon</small><strong>${latest.averageBasket == null ? "-" : escapeHtml(revenueMoney(latest.averageBasket))}</strong></article>
+      <article><small>Rang im Vergleich</small><strong>${ownRank ? `${ownRank} von ${comparison.length}` : "-"}</strong></article>
+    </section>
+    <details class="revenue-details">
+      <summary>Weitere Kennzahlen</summary>
+      <div class="revenue-detail-grid">
+        <article><small>Kunden zum Vorjahr</small><strong class="${revenueTrend(latest.customerDeviationPercent)}">${escapeHtml(revenueValue(latest.customerDeviationPercent, " %"))}</strong></article>
+        <article><small>Umsatzspanne</small><strong>${escapeHtml(revenueValue(latest.grossMarginPercent, " %"))}</strong></article>
+        <article><small>Nettoertragsspanne</small><strong>${escapeHtml(revenueValue(latest.netMarginPercent, " %"))}</strong></article>
+        <article><small>Abschriften</small><strong>${escapeHtml(revenueMoney(latest.writeOffsGross))}</strong></article>
+        <article><small>App-Anteil</small><strong>${escapeHtml(revenueValue(latest.appSharePercent, " %"))}</strong></article>
+        <article><small>Aktionsanteil</small><strong>${escapeHtml(revenueValue(latest.promotionSharePercent, " %"))}</strong></article>
+      </div>
+    </details>
+    <details class="revenue-details">
+      <summary>Alle Maerkte vergleichen</summary>
+      <div class="revenue-table-wrap">
+        <table class="revenue-table revenue-comparison-table">
+          <thead><tr><th>Rang</th><th>Markt</th><th>Umsatz</th><th>Vorjahr</th><th>Abweichung</th></tr></thead>
+          <tbody>${comparison.map((item, index) => `
+            <tr class="${String(item.marketCode) === String(latest.marketCode) ? "own-market-row" : ""}">
+              <td>${index + 1}</td>
+              <td>${escapeHtml(item.marketName)}</td>
+              <td>${escapeHtml(revenueMoney(item.revenue))}</td>
+              <td>${escapeHtml(revenueMoney(item.priorYearRevenue))}</td>
+              <td class="${revenueTrend(item.priorYearDeviationPercent)}">${escapeHtml(revenueValue(item.priorYearDeviationPercent, " %"))}</td>
+            </tr>
+          `).join("")}</tbody>
+        </table>
+      </div>
+    </details>
+  `;
 }
 
 function groupByPlans(plans) {
@@ -2064,7 +2138,7 @@ async function submitLogin() {
     await api("/api/employee/login", { method: "POST", body: { name: document.querySelector("#name").value, pin: document.querySelector("#pin").value } });
     loginMsg.textContent = "Angemeldet.";
     loginMsg.classList.add("success-msg");
-    await loadMine();
+    await loadMine({ openKpiForLeadership: true });
   } catch (error) {
     loginMsg.textContent = error.message;
     loginMsg.classList.add("error");
@@ -2090,13 +2164,19 @@ document.querySelector("#logoutBtn").addEventListener("click", async () => {
   location.reload();
 });
 
-async function loadMine() {
+async function loadMine(options = {}) {
   try {
-    showShifts(await api("/api/me/shifts"));
+    const data = await api("/api/me/shifts");
+    if (options.openKpiForLeadership && data.canSeeRevenue) {
+      window.location.href = "/kpi.html";
+      return;
+    }
+    showShifts(data);
   } catch {
     login.classList.remove("hidden");
     plans.classList.add("hidden");
     adminLink?.classList.add("hidden");
+    kpiLink?.classList.add("hidden");
   }
 }
 

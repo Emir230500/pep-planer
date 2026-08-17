@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin - Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260817-push-reparatur">
+  <link rel="stylesheet" href="/styles.css?v=20260817-kpi-separate">
 </head>
 <body>
   <main class="shell wide">
@@ -30,6 +30,7 @@
       <nav class="view-switch admin-view-switch" aria-label="Admin-Bereich wechseln">
         <button class="active" data-admin-view="plans" type="button">Dienstplan</button>
         <button data-admin-view="manage" type="button">Plaene verwalten</button>
+        <button data-admin-view="revenue" type="button">Umsaetze</button>
         <button data-admin-view="employees" type="button">Mitarbeiter/PINs</button>
       </nav>
 
@@ -102,6 +103,35 @@
         </section>
       </section>
 
+      <section class="admin-view-panel hidden" data-admin-view-content="revenue">
+        <section class="panel">
+          <div class="panel-title-row">
+            <div>
+              <h2>Umsaetze Markt 14</h2>
+              <p class="hint">Automatisch aus dem taeglichen GMX-Excel-Anhang.</p>
+            </div>
+            <button id="revenueImportBtn" class="secondary" type="button">Jetzt abrufen</button>
+          </div>
+          <div id="revenueDashboard"></div>
+          <p id="revenueMsg" class="msg"></p>
+        </section>
+
+        <section class="panel">
+          <h2>GMX-Verbindung</h2>
+          <p class="hint">Das Anwendungspasswort wird verschluesselt gespeichert und niemals wieder angezeigt.</p>
+          <div class="grid">
+            <label>GMX-Adresse<input id="revenueEmail" type="email" autocomplete="username" value="edemircan@gmx.net"></label>
+            <label>Marktnummer<input id="revenueMarketCode" inputmode="numeric" value="802163"></label>
+          </div>
+          <label>Anwendungspasswort<input id="revenueAppPassword" type="password" autocomplete="new-password" placeholder="Nur beim Einrichten oder Aendern eingeben"></label>
+          <div class="actions">
+            <button id="revenueSaveBtn" type="button">Speichern &amp; jetzt abrufen</button>
+            <button id="revenueTestBtn" class="secondary" type="button">Verbindung testen</button>
+          </div>
+          <div id="revenueConnectionStatus" class="hint"></div>
+        </section>
+      </section>
+
       <section class="admin-view-panel hidden" data-admin-view-content="employees">
         <section class="panel">
           <h2>Mitarbeiter-PINs</h2>
@@ -122,7 +152,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <script src="/admin.js?v=20260817-push-reparatur"></script>
+  <script src="/admin.js?v=20260817-kpi-separate"></script>
 </body>
 </html>
 
