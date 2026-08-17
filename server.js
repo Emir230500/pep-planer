@@ -1744,6 +1744,9 @@ function revenueAutoImportDue(db) {
   const credentials = revenueCredentials(db);
   if (!credentials.email || !credentials.password || berlinHour() < 8) return false;
   const state = db.revenueImport || {};
+  // A parser upgrade must re-read recent messages immediately, even when the
+  // regular 15-minute check ran just before a new deployment.
+  if (Number(state.reportSchemaVersion || 0) < 3) return true;
   const lastRun = state.lastRunAt ? new Date(state.lastRunAt).getTime() : 0;
   // Both daily exports may arrive a few minutes apart. Keep checking after the
   // first successful import so the second mail is not postponed until tomorrow.
