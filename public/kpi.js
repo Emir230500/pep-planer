@@ -189,7 +189,7 @@ function warningIcon(level) {
   return "✓";
 }
 
-function renderDashboard(revenue) {
+function renderDashboard(revenue, canSeePrivateInsights = false) {
   const entries = Array.isArray(revenue.entries) ? revenue.entries : [];
   const comparison = Array.isArray(revenue.comparison) ? revenue.comparison : [];
   const latest = entries[0];
@@ -222,39 +222,7 @@ function renderDashboard(revenue) {
       <article><small>Rang im Vergleich</small><strong>${ownRank ? `${ownRank} von ${comparison.length}` : "-"}</strong></article>
     </section>
 
-    <section class="kpi-trend-card">
-      <div class="kpi-trend-head">
-        <div>
-          <small id="kpiTrendContext">${activeTrendRange === "months" ? "Dein Markt · Letzte 12 Monate" : "Dein Markt · Letzte 14 Tagesberichte"}</small>
-          <h2>Entwicklung</h2>
-        </div>
-        <div class="kpi-trend-controls">
-          <div class="kpi-range-switch" role="tablist" aria-label="Zeitraum für Kurve wählen">
-            <button type="button" role="tab" data-trend-range="days" class="${activeTrendRange === "days" ? "active" : ""}" aria-selected="${activeTrendRange === "days"}">14 Tage</button>
-            <button type="button" role="tab" data-trend-range="months" class="${activeTrendRange === "months" ? "active" : ""}" aria-selected="${activeTrendRange === "months"}">Monate</button>
-          </div>
-          <div class="kpi-trend-switch" role="tablist" aria-label="Kennzahl für Kurve wählen">
-            ${Object.entries(trendMetrics).map(([key, metric]) => `<button type="button" role="tab" data-trend-metric="${key}" class="${key === activeTrendMetric ? "active" : ""}" aria-selected="${key === activeTrendMetric}">${escapeHtml(metric.label)}</button>`).join("")}
-          </div>
-        </div>
-      </div>
-      <div id="kpiTrendChart">${trendChartSvg(displayedTrendEntries(), activeTrendMetric, activeTrendRange)}</div>
-    </section>
-
-    <section class="kpi-warning-card">
-      <div class="kpi-warning-head">
-        <small>Nur dein Markt</small>
-        <h2>Warnungen</h2>
-      </div>
-      <div class="kpi-warning-list">
-        ${ownMarketWarnings(latest).map(item => `
-          <article class="kpi-warning-item ${item.level}">
-            <span class="kpi-warning-icon" aria-hidden="true">${warningIcon(item.level)}</span>
-            <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.value)}</small></div>
-          </article>
-        `).join("")}
-      </div>
-    </section>
+    ${canSeePrivateInsights ? privateInsightsHtml(latest) : ""}
 
     <details class="revenue-details">
       <summary>Weitere Kennzahlen</summary>
@@ -317,12 +285,50 @@ function renderDashboard(revenue) {
   });
 }
 
+function privateInsightsHtml(latest) {
+  return `
+    <section class="kpi-trend-card">
+      <div class="kpi-trend-head">
+        <div>
+          <small id="kpiTrendContext">${activeTrendRange === "months" ? "Dein Markt · Letzte 12 Monate" : "Dein Markt · Letzte 14 Tagesberichte"}</small>
+          <h2>Entwicklung</h2>
+        </div>
+        <div class="kpi-trend-controls">
+          <div class="kpi-range-switch" role="tablist" aria-label="Zeitraum für Kurve wählen">
+            <button type="button" role="tab" data-trend-range="days" class="${activeTrendRange === "days" ? "active" : ""}" aria-selected="${activeTrendRange === "days"}">14 Tage</button>
+            <button type="button" role="tab" data-trend-range="months" class="${activeTrendRange === "months" ? "active" : ""}" aria-selected="${activeTrendRange === "months"}">Monate</button>
+          </div>
+          <div class="kpi-trend-switch" role="tablist" aria-label="Kennzahl für Kurve wählen">
+            ${Object.entries(trendMetrics).map(([key, metric]) => `<button type="button" role="tab" data-trend-metric="${key}" class="${key === activeTrendMetric ? "active" : ""}" aria-selected="${key === activeTrendMetric}">${escapeHtml(metric.label)}</button>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div id="kpiTrendChart">${trendChartSvg(displayedTrendEntries(), activeTrendMetric, activeTrendRange)}</div>
+    </section>
+
+    <section class="kpi-warning-card">
+      <div class="kpi-warning-head">
+        <small>Nur dein Markt</small>
+        <h2>Warnungen</h2>
+      </div>
+      <div class="kpi-warning-list">
+        ${ownMarketWarnings(latest).map(item => `
+          <article class="kpi-warning-item ${item.level}">
+            <span class="kpi-warning-icon" aria-hidden="true">${warningIcon(item.level)}</span>
+            <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.value)}</small></div>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 async function loadKpis() {
   try {
     const response = await fetch("/api/me/revenue", { headers: { accept: "application/json" } });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "KPIs konnten nicht geladen werden.");
-    renderDashboard(data.revenue || {});
+    renderDashboard(data.revenue || {}, Boolean(data.canSeePrivateInsights));
   } catch (error) {
     content.innerHTML = '<div class="panel empty">Kein Zugriff auf die KPI-Seite.</div>';
     msg.textContent = error.message;
