@@ -12,7 +12,7 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "kpi-gmx-auto-clean-20260817";
+const BUILD_VERSION = "kpi-mobile-session-fix-20260817";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const DEFAULT_GMX_EMAIL = process.env.GMX_EMAIL || "edemircan@gmx.net";
 const REVENUE_REPORT_SENDER = String(process.env.REVENUE_REPORT_SENDER || "NoReplyBerichtsexport@edeka.de").trim().toLowerCase();
@@ -416,8 +416,8 @@ function createCookie(payload) {
   return `${raw}.${sign(raw)}`;
 }
 
-function readCookie(req) {
-  const found = String(req.headers.cookie || "").split(";").map(x => x.trim()).find(x => x.startsWith("plan_session="));
+function readCookie(req, cookieName = "plan_session") {
+  const found = String(req.headers.cookie || "").split(";").map(x => x.trim()).find(x => x.startsWith(`${cookieName}=`));
   if (!found) return null;
   const token = found.split("=").slice(1).join("=");
   const [raw, sig] = token.split(".");
@@ -431,23 +431,29 @@ function readCookie(req) {
 
 function setSession(res, payload) {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  res.setHeader("set-cookie", `plan_session=${createCookie(payload)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${secure}`);
+  const cookieName = payload?.role === "admin" ? "plan_admin_session" : "plan_employee_session";
+  res.setHeader("set-cookie", `${cookieName}=${createCookie(payload)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${secure}`);
 }
 
 function clearSession(res) {
-  res.setHeader("set-cookie", "plan_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+  res.setHeader("set-cookie", [
+    "plan_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+    "plan_employee_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+    "plan_admin_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
+  ]);
 }
 
 function requireAdmin(req, res) {
-  const session = readCookie(req);
-  if (session?.role === "admin") return true;
-  if (session?.role === "employee" && canManagePlans(session.name)) return true;
+  const adminSession = readCookie(req, "plan_admin_session") || readCookie(req);
+  if (adminSession?.role === "admin") return true;
+  const employeeSession = readCookie(req, "plan_employee_session") || readCookie(req);
+  if (employeeSession?.role === "employee" && canManagePlans(employeeSession.name)) return true;
   json(res, 401, { error: "Nicht angemeldet." });
   return false;
 }
 
 function requireEmployee(req, res) {
-  const session = readCookie(req);
+  const session = readCookie(req, "plan_employee_session") || readCookie(req);
   if (session?.role === "employee" && session.name) return session.name;
   json(res, 401, { error: "Nicht angemeldet." });
   return "";

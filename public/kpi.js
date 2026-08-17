@@ -5,9 +5,14 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
 }
 
-function money(value) {
+function money(value, fractionDigits = 0) {
   if (value === null || value === undefined || value === "") return "Noch kein Vergleich";
-  return Number(value).toLocaleString("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+  return Number(value).toLocaleString("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  });
 }
 
 function number(value, suffix = "") {
@@ -47,7 +52,7 @@ function renderDashboard(revenue) {
     <section class="revenue-summary-grid">
       <article><small>Umsatz Vorjahr</small><strong>${escapeHtml(money(latest.priorYearRevenue))}</strong></article>
       <article><small>Kunden</small><strong>${latest.customers == null ? "-" : escapeHtml(number(latest.customers))}</strong></article>
-      <article><small>Durchschnittsbon</small><strong>${latest.averageBasket == null ? "-" : escapeHtml(money(latest.averageBasket))}</strong></article>
+      <article><small>Durchschnittsbon</small><strong>${latest.averageBasket == null ? "-" : escapeHtml(money(latest.averageBasket, 2))}</strong></article>
       <article><small>Rang im Vergleich</small><strong>${ownRank ? `${ownRank} von ${comparison.length}` : "-"}</strong></article>
     </section>
 
