@@ -2125,6 +2125,16 @@ function escapeHtml(value) {
 async function submitLogin() {
   const button = document.querySelector("#loginBtn");
   if (button?.disabled) return;
+  const nameInput = document.querySelector("#name");
+  const pinInput = document.querySelector("#pin");
+  if (/@/.test(nameInput?.value || "")) {
+    if (pinInput) pinInput.value = "";
+    loginMsg.textContent = "Bitte deinen Mitarbeiternamen eingeben, nicht die GMX-Adresse.";
+    loginMsg.classList.add("error");
+    nameInput?.focus();
+    nameInput?.select();
+    return;
+  }
   loginMsg.textContent = "Anmeldung laeuft...";
   loginMsg.classList.remove("error", "success-msg");
   button?.classList.remove("login-tap");
@@ -2181,6 +2191,17 @@ async function loadMine(options = {}) {
 }
 
 loadMine();
+
+function clearMisplacedMailAutofill() {
+  const nameInput = document.querySelector("#name");
+  const pinInput = document.querySelector("#pin");
+  if (!/@/.test(nameInput?.value || "")) return;
+  nameInput.value = "";
+  if (pinInput) pinInput.value = "";
+}
+
+window.addEventListener("pageshow", clearMisplacedMailAutofill);
+[0, 250, 1000].forEach(delay => window.setTimeout(clearMisplacedMailAutofill, delay));
 
 function supportsPush() {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
