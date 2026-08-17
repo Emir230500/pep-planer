@@ -12,7 +12,7 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "kpi-team-private-insights-20260817";
+const BUILD_VERSION = "kpi-produce-dashboard-20260817";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const DEFAULT_GMX_EMAIL = process.env.GMX_EMAIL || "edemircan@gmx.net";
 const REVENUE_REPORT_SENDER = String(process.env.REVENUE_REPORT_SENDER || "NoReplyBerichtsexport@edeka.de").trim().toLowerCase();
@@ -46,7 +46,8 @@ const MIME = {
 function defaultDb() {
   return {
     employees: {}, plans: [], publishedPlanIds: [], pushSubscriptions: [], pepCorrections: [],
-    revenueEntries: [], revenueSettings: {}, revenueImport: { processedMessageIds: [] }
+    revenueEntries: [], produceRevenueEntries: [], produceArticleEntries: [],
+    revenueSettings: {}, revenueImport: { processedMessageIds: [] }
   };
 }
 
@@ -76,6 +77,8 @@ function normalizeDb(db) {
   clean.pushSubscriptions = Array.isArray(clean.pushSubscriptions) ? clean.pushSubscriptions : [];
   clean.pepCorrections = Array.isArray(clean.pepCorrections) ? clean.pepCorrections : [];
   clean.revenueEntries = Array.isArray(clean.revenueEntries) ? clean.revenueEntries : [];
+  clean.produceRevenueEntries = Array.isArray(clean.produceRevenueEntries) ? clean.produceRevenueEntries : [];
+  clean.produceArticleEntries = Array.isArray(clean.produceArticleEntries) ? clean.produceArticleEntries : [];
   clean.revenueSettings = clean.revenueSettings && typeof clean.revenueSettings === "object" ? clean.revenueSettings : {};
   clean.revenueImport = clean.revenueImport && typeof clean.revenueImport === "object" ? clean.revenueImport : {};
   clean.revenueImport.processedMessageIds = Array.isArray(clean.revenueImport.processedMessageIds) ? clean.revenueImport.processedMessageIds : [];
@@ -1338,7 +1341,8 @@ function publicRevenueState(db) {
     },
     entries,
     comparison,
-    latestDate
+    latestDate,
+    produce: publicProduceRevenueState(db)
   };
 }
 
@@ -1348,8 +1352,38 @@ function leadershipRevenueState(db) {
     entries: revenue.entries,
     comparison: revenue.comparison,
     latestDate: revenue.latestDate,
-    lastSuccessAt: revenue.importStatus.lastSuccessAt || ""
+    lastSuccessAt: revenue.importStatus.lastSuccessAt || "",
+    produce: revenue.produce
   };
+}
+
+function publicProduceRevenueState(db) {
+  const marketCode = revenueCredentials(db).marketCode;
+  const allEntries = (db.produceRevenueEntries || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const allArticleEntries = (db.produceArticleEntries || [])
+    .filter(item => String(item.marketCode) === String(marketCode))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const articlesByDate = new Map(allArticleEntries.map(item => [String(item.date), item]));
+  const entries = allEntries.filter(item => String(item.marketCode) === String(marketCode)).slice(0, 400).map(item => {
+    const detail = articlesByDate.get(String(item.date));
+    if (!detail) return item;
+    return {
+      ...item,
+      revenue: detail.revenue ?? item.revenue,
+      priorYearRevenue: detail.priorYearRevenue ?? item.priorYearRevenue,
+      priorYearDeviationPercent: percentageDeviation(detail.revenue ?? item.revenue, detail.priorYearRevenue ?? item.priorYearRevenue),
+      grossMarginPercent: detail.grossMarginPercent ?? item.grossMarginPercent,
+      netMarginPercent: detail.netMarginPercent ?? item.netMarginPercent,
+      writeOffsGross: detail.writeOffsGross ?? item.writeOffsGross,
+      priorYearWriteOffsGross: detail.priorYearWriteOffsGross ?? item.priorYearWriteOffsGross
+    };
+  });
+  const latestDate = entries[0]?.date || allEntries[0]?.date || "";
+  const latestDateValue = latestDate ? new Date(`${latestDate}T12:00:00`).getTime() : 0;
+  const historyStart = latestDateValue ? new Date(latestDateValue - 40 * 86400000).toISOString().slice(0, 10) : "";
+  const comparisonEntries = allEntries.filter(item => !historyStart || String(item.date) >= historyStart);
+  const articleEntries = allArticleEntries.filter(item => !historyStart || String(item.date) >= historyStart);
+  return { entries, comparisonEntries, articleEntries, latestDate };
 }
 
 function excelDateText(value) {
@@ -1384,6 +1418,25 @@ function marketCodeFromName(name) {
 function percentageDeviation(current, previous) {
   if (current == null || previous == null || previous === 0) return null;
   return Math.round(((current / previous) - 1) * 10000) / 100;
+}
+
+function normalizedReportText(value) {
+  return String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function reportFilterText(filterRows) {
+  return (filterRows || []).flat().map(value => String(value || "")).join(" ");
+}
+
+function isProduceReport(filterRows) {
+  const text = normalizedReportText(reportFilterText(filterRows));
+  return text.includes("abteilung obst gemuse blume");
+}
+
+function filteredMarketName(filterRows) {
+  const value = (filterRows || []).flat().map(item => String(item || "")).find(item => /Markt\s*:/i.test(item)) || "";
+  const match = value.match(/Markt\s*:\s*(.+?)(?:\s+Abteilung\s*:|$)/i);
+  return String(match?.[1] || "").trim();
 }
 
 function parseRevenueReport(buffer, marketCode = "802163") {
@@ -1454,7 +1507,66 @@ function parseRevenueReport(buffer, marketCode = "802163") {
   const primary = markets.find(item => item.marketCode === String(marketCode))
     || markets.find(item => /14\s+EDEKA.*Schlo/i.test(item.marketName));
   if (!primary) throw new Error(`Markt ${marketCode} wurde im Umsatzbericht nicht gefunden.`);
-  return { date, primary, markets };
+  return { type: isProduceReport(filterRows) ? "produce-markets" : "market", date, primary, markets };
+}
+
+function parseProduceArticleReport(buffer, marketCode = "802163") {
+  const XLSX = require("xlsx");
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  const dataSheet = workbook.Sheets.Tabelle || workbook.Sheets[workbook.SheetNames[0]];
+  const filterSheet = workbook.Sheets.Filter;
+  if (!dataSheet) throw new Error("Im Excel-Anhang wurde keine Umsatz-Tabelle gefunden.");
+  const rows = XLSX.utils.sheet_to_json(dataSheet, { header: 1, raw: true, defval: null });
+  const filterRows = filterSheet ? XLSX.utils.sheet_to_json(filterSheet, { header: 1, raw: false, defval: "" }) : [];
+  if (!isProduceReport(filterRows)) throw new Error("Der Artikelbericht ist kein Obst-Gemüse-Bericht.");
+  const date = filterRows.flat().map(excelDateText).find(Boolean) || "";
+  if (!date) throw new Error("Das Umsatzdatum konnte aus dem Bericht nicht gelesen werden.");
+  const headerIndex = rows.findIndex(row => String(row?.[0] || "").trim() === "Artikel" && String(row?.[3] || "").trim() === "Umsatz");
+  if (headerIndex < 0) throw new Error("Die Artikelüberschriften wurden nicht gefunden.");
+  const totalRow = rows.slice(headerIndex + 1).find(row => String(row?.[0] || "").trim() === "Gesamtergebnis") || [];
+  const marketName = filteredMarketName(filterRows);
+  const detectedMarketCode = marketCodeFromName(marketName) || String(marketCode);
+  const articles = rows.slice(headerIndex + 1).map(row => {
+    const articleNo = String(row?.[0] || "").trim();
+    const articleName = String(row?.[1] || "").trim();
+    if (!articleNo || !articleName || articleNo === "Gesamtergebnis") return null;
+    return {
+      articleNo,
+      articleName,
+      gtin: String(row?.[2] || "").trim(),
+      revenue: revenueNumber(row?.[3]),
+      priorYearRevenue: revenueNumber(row?.[4]),
+      revenueSharePercent: revenueNumber(row?.[5]),
+      quantity: String(row?.[6] || "").trim(),
+      grossMarginPercent: revenueNumber(row?.[7]),
+      netMarginPercent: revenueNumber(row?.[8]),
+      writeOffsGross: revenueNumber(row?.[9]),
+      priorYearWriteOffsGross: revenueNumber(row?.[10])
+    };
+  }).filter(Boolean);
+  return {
+    type: "produce-articles",
+    date,
+    marketCode: detectedMarketCode,
+    marketName,
+    revenue: revenueNumber(totalRow?.[3]),
+    priorYearRevenue: revenueNumber(totalRow?.[4]),
+    grossMarginPercent: revenueNumber(totalRow?.[7]),
+    netMarginPercent: revenueNumber(totalRow?.[8]),
+    writeOffsGross: revenueNumber(totalRow?.[9]),
+    priorYearWriteOffsGross: revenueNumber(totalRow?.[10]),
+    articles
+  };
+}
+
+function parseRevenueAttachment(buffer, marketCode = "802163") {
+  const XLSX = require("xlsx");
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
+  const dataSheet = workbook.Sheets.Tabelle || workbook.Sheets[workbook.SheetNames[0]];
+  if (!dataSheet) throw new Error("Im Excel-Anhang wurde keine Umsatz-Tabelle gefunden.");
+  const rows = XLSX.utils.sheet_to_json(dataSheet, { header: 1, raw: true, defval: null });
+  const hasArticleHeader = rows.some(row => String(row?.[0] || "").trim() === "Artikel" && String(row?.[3] || "").trim() === "Umsatz");
+  return hasArticleHeader ? parseProduceArticleReport(buffer, marketCode) : parseRevenueReport(buffer, marketCode);
 }
 
 function parseRevenueWorkbook(buffer, marketCode = "802163") {
@@ -1472,6 +1584,35 @@ function saveRevenueEntry(db, entry, source = {}) {
   if (index >= 0) db.revenueEntries[index] = saved;
   else db.revenueEntries.push(saved);
   db.revenueEntries = db.revenueEntries.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-8000);
+  return saved;
+}
+
+function saveProduceRevenueEntry(db, entry, source = {}) {
+  const saved = {
+    ...entry,
+    sourceMessageId: String(source.messageId || ""),
+    sourceSubject: String(source.subject || ""),
+    importedAt: new Date().toISOString()
+  };
+  const index = (db.produceRevenueEntries || []).findIndex(item => item.date === saved.date && String(item.marketCode) === String(saved.marketCode));
+  if (index >= 0) db.produceRevenueEntries[index] = saved;
+  else db.produceRevenueEntries.push(saved);
+  db.produceRevenueEntries = db.produceRevenueEntries.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-8000);
+  return saved;
+}
+
+function saveProduceArticleEntry(db, report, source = {}) {
+  const saved = {
+    ...report,
+    sourceMessageId: String(source.messageId || ""),
+    sourceSubject: String(source.subject || ""),
+    importedAt: new Date().toISOString()
+  };
+  delete saved.type;
+  const index = (db.produceArticleEntries || []).findIndex(item => item.date === saved.date && String(item.marketCode) === String(saved.marketCode));
+  if (index >= 0) db.produceArticleEntries[index] = saved;
+  else db.produceArticleEntries.push(saved);
+  db.produceArticleEntries = db.produceArticleEntries.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-500);
   return saved;
 }
 
@@ -1503,6 +1644,7 @@ async function importRevenueFromGmx(db) {
   state.lastRunAt = new Date().toISOString();
   state.lastError = "";
   const processed = new Set(state.processedMessageIds || []);
+  const forceSchemaRescan = Number(state.reportSchemaVersion || 0) < 2;
   const client = new ImapFlow({
     host: "imap.gmx.net", port: 993, secure: true,
     auth: { user: credentials.email, pass: credentials.password }, logger: false
@@ -1523,30 +1665,44 @@ async function importRevenueFromGmx(db) {
         const subjectMatches = String(parsed.subject || message.envelope?.subject || "").trim().toLowerCase().startsWith(REVENUE_REPORT_PREFIX);
         if (!senderMatches || !subjectMatches) continue;
         const messageId = String(parsed.messageId || `${message.envelope?.date?.toISOString?.() || ""}-${uid}`);
-        if (processed.has(messageId)) continue;
-        const attachment = (parsed.attachments || []).find(item => {
+        if (processed.has(messageId) && !forceSchemaRescan) continue;
+        const attachments = (parsed.attachments || []).filter(item => {
           const filename = String(item.filename || "").trim().toLowerCase();
           return filename.startsWith(REVENUE_REPORT_PREFIX) && /\.xlsx$/i.test(filename);
         });
-        if (!attachment) continue;
-        try {
-          const report = parseRevenueReport(attachment.content, credentials.marketCode);
-          for (const entry of report.markets) {
-            const saved = saveRevenueEntry(db, entry, { messageId, subject: parsed.subject || message.envelope?.subject || "" });
-            if (entry.marketCode === report.primary.marketCode) latest = saved;
+        if (!attachments.length) continue;
+        let importedFromMessage = 0;
+        for (const attachment of attachments) {
+          try {
+            const report = parseRevenueAttachment(attachment.content, credentials.marketCode);
+            const source = { messageId, subject: parsed.subject || message.envelope?.subject || "" };
+            if (report.type === "produce-articles") {
+              saveProduceArticleEntry(db, report, source);
+            } else {
+              for (const entry of report.markets) {
+                const saved = report.type === "produce-markets"
+                  ? saveProduceRevenueEntry(db, entry, source)
+                  : saveRevenueEntry(db, entry, source);
+                if (report.type === "market" && entry.marketCode === report.primary.marketCode) latest = saved;
+              }
+            }
+            imported += 1;
+            importedFromMessage += 1;
+          } catch (error) {
+            if (/Markt|Umsatzdatum|Umsatz-Tabelle|Artikelbericht|Artikelüberschriften/.test(error.message || "")) continue;
+            throw error;
           }
-          imported += 1;
+        }
+        if (importedFromMessage) {
           processed.add(messageId);
           await client.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
-        } catch (error) {
-          if (/Markt|Umsatzdatum|Umsatz-Tabelle/.test(error.message || "")) continue;
-          throw error;
         }
       }
     } finally {
       lock.release();
     }
     state.processedMessageIds = Array.from(processed).slice(-200);
+    state.reportSchemaVersion = 2;
     state.lastSuccessAt = new Date().toISOString();
     state.lastResult = imported ? `${imported} Umsatzbericht(e) importiert.` : "Keine neue passende Umsatzmail gefunden.";
     return { ok: true, imported, entry: latest, message: state.lastResult };
@@ -1572,11 +1728,10 @@ function revenueAutoImportDue(db) {
   const credentials = revenueCredentials(db);
   if (!credentials.email || !credentials.password || berlinHour() < 8) return false;
   const state = db.revenueImport || {};
-  const today = berlinDay();
-  const successfulToday = state.lastSuccessAt && berlinDay(state.lastSuccessAt) === today && /^\d+ Umsatzbericht/.test(state.lastResult || "") && !/^0 Umsatzbericht/.test(state.lastResult || "");
-  if (successfulToday) return false;
   const lastRun = state.lastRunAt ? new Date(state.lastRunAt).getTime() : 0;
-  return !lastRun || Date.now() - lastRun >= 45 * 60 * 1000;
+  // Both daily exports may arrive a few minutes apart. Keep checking after the
+  // first successful import so the second mail is not postponed until tomorrow.
+  return !lastRun || Date.now() - lastRun >= 15 * 60 * 1000;
 }
 
 async function ensureAutomaticRevenueImport() {
@@ -1709,16 +1864,24 @@ async function handleApi(req, res, pathname, requestUrl) {
       if (!base64) return json(res, 400, { error: "Bitte eine Umsatz-Exceldatei auswaehlen." });
       const db = await readDb();
       const credentials = revenueCredentials(db);
-      const report = parseRevenueReport(Buffer.from(base64, "base64"), credentials.marketCode);
+      const report = parseRevenueAttachment(Buffer.from(base64, "base64"), credentials.marketCode);
       let saved = null;
-      for (const entry of report.markets) {
-        const current = saveRevenueEntry(db, entry, { subject: `Manueller Import: ${String(body.filename || "Umsatzdatei")}` });
-        if (entry.marketCode === report.primary.marketCode) saved = current;
+      const source = { subject: `Manueller Import: ${String(body.filename || "Umsatzdatei")}` };
+      let message = "";
+      if (report.type === "produce-articles") {
+        saved = saveProduceArticleEntry(db, report, source);
+        message = `${report.articles.length} Obst-Artikel für ${report.date} wurden übernommen.`;
+      } else {
+        for (const entry of report.markets) {
+          const current = report.type === "produce-markets" ? saveProduceRevenueEntry(db, entry, source) : saveRevenueEntry(db, entry, source);
+          if (entry.marketCode === report.primary.marketCode) saved = current;
+        }
+        message = `${report.markets.length} ${report.type === "produce-markets" ? "Obst-Märkte" : "Märkte"} für ${report.date} wurden übernommen.`;
       }
       db.revenueImport.lastRunAt = new Date().toISOString();
       db.revenueImport.lastSuccessAt = new Date().toISOString();
       db.revenueImport.lastError = "";
-      db.revenueImport.lastResult = `${report.markets.length} Maerkte fuer ${report.date} wurden aus der Datei uebernommen.`;
+      db.revenueImport.lastResult = message;
       await writeDb(db);
       return json(res, 200, { ok: true, entry: saved, message: db.revenueImport.lastResult, revenue: publicRevenueState(db) });
     }
