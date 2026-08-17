@@ -12,18 +12,20 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "mehrwochen-krankmeldung-vorschau-20260804";
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
-const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
+const BUILD_VERSION = "push-erneut-krank-navigation-20260817";
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const PUSH_CONTACT = process.env.PUSH_CONTACT || "";
 let pgPool = null;
 let webPush = null;
 
-try {
-  webPush = require("web-push");
-  webPush.setVapidDetails(PUSH_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-} catch {
-  webPush = null;
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && PUSH_CONTACT) {
+  try {
+    webPush = require("web-push");
+    webPush.setVapidDetails(PUSH_CONTACT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  } catch {
+    webPush = null;
+  }
 }
 
 const MIME = {
@@ -1502,6 +1504,22 @@ async function handleApi(req, res, pathname) {
       const push = notifyMode === "none" ? { sent: 0, removed: 0, skipped: true, mode: notifyMode } : await sendPlanPush(db, plan, notifyMode, null, { pushMessage: body.pushMessage });
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: true }), push });
+    }
+
+    if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/notify$/) && req.method === "POST") {
+      if (!requireAdmin(req, res)) return;
+      const id = decodeURIComponent(pathname.split("/")[4]);
+      const body = await readBody(req);
+      const db = await readDb();
+      const plan = db.plans.find(item => item.id === id);
+      if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
+      if (!publishedIds(db).includes(id)) return json(res, 400, { error: "Nur veroeffentlichte Plaene koennen erneut benachrichtigt werden." });
+      const notifyMode = ["all", "affected", "leadership", "affected_leadership"].includes(body.notifyMode)
+        ? body.notifyMode
+        : "all";
+      const push = await safeSendPlanPush(db, plan, notifyMode, null, { pushMessage: body.pushMessage });
+      await writeDb(db);
+      return json(res, 200, { ok: true, push });
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/unpublish$/) && req.method === "POST") {

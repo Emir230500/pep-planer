@@ -122,6 +122,7 @@ function showTeamShifts(data) {
       <button class="${activeViewPanel === "own" ? "active" : ""}" data-view-panel="own" type="button">Mein Plan</button>
       <button class="${activeViewPanel === "team" ? "active" : ""}" data-view-panel="team" type="button">Teamplan</button>
       <button class="${activeViewPanel === "week" ? "active" : ""}" data-view-panel="week" type="button">Wochenplan</button>
+      <button class="${activeViewPanel === "sick" ? "active" : ""}" data-view-panel="sick" type="button">Krank melden</button>
       ${data.canManage ? `<button class="${activeViewPanel === "manage" ? "active" : ""}" data-view-panel="manage" type="button">Verwalten</button>` : ""}
     </nav>
     <section class="own-plan-block view-panel ${activeViewPanel === "own" ? "" : "hidden"}" data-view-content="own">
@@ -135,9 +136,8 @@ function showTeamShifts(data) {
     <section class="team-plan-block view-panel ${activeViewPanel === "team" ? "" : "hidden"}" data-view-content="team">
       <div class="team-section-head">
         <h2>Teamplan</h2>
-        <button id="showTeamSick" class="mini-button secondary" type="button">Krank melden</button>
       </div>
-      ${activeViewPanel === "team" ? `${renderTeamSickForm()}${renderTeamEditForm()}` : ""}
+      ${activeViewPanel === "team" ? renderTeamEditForm() : ""}
       <nav class="week-nav">
         ${teamWeeks.map(week => `<button class="${week.isCurrent ? "active" : ""}" data-week-target="team-kw-${week.year}-${week.week}">KW ${week.week}</button>`).join("")}
       </nav>
@@ -163,6 +163,15 @@ function showTeamShifts(data) {
       </nav>
       ${teamWeeks.map(week => renderWeekOverview(week)).join("")}
     </section>
+    <section class="sick-plan-block view-panel ${activeViewPanel === "sick" ? "" : "hidden"}" data-view-content="sick">
+      <div class="team-section-head">
+        <div>
+          <h2>Krankmeldung</h2>
+          <p class="hint">Person und einzelne Tage oder eine ganze Kalenderwoche auswaehlen.</p>
+        </div>
+      </div>
+      ${activeViewPanel === "sick" ? (teamSickEntry ? renderTeamSickForm() : '<button id="showTeamSick" type="button">Mitarbeiter krank melden</button>') : ""}
+    </section>
     ${data.canManage ? `
       <section class="manage-plan-block view-panel ${activeViewPanel === "manage" ? "" : "hidden"}" data-view-content="manage">
         <div class="team-section-head">
@@ -179,6 +188,13 @@ function showTeamShifts(data) {
   document.querySelectorAll("[data-view-panel]").forEach(button => {
     button.addEventListener("click", () => {
       const target = button.dataset.viewPanel;
+      if (target === "sick" && !teamSickEntry) {
+        teamEditShift = null;
+        teamSickEntry = newTeamSickEntry();
+        activeViewPanel = "sick";
+        showTeamShifts(currentTeamData);
+        return;
+      }
       activeViewPanel = target;
       document.querySelectorAll("[data-view-panel]").forEach(item => item.classList.toggle("active", item === button));
       document.querySelectorAll("[data-view-content]").forEach(panel => {
@@ -257,7 +273,7 @@ function showTeamShifts(data) {
     }
     teamEditShift = null;
     teamSickEntry = newTeamSickEntry();
-    activeViewPanel = "team";
+    activeViewPanel = "sick";
     showTeamShifts(currentTeamData);
     document.querySelector("#teamSickBox")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });

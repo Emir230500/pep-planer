@@ -433,6 +433,7 @@ button:disabled {
   #shiftList > .own-plan-block,
   #shiftList > .team-plan-block,
   #shiftList > .week-overview-block,
+  #shiftList > .sick-plan-block,
   #shiftList > .manage-plan-block {
     width: 100%;
   }
@@ -2410,6 +2411,10 @@ button:disabled {
 
 .edit-date-chip.selected span {
   color: rgba(255, 255, 255, 0.82);
+}
+
+.edit-date-chip.selected strong {
+  color: #fff;
 }
 
 .issue-box p {

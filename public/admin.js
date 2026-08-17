@@ -158,7 +158,7 @@ document.querySelector("#parseTextBtn")?.addEventListener("click", () => {
 });
 
 document.querySelector("#publishChoice")?.addEventListener("click", async event => {
-  const button = event.target.closest("[data-publish-confirm], [data-publish-cancel]");
+  const button = event.target.closest("[data-publish-confirm], [data-notify-confirm], [data-publish-cancel]");
   if (!button) return;
   const box = document.querySelector("#publishChoice");
   if (button.dataset.publishCancel) {
@@ -166,15 +166,32 @@ document.querySelector("#publishChoice")?.addEventListener("click", async event 
     box.innerHTML = "";
     return;
   }
-  const notifyMode = document.querySelector("input[name='publishNotifyMode']:checked")?.value || "none";
-  const pushMessage = document.querySelector("#publishPushMessage")?.value || "";
-  await api(`/api/admin/plans/${encodeURIComponent(button.dataset.publishConfirm)}/publish`, {
-    method: "POST",
-    body: { notifyMode, pushMessage }
-  });
-  box.classList.add("hidden");
-  box.innerHTML = "";
-  await loadAdmin();
+  const planMsg = document.querySelector("#planActionMsg");
+  try {
+    const notifyMode = document.querySelector("input[name='publishNotifyMode']:checked")?.value || "all";
+    const pushMessage = document.querySelector("#publishPushMessage")?.value || "";
+    const isResend = Boolean(button.dataset.notifyConfirm);
+    const planId = button.dataset.notifyConfirm || button.dataset.publishConfirm;
+    const result = await api(`/api/admin/plans/${encodeURIComponent(planId)}/${isResend ? "notify" : "publish"}`, {
+      method: "POST",
+      body: { notifyMode, pushMessage }
+    });
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    await loadAdmin();
+    if (planMsg) {
+      planMsg.textContent = isResend
+        ? `Benachrichtigung erneut gesendet: ${result.push?.sent || 0} Geraet(e) erreicht.`
+        : "Plan wurde veroeffentlicht.";
+      planMsg.classList.remove("error");
+    }
+  } catch (error) {
+    const actionMsg = document.querySelector("#publishActionMsg");
+    if (actionMsg) {
+      actionMsg.textContent = error.message;
+      actionMsg.classList.add("error");
+    }
+  }
 });
 
 document.querySelector("#openPepBrowserBtn")?.addEventListener("click", async () => {
@@ -507,7 +524,8 @@ function renderPlans(plans) {
       <div class="actions">
         <button class="secondary" data-inspect="${escapeHtml(plan.id)}">Pruefen</button>
         ${plan.isPublished
-          ? `<button class="secondary" data-unpublish="${escapeHtml(plan.id)}">Zuruecknehmen</button>`
+          ? `<button class="secondary" data-notify="${escapeHtml(plan.id)}">Erneut benachrichtigen</button>
+             <button class="secondary" data-unpublish="${escapeHtml(plan.id)}">Zuruecknehmen</button>`
           : `<button data-publish="${escapeHtml(plan.id)}">Veroeffentlichen</button>`}
         <button class="danger" data-delete="${escapeHtml(plan.id)}">Loeschen</button>
       </div>
@@ -524,6 +542,9 @@ function renderPlans(plans) {
   });
   document.querySelectorAll("[data-publish]").forEach(button => {
     button.addEventListener("click", () => showPublishChoice(button.dataset.publish));
+  });
+  document.querySelectorAll("[data-notify]").forEach(button => {
+    button.addEventListener("click", () => showResendChoice(button.dataset.notify));
   });
   document.querySelectorAll("[data-unpublish]").forEach(button => {
     button.addEventListener("click", async () => {
@@ -569,6 +590,53 @@ function showPublishChoice(planId) {
     </div>
   `;
   box.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function showResendChoice(planId) {
+  const plan = (adminState.plans || []).find(item => item.id === planId);
+  const box = document.querySelector("#publishChoice");
+  if (!box || !plan) return;
+  activeAdminViewPanel = "manage";
+  renderAdminViewSwitch();
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <h2>Benachrichtigung erneut senden</h2>
+    <p class="hint">${escapeHtml(plan.title)} ${plan.range ? `(${escapeHtml(plan.range)})` : ""} ist bereits veroeffentlicht.</p>
+    <div class="publish-options">
+      ${renderPublishOption("all", "Alle Mitarbeiter", "Alle Personen mit aktiver Push-Benachrichtigung.", "all")}
+      ${plan.changeCount ? renderPublishOption("affected", "Nur betroffene Mitarbeiter", "Nur Personen mit Aenderungen in diesem Plan.", "all") : ""}
+      ${renderPublishOption("leadership", "Team Marktleitung", "Nur die freigegebenen Marktleiter.", "all")}
+      ${plan.changeCount ? renderPublishOption("affected_leadership", "Betroffene + Marktleitung", "Betroffene Personen und Team Marktleitung.", "all") : ""}
+    </div>
+    <label>Nachricht
+      <textarea id="publishPushMessage" maxlength="180" placeholder="Leer lassen = Hinweis auf den veroeffentlichten Plan"></textarea>
+    </label>
+    <div id="resendPreview" class="sick-preview"></div>
+    <p id="publishActionMsg" class="msg"></p>
+    <div class="actions">
+      <button data-notify-confirm="${escapeHtml(plan.id)}" type="button">Jetzt benachrichtigen</button>
+      <button data-publish-cancel="1" class="secondary" type="button">Abbrechen</button>
+    </div>
+  `;
+  const updatePreview = () => updateResendPreview(plan);
+  box.querySelectorAll("input[name='publishNotifyMode']").forEach(input => input.addEventListener("change", updatePreview));
+  box.querySelector("#publishPushMessage")?.addEventListener("input", updatePreview);
+  updatePreview();
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function updateResendPreview(plan) {
+  const preview = document.querySelector("#resendPreview");
+  if (!preview) return;
+  const selected = document.querySelector("input[name='publishNotifyMode']:checked");
+  const recipient = selected?.closest("label")?.querySelector("b")?.textContent || "Alle Mitarbeiter";
+  const custom = document.querySelector("#publishPushMessage")?.value.trim();
+  const message = custom || `${plan.title || "Der Dienstplan"} ist bereits veroeffentlicht. Bitte pruefe deinen Plan.`;
+  preview.innerHTML = `
+    <strong>Vorschau</strong>
+    <p><b>Empfaenger:</b> ${escapeHtml(recipient)}</p>
+    <small>${escapeHtml(message)}</small>
+  `;
 }
 
 function renderPublishOption(value, title, text, selected) {
@@ -1082,11 +1150,12 @@ function renderInspection() {
       syncSickEntryFormState();
       const value = button.dataset.sickDateChoice;
       const current = new Set(sickEntry.dates || []);
-      if (current.has(value) && current.size > 1) current.delete(value);
+      if (current.has(value)) current.delete(value);
       else current.add(value);
-      sickEntry.dates = Array.from(current);
-      sickEntry.date = sickEntry.dates[0] || value;
+      sickEntry.dates = Array.from(current).sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
+      sickEntry.date = sickEntry.dates[0] || "";
       sickEntry.wholeWeek = false;
+      button.blur();
       renderInspection();
     });
   });
