@@ -76,6 +76,19 @@ body {
   line-height: 1;
 }
 
+.kpi-logout-button {
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid #c9ced8;
+  border-radius: 14px;
+  color: #25272b;
+  min-height: 46px;
+  padding: 0 18px;
+}
+
+.kpi-logout-button:hover {
+  background: #fff;
+}
+
 .push-box {
   display: flex;
   align-items: center;
@@ -3629,11 +3642,13 @@ select {
   }
 
   .top-actions,
-  .kpi-plan-button {
+  .kpi-plan-button,
+  .kpi-logout-button {
     width: 100%;
   }
 
-  .kpi-plan-button {
+  .kpi-plan-button,
+  .kpi-logout-button {
     min-height: 50px;
   }
 

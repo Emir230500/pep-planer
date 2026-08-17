@@ -679,4 +679,14 @@ async function loadKpis() {
   }
 }
 
+document.querySelector("#kpiLogoutBtn")?.addEventListener("click", async () => {
+  const button = document.querySelector("#kpiLogoutBtn");
+  if (button) button.disabled = true;
+  try {
+    await fetch("/api/logout", { method: "POST", headers: { accept: "application/json" } });
+  } finally {
+    location.replace("/");
+  }
+});
+
 loadKpis();
