@@ -83,6 +83,12 @@ body {
   margin: -4px 0 16px;
 }
 
+.session-loading-text {
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+}
+
 .push-box button {
   width: auto;
 }
@@ -226,6 +232,191 @@ h2 {
   font-size: 20px;
 }
 
+.kpi-trend-card,
+.kpi-warning-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin-top: 16px;
+  padding: 18px;
+}
+
+.kpi-trend-head {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.kpi-trend-head small,
+.kpi-warning-head small,
+.kpi-trend-current small {
+  color: var(--muted);
+}
+
+.kpi-trend-head h2,
+.kpi-warning-head h2 {
+  margin: 3px 0 0;
+}
+
+.kpi-trend-controls {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.kpi-trend-switch,
+.kpi-range-switch {
+  background: #f2f2f7;
+  border-radius: 11px;
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+}
+
+.kpi-range-switch {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.kpi-trend-switch button,
+.kpi-range-switch button {
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  box-shadow: none;
+  color: #4b4b50;
+  font-size: 13px;
+  min-height: 36px;
+  padding: 7px 12px;
+  white-space: nowrap;
+  width: auto;
+}
+
+.kpi-trend-switch button.active,
+.kpi-range-switch button.active {
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  color: #111;
+}
+
+.kpi-trend-current {
+  margin-top: 18px;
+}
+
+.kpi-trend-current small,
+.kpi-trend-current strong {
+  display: block;
+}
+
+.kpi-trend-current strong {
+  font-size: 26px;
+  margin-top: 2px;
+}
+
+.kpi-trend-svg {
+  display: block;
+  height: auto;
+  margin-top: -6px;
+  overflow: visible;
+  width: 100%;
+}
+
+.kpi-trend-gridline {
+  stroke: #e6e6eb;
+  stroke-width: 1;
+}
+
+.kpi-trend-area {
+  fill: url(#trendArea);
+}
+
+.kpi-trend-line {
+  fill: none;
+  stroke: #0a84ff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 5;
+}
+
+.kpi-trend-point {
+  fill: #fff;
+  stroke: #0a84ff;
+  stroke-width: 4;
+}
+
+.kpi-trend-date {
+  fill: #74747a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.kpi-trend-hint,
+.kpi-trend-empty {
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+}
+
+.kpi-warning-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.kpi-warning-item {
+  align-items: center;
+  background: #f2f8ff;
+  border: 1px solid #cfe5ff;
+  border-radius: 13px;
+  display: flex;
+  gap: 12px;
+  padding: 13px;
+}
+
+.kpi-warning-item.danger {
+  background: #fff1f0;
+  border-color: #ffc7c2;
+}
+
+.kpi-warning-item.warning {
+  background: #fff8e8;
+  border-color: #f5d48b;
+}
+
+.kpi-warning-item.good {
+  background: #effaf3;
+  border-color: #bfe4ca;
+}
+
+.kpi-warning-icon {
+  align-items: center;
+  background: #0a84ff;
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 30px;
+  font-size: 17px;
+  font-weight: 900;
+  height: 30px;
+  justify-content: center;
+}
+
+.kpi-warning-item.danger .kpi-warning-icon { background: #d92d20; }
+.kpi-warning-item.warning .kpi-warning-icon { background: #d98200; }
+.kpi-warning-item.good .kpi-warning-icon { background: #248a3d; }
+
+.kpi-warning-item strong,
+.kpi-warning-item small {
+  display: block;
+}
+
+.kpi-warning-item small {
+  color: var(--muted);
+  margin-top: 2px;
+}
+
 .revenue-details {
   background: #fff;
   border: 1px solid var(--line);
@@ -239,6 +430,112 @@ h2 {
   font-size: 18px;
   font-weight: 800;
   padding: 16px 0;
+}
+
+.market-comparison-cards {
+  display: none;
+}
+
+.market-comparison-card {
+  background: #fff;
+  border: 1px solid #dedee3;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.market-comparison-card.own {
+  background: #f0f7ff;
+  border-color: #69adf5;
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.1);
+}
+
+.market-comparison-card header {
+  align-items: center;
+  display: grid;
+  gap: 9px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.market-comparison-card header strong {
+  line-height: 1.25;
+}
+
+.market-rank {
+  align-items: center;
+  background: #ededf2;
+  border-radius: 9px;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  height: 30px;
+  justify-content: center;
+  min-width: 38px;
+}
+
+.market-comparison-card.own .market-rank {
+  background: #0a84ff;
+  color: #fff;
+}
+
+.own-market-badge {
+  background: #dceeff;
+  border-radius: 999px;
+  color: #0066cc;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 7px;
+  white-space: nowrap;
+}
+
+.market-card-main {
+  align-items: end;
+  border-bottom: 1px solid #ececf0;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-bottom: 12px;
+}
+
+.market-card-main small,
+.market-card-main strong,
+.market-card-facts small,
+.market-card-facts strong {
+  display: block;
+}
+
+.market-card-main small,
+.market-card-facts small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.market-card-main strong {
+  font-size: 24px;
+  margin-top: 2px;
+}
+
+.market-card-change {
+  background: #edf8f0;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 6px 8px;
+}
+
+.market-card-change.negative {
+  background: #fff0ef;
+}
+
+.market-card-facts {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.market-card-facts strong {
+  font-size: 14px;
+  margin-top: 3px;
 }
 
 .revenue-detail-grid {
@@ -3091,6 +3388,48 @@ select {
   .revenue-summary-grid,
   .revenue-detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kpi-trend-card,
+  .kpi-warning-card {
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .kpi-trend-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .kpi-trend-controls,
+  .kpi-trend-switch,
+  .kpi-range-switch {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .kpi-trend-switch button,
+  .kpi-range-switch button {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .kpi-trend-current strong {
+    font-size: 23px;
+  }
+
+  .kpi-market-comparison .revenue-table-wrap {
+    display: none;
+  }
+
+  .market-comparison-cards {
+    display: grid;
+    gap: 10px;
+  }
+
+  .kpi-market-comparison {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .revenue-kpis strong {

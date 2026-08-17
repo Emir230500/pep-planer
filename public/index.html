@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Arbeitsplan</title>
-  <link rel="stylesheet" href="/styles.css?v=20260817-kpi-separate">
+  <link rel="stylesheet" href="/styles.css?v=20260817-kpi-curves-warnings">
 </head>
 <body>
   <main class="shell">
@@ -18,7 +18,11 @@
       </div>
     </section>
 
-    <section id="login" class="panel">
+    <section id="sessionLoading" class="panel">
+      <p class="session-loading-text">Anmeldung wird geprüft...</p>
+    </section>
+
+    <section id="login" class="panel hidden">
       <h2>Mitarbeiter-Login</h2>
       <form id="employeeLoginForm" autocomplete="off" data-form-type="other">
         <label>Name<input id="name" name="employee-display-name" autocomplete="off" data-1p-ignore data-lpignore="true" placeholder="z. B. Demircan, Emirkan"></label>
@@ -44,7 +48,7 @@
 
     <footer class="site-credit">Created by Demircan</footer>
   </main>
-  <script src="/app.js?v=20260817-autofill-fix-2"></script>
+  <script src="/app.js?v=20260817-kpi-session-start"></script>
 </body>
 </html>
 

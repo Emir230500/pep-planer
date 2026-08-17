@@ -1,4 +1,5 @@
 const login = document.querySelector("#login");
+const sessionLoading = document.querySelector("#sessionLoading");
 const plans = document.querySelector("#plans");
 const loginMsg = document.querySelector("#loginMsg");
 const shiftList = document.querySelector("#shiftList");
@@ -41,6 +42,7 @@ function reloadOnceAfterExpiredSession() {
 
 function showShifts(data) {
   sessionStorage.removeItem("sessionReloadedAfter401");
+  sessionLoading?.classList.add("hidden");
   login.classList.add("hidden");
   plans.classList.remove("hidden");
   plans.classList.remove("page-enter");
@@ -2183,6 +2185,7 @@ async function loadMine(options = {}) {
     }
     showShifts(data);
   } catch {
+    sessionLoading?.classList.add("hidden");
     login.classList.remove("hidden");
     plans.classList.add("hidden");
     adminLink?.classList.add("hidden");
@@ -2190,7 +2193,8 @@ async function loadMine(options = {}) {
   }
 }
 
-loadMine();
+const explicitPlanView = new URLSearchParams(window.location.search).get("view") === "plan";
+loadMine({ openKpiForLeadership: !explicitPlanView });
 
 function clearMisplacedMailAutofill() {
   const nameInput = document.querySelector("#name");

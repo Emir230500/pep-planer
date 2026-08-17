@@ -12,7 +12,7 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "kpi-autofill-fix-20260817";
+const BUILD_VERSION = "kpi-mobile-market-cards-20260817";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const DEFAULT_GMX_EMAIL = process.env.GMX_EMAIL || "edemircan@gmx.net";
 const REVENUE_REPORT_SENDER = String(process.env.REVENUE_REPORT_SENDER || "NoReplyBerichtsexport@edeka.de").trim().toLowerCase();
@@ -329,6 +329,10 @@ function initialsFromName(name) {
 
 function canSeeTeamPlan(name) {
   return teamLeadershipNames().some(leader => employeeNameMatches(leader, name));
+}
+
+function canSeeRevenue(name) {
+  return employeeNameMatches("Demircan, Emirkan", name);
 }
 
 function canManagePlans(name) {
@@ -2031,7 +2035,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     if (pathname === "/api/me/revenue" && req.method === "GET") {
       const name = requireEmployee(req, res);
       if (!name) return;
-      if (!canSeeTeamPlan(name)) return json(res, 403, { error: "Die KPIs sind nur fuer die Marktleitung freigegeben." });
+      if (!canSeeRevenue(name)) return json(res, 403, { error: "Die KPIs sind nur fuer Demircan, Emirkan freigegeben." });
       await ensureAutomaticRevenueImport();
       const db = await readDb();
       return json(res, 200, { name, revenue: leadershipRevenueState(db) });
@@ -2065,7 +2069,7 @@ async function handleApi(req, res, pathname, requestUrl) {
         name,
         teamView,
         canManage,
-        canSeeRevenue: teamView,
+        canSeeRevenue: canSeeRevenue(name),
         employees: teamView ? allKnownEmployeeNames(db) : [],
         plans
       });
