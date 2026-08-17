@@ -12,7 +12,7 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "kpi-produce-dashboard-20260817";
+const BUILD_VERSION = "kpi-produce-total-fix-20260817";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const DEFAULT_GMX_EMAIL = process.env.GMX_EMAIL || "edemircan@gmx.net";
 const REVENUE_REPORT_SENDER = String(process.env.REVENUE_REPORT_SENDER || "NoReplyBerichtsexport@edeka.de").trim().toLowerCase();
@@ -1318,7 +1318,15 @@ function publicRevenueState(db) {
   const credentials = revenueCredentials(db);
   const settings = db.revenueSettings || {};
   const state = db.revenueImport || {};
-  const allEntries = (db.revenueEntries || []).slice();
+  // Older app versions could store an Obst-&-Gemüse market report in the
+  // Gesamtmarkt collection. Exclude those exact duplicates so an Obst value
+  // can never appear as the total-market value or produce a false 100% share.
+  const produceEntryKeys = new Set((db.produceRevenueEntries || []).map(item =>
+    `${item.date}|${item.marketCode}|${Math.round((Number(item.revenue) || 0) * 100)}`
+  ));
+  const allEntries = (db.revenueEntries || []).filter(item => !produceEntryKeys.has(
+    `${item.date}|${item.marketCode}|${Math.round((Number(item.revenue) || 0) * 100)}`
+  ));
   const entries = allEntries
     .filter(item => String(item.marketCode) === String(credentials.marketCode))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
@@ -1598,6 +1606,14 @@ function saveProduceRevenueEntry(db, entry, source = {}) {
   if (index >= 0) db.produceRevenueEntries[index] = saved;
   else db.produceRevenueEntries.push(saved);
   db.produceRevenueEntries = db.produceRevenueEntries.slice().sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-8000);
+  // Clean up a legacy misclassification from releases that did not yet
+  // distinguish the department report from the total-market report.
+  const savedRevenueCents = Math.round((Number(saved.revenue) || 0) * 100);
+  db.revenueEntries = (db.revenueEntries || []).filter(item => !(
+    item.date === saved.date
+    && String(item.marketCode) === String(saved.marketCode)
+    && Math.round((Number(item.revenue) || 0) * 100) === savedRevenueCents
+  ));
   return saved;
 }
 
@@ -1644,7 +1660,7 @@ async function importRevenueFromGmx(db) {
   state.lastRunAt = new Date().toISOString();
   state.lastError = "";
   const processed = new Set(state.processedMessageIds || []);
-  const forceSchemaRescan = Number(state.reportSchemaVersion || 0) < 2;
+  const forceSchemaRescan = Number(state.reportSchemaVersion || 0) < 3;
   const client = new ImapFlow({
     host: "imap.gmx.net", port: 993, secure: true,
     auth: { user: credentials.email, pass: credentials.password }, logger: false
@@ -1702,7 +1718,7 @@ async function importRevenueFromGmx(db) {
       lock.release();
     }
     state.processedMessageIds = Array.from(processed).slice(-200);
-    state.reportSchemaVersion = 2;
+    state.reportSchemaVersion = 3;
     state.lastSuccessAt = new Date().toISOString();
     state.lastResult = imported ? `${imported} Umsatzbericht(e) importiert.` : "Keine neue passende Umsatzmail gefunden.";
     return { ok: true, imported, entry: latest, message: state.lastResult };
