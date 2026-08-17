@@ -170,20 +170,20 @@ document.querySelector("#publishChoice")?.addEventListener("click", async event 
   try {
     const notifyMode = document.querySelector("input[name='publishNotifyMode']:checked")?.value || "all";
     const pushMessage = document.querySelector("#publishPushMessage")?.value || "";
+    const notifyNames = Array.from(document.querySelectorAll(".resend-person-name:checked")).map(input => input.value);
     const isResend = Boolean(button.dataset.notifyConfirm);
     const planId = button.dataset.notifyConfirm || button.dataset.publishConfirm;
     const result = await api(`/api/admin/plans/${encodeURIComponent(planId)}/${isResend ? "notify" : "publish"}`, {
       method: "POST",
-      body: { notifyMode, pushMessage }
+      body: { notifyMode, pushMessage, notifyNames }
     });
     box.classList.add("hidden");
     box.innerHTML = "";
     await loadAdmin();
     if (planMsg) {
-      planMsg.textContent = isResend
-        ? `Benachrichtigung erneut gesendet: ${result.push?.sent || 0} Geraet(e) erreicht.`
-        : "Plan wurde veroeffentlicht.";
-      planMsg.classList.remove("error");
+      const delivery = pushDeliveryMessage(result.push);
+      planMsg.textContent = isResend ? delivery : `Plan wurde veroeffentlicht. ${delivery}`;
+      planMsg.classList.toggle("error", pushDeliveryFailed(result.push));
     }
   } catch (error) {
     const actionMsg = document.querySelector("#publishActionMsg");
@@ -284,6 +284,7 @@ async function loadAdmin() {
     try {
       renderAdminViewSwitch();
       renderActivePlan(data.publishedPlans || []);
+      renderAdminPushStatus(data.pushStatus);
       renderPepCorrections(data.pepCorrections || []);
       renderPlans(data.plans);
       renderPins(data.employees);
@@ -308,6 +309,30 @@ async function loadAdmin() {
     loginBox.classList.remove("hidden");
     adminArea.classList.add("hidden");
   }
+}
+
+function renderAdminPushStatus(status = {}) {
+  const box = document.querySelector("#pushAdminStatus");
+  if (!box) return;
+  const subscriptions = Number(status.subscriptions || 0);
+  box.textContent = status.enabled
+    ? `Push ist bei Render aktiv. ${subscriptions} Geraet(e) sind aktuell angemeldet.`
+    : "Push ist bei Render nicht aktiv. Bitte VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY und PUSH_CONTACT pruefen.";
+  box.classList.toggle("error", !status.enabled || subscriptions === 0);
+}
+
+function pushDeliveryFailed(push = {}) {
+  return push.mode !== "none" && Number(push.sent || 0) === 0;
+}
+
+function pushDeliveryMessage(push = {}) {
+  if (push.mode === "none") return "Keine Benachrichtigung versendet.";
+  const sent = Number(push.sent || 0);
+  const failed = Number(push.failed || 0);
+  if (sent > 0) {
+    return `Benachrichtigung gesendet: ${sent} Geraet(e) erreicht${failed ? `, ${failed} fehlgeschlagen` : ""}.`;
+  }
+  return `Keine Benachrichtigung zugestellt. ${push.reason || (failed ? `${failed} Versandversuch(e) sind fehlgeschlagen.` : "Keine aktiven Push-Geraete gefunden.")}`;
 }
 
 function renderAdminViewSwitch() {
@@ -576,8 +601,17 @@ function showPublishChoice(planId) {
       ${renderPublishOption("affected", "Nur betroffene Mitarbeiter", "Nur Mitarbeiter mit erkannter Aenderung bekommen eine Nachricht.", recommended)}
       ${renderPublishOption("affected_leadership", "Betroffene + Team Marktleitung", "Geaenderte Mitarbeiter und Marktleitung bekommen eine Nachricht.", recommended)}
       ${renderPublishOption("leadership", "Team Marktleitung", "Nur Marktleitung/Teamplan-Freigabe bekommt eine Nachricht.", recommended)}
+      ${renderPublishOption("selected_people", "Einzelne Personen auswaehlen", "Nur die von dir ausgewaehlten Personen bekommen eine Nachricht.", recommended)}
       ${renderPublishOption("none", "Niemand benachrichtigen", "Plan wird veroeffentlicht, aber ohne Push-Nachricht.", recommended)}
     </div>
+    <details id="publishPersonPicker" class="person-picker hidden" open>
+      <summary>Personen fuer Benachrichtigung auswaehlen</summary>
+      <div class="leadership-checks">
+        ${(adminState.employees || []).map(employee => `
+          <label><input type="checkbox" class="resend-person-name" value="${escapeHtml(employee.name)}"> ${escapeHtml(employee.name)}</label>
+        `).join("")}
+      </div>
+    </details>
     <details class="push-custom">
       <summary>+ Eigene Nachricht schreiben</summary>
       <label>Nachricht
@@ -589,6 +623,12 @@ function showPublishChoice(planId) {
       <button data-publish-cancel="1" class="secondary" type="button">Abbrechen</button>
     </div>
   `;
+  const updatePersonPicker = () => {
+    const selectedMode = box.querySelector("input[name='publishNotifyMode']:checked")?.value;
+    box.querySelector("#publishPersonPicker")?.classList.toggle("hidden", selectedMode !== "selected_people");
+  };
+  box.querySelectorAll("input[name='publishNotifyMode']").forEach(input => input.addEventListener("change", updatePersonPicker));
+  updatePersonPicker();
   box.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -603,14 +643,27 @@ function showResendChoice(planId) {
     <h2>Benachrichtigung erneut senden</h2>
     <p class="hint">${escapeHtml(plan.title)} ${plan.range ? `(${escapeHtml(plan.range)})` : ""} ist bereits veroeffentlicht.</p>
     <div class="publish-options">
-      ${renderPublishOption("all", "Alle Mitarbeiter", "Alle Personen mit aktiver Push-Benachrichtigung.", "all")}
-      ${plan.changeCount ? renderPublishOption("affected", "Nur betroffene Mitarbeiter", "Nur Personen mit Aenderungen in diesem Plan.", "all") : ""}
-      ${renderPublishOption("leadership", "Team Marktleitung", "Nur die freigegebenen Marktleiter.", "all")}
-      ${plan.changeCount ? renderPublishOption("affected_leadership", "Betroffene + Marktleitung", "Betroffene Personen und Team Marktleitung.", "all") : ""}
+      ${renderPublishOption("all", "Alle Mitarbeiter benachrichtigen", "Alle mit Push-Aktivierung bekommen eine Nachricht.", "all")}
+      ${renderPublishOption("affected", "Nur betroffene Mitarbeiter", "Nur Mitarbeiter mit erkannter Aenderung bekommen eine Nachricht.", "all")}
+      ${renderPublishOption("affected_leadership", "Betroffene + Team Marktleitung", "Geaenderte Mitarbeiter und Marktleitung bekommen eine Nachricht.", "all")}
+      ${renderPublishOption("leadership", "Team Marktleitung", "Nur Marktleitung/Teamplan-Freigabe bekommt eine Nachricht.", "all")}
+      ${renderPublishOption("selected_people", "Einzelne Personen auswaehlen", "Nur die von dir ausgewaehlten Personen bekommen eine Nachricht.", "all")}
+      ${renderPublishOption("none", "Niemand benachrichtigen", "Es wird keine Push-Nachricht verschickt.", "all")}
     </div>
-    <label>Nachricht
-      <textarea id="publishPushMessage" maxlength="180" placeholder="Leer lassen = Hinweis auf den veroeffentlichten Plan"></textarea>
-    </label>
+    <details id="resendPersonPicker" class="person-picker hidden" open>
+      <summary>Personen fuer Benachrichtigung auswaehlen</summary>
+      <div class="leadership-checks">
+        ${(adminState.employees || []).map(employee => `
+          <label><input type="checkbox" class="resend-person-name" value="${escapeHtml(employee.name)}"> ${escapeHtml(employee.name)}</label>
+        `).join("")}
+      </div>
+    </details>
+    <details class="push-custom">
+      <summary>+ Eigene Nachricht schreiben</summary>
+      <label>Nachricht
+        <textarea id="publishPushMessage" maxlength="180" placeholder="Leer lassen = Hinweis auf den veroeffentlichten Plan"></textarea>
+      </label>
+    </details>
     <div id="resendPreview" class="sick-preview"></div>
     <p id="publishActionMsg" class="msg"></p>
     <div class="actions">
@@ -618,8 +671,13 @@ function showResendChoice(planId) {
       <button data-publish-cancel="1" class="secondary" type="button">Abbrechen</button>
     </div>
   `;
-  const updatePreview = () => updateResendPreview(plan);
+  const updatePreview = () => {
+    const selectedMode = box.querySelector("input[name='publishNotifyMode']:checked")?.value;
+    box.querySelector("#resendPersonPicker")?.classList.toggle("hidden", selectedMode !== "selected_people");
+    updateResendPreview(plan);
+  };
   box.querySelectorAll("input[name='publishNotifyMode']").forEach(input => input.addEventListener("change", updatePreview));
+  box.querySelectorAll(".resend-person-name").forEach(input => input.addEventListener("change", updatePreview));
   box.querySelector("#publishPushMessage")?.addEventListener("input", updatePreview);
   updatePreview();
   box.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -629,12 +687,19 @@ function updateResendPreview(plan) {
   const preview = document.querySelector("#resendPreview");
   if (!preview) return;
   const selected = document.querySelector("input[name='publishNotifyMode']:checked");
-  const recipient = selected?.closest("label")?.querySelector("b")?.textContent || "Alle Mitarbeiter";
+  const recipient = selected?.closest("label")?.querySelector("b")?.textContent || "Alle Mitarbeiter benachrichtigen";
   const custom = document.querySelector("#publishPushMessage")?.value.trim();
-  const message = custom || `${plan.title || "Der Dienstplan"} ist bereits veroeffentlicht. Bitte pruefe deinen Plan.`;
+  const noNotification = selected?.value === "none";
+  const selectedNames = Array.from(document.querySelectorAll(".resend-person-name:checked")).map(input => input.value);
+  const recipientText = selected?.value === "selected_people"
+    ? (selectedNames.length ? selectedNames.join(", ") : "Noch keine Person ausgewaehlt")
+    : recipient;
+  const message = noNotification
+    ? "Es wird keine Push-Nachricht verschickt."
+    : (custom || `${plan.title || "Der Dienstplan"} ist bereits veroeffentlicht. Bitte pruefe deinen Plan.`);
   preview.innerHTML = `
     <strong>Vorschau</strong>
-    <p><b>Empfaenger:</b> ${escapeHtml(recipient)}</p>
+    <p><b>Empfaenger:</b> ${escapeHtml(recipientText)}</p>
     <small>${escapeHtml(message)}</small>
   `;
 }

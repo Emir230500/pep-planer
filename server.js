@@ -12,10 +12,12 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "push-erneut-krank-navigation-20260817";
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-const PUSH_CONTACT = process.env.PUSH_CONTACT || "";
+const BUILD_VERSION = "push-reparatur-personenauswahl-20260817";
+// Keep the original key pair as a compatibility fallback so existing devices
+// continue receiving push messages until Render environment values are set.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
+const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
 let pgPool = null;
 let webPush = null;
 
@@ -1018,8 +1020,9 @@ function pushTargetKeys(plan, mode, targetNames = null) {
 }
 
 async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options = {}) {
-  if (!webPush || !Array.isArray(db.pushSubscriptions) || !db.pushSubscriptions.length) {
-    return { sent: 0, removed: 0 };
+  if (!webPush) return { sent: 0, removed: 0, failed: 0, skipped: true, mode, reason: "Push ist bei Render nicht eingerichtet." };
+  if (!Array.isArray(db.pushSubscriptions) || !db.pushSubscriptions.length) {
+    return { sent: 0, removed: 0, failed: 0, skipped: true, mode, reason: "Keine Geraete haben Push aktiviert." };
   }
   const targetKeys = pushTargetKeys(plan, mode, targetNames);
   const subscriptions = targetKeys
@@ -1041,6 +1044,7 @@ async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options
 
   let sent = 0;
   let removed = 0;
+  let failed = 0;
   const targetEndpoints = new Set(subscriptions.map(saved => (saved.subscription || saved).endpoint).filter(Boolean));
   const alive = db.pushSubscriptions.filter(saved => !targetEndpoints.has((saved.subscription || saved).endpoint));
   for (const saved of subscriptions) {
@@ -1052,19 +1056,23 @@ async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options
       if (error.statusCode === 404 || error.statusCode === 410) {
         removed += 1;
       } else {
+        failed += 1;
         alive.push(saved);
       }
     }
   }
   db.pushSubscriptions = alive;
-  return { sent, removed, mode, affected: targetKeys ? Array.from(targetKeys) : [] };
+  const reason = !sent && failed
+    ? "Der Push-Dienst hat den Versand abgelehnt. VAPID-Schluessel und erneute Push-Aktivierung pruefen."
+    : (!sent && subscriptions.length === 0 ? "Fuer diese Empfaengerauswahl ist kein Push-Geraet angemeldet." : "");
+  return { sent, removed, failed, mode, reason, affected: targetKeys ? Array.from(targetKeys) : [] };
 }
 
 async function safeSendPlanPush(db, plan, mode = "auto", targetNames = null, options = {}) {
   try {
     return await sendPlanPush(db, plan, mode, targetNames, options);
   } catch (error) {
-    return { sent: 0, removed: 0, skipped: true, mode, error: error.message || "Push fehlgeschlagen" };
+    return { sent: 0, removed: 0, failed: 1, skipped: true, mode, reason: "Push-Versand ist fehlgeschlagen.", error: error.message || "Push fehlgeschlagen" };
   }
 }
 
@@ -1310,6 +1318,7 @@ async function handleApi(req, res, pathname) {
         publishedPlans: publishedPlans.map(plan => publicPlan(plan)),
         plans: db.plans.map(plan => publicPlan(plan, { isPublished: ids.includes(plan.id), recommendedNotifyMode: defaultPublishNotifyMode(db, plan) })),
         employees: employeePublic(db),
+        pushStatus: { enabled: Boolean(webPush), subscriptions: Array.isArray(db.pushSubscriptions) ? db.pushSubscriptions.length : 0 },
         pepCorrections: publicPepCorrections(db)
       });
     }
@@ -1498,10 +1507,22 @@ async function handleApi(req, res, pathname) {
       if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
       const ids = publishedIds(db);
       if (!ids.includes(id)) ids.unshift(id);
-      const notifyMode = publishNotifyMode(db, plan, body.notifyMode);
+      const requestedMode = String(body.notifyMode || "");
+      const selectedNames = (Array.isArray(body.notifyNames) ? body.notifyNames : [])
+        .map(name => resolveKnownEmployeeName(db, name))
+        .filter(Boolean);
+      if (requestedMode === "selected_people" && !selectedNames.length) {
+        return json(res, 400, { error: "Bitte mindestens eine Person fuer die Benachrichtigung auswaehlen." });
+      }
+      const notifyMode = requestedMode === "selected_people" ? requestedMode : publishNotifyMode(db, plan, requestedMode);
       setPublishedIds(db, ids);
       plan.publishedAt = new Date().toISOString();
-      const push = notifyMode === "none" ? { sent: 0, removed: 0, skipped: true, mode: notifyMode } : await sendPlanPush(db, plan, notifyMode, null, { pushMessage: body.pushMessage });
+      const push = notifyMode === "none"
+        ? { sent: 0, removed: 0, skipped: true, mode: notifyMode }
+        : notifyMode === "selected_people"
+          ? await safeSendPlanPush(db, plan, "affected", selectedNames, { pushMessage: body.pushMessage })
+          : await safeSendPlanPush(db, plan, notifyMode, null, { pushMessage: body.pushMessage });
+      if (notifyMode === "selected_people") push.mode = notifyMode;
       await writeDb(db);
       return json(res, 200, { ok: true, plan: publicPlan(plan, { isPublished: true }), push });
     }
@@ -1514,10 +1535,22 @@ async function handleApi(req, res, pathname) {
       const plan = db.plans.find(item => item.id === id);
       if (!plan) return json(res, 404, { error: "Plan nicht gefunden." });
       if (!publishedIds(db).includes(id)) return json(res, 400, { error: "Nur veroeffentlichte Plaene koennen erneut benachrichtigt werden." });
-      const notifyMode = ["all", "affected", "leadership", "affected_leadership"].includes(body.notifyMode)
-        ? body.notifyMode
+      const requestedMode = String(body.notifyMode || "");
+      const notifyMode = ["all", "affected", "leadership", "affected_leadership", "selected_people", "none"].includes(requestedMode)
+        ? requestedMode
         : "all";
-      const push = await safeSendPlanPush(db, plan, notifyMode, null, { pushMessage: body.pushMessage });
+      const selectedNames = (Array.isArray(body.notifyNames) ? body.notifyNames : [])
+        .map(name => resolveKnownEmployeeName(db, name))
+        .filter(Boolean);
+      if (notifyMode === "selected_people" && !selectedNames.length) {
+        return json(res, 400, { error: "Bitte mindestens eine Person fuer die Benachrichtigung auswaehlen." });
+      }
+      const push = notifyMode === "none"
+        ? { sent: 0, removed: 0, skipped: true, mode: notifyMode }
+        : notifyMode === "selected_people"
+          ? await safeSendPlanPush(db, plan, "affected", selectedNames, { pushMessage: body.pushMessage })
+          : await safeSendPlanPush(db, plan, notifyMode, null, { pushMessage: body.pushMessage });
+      if (notifyMode === "selected_people") push.mode = notifyMode;
       await writeDb(db);
       return json(res, 200, { ok: true, push });
     }

@@ -2117,12 +2117,53 @@ async function setupPushButton() {
   if (!pushBox || !pushBtn || !pushMsg || !supportsPush()) return;
   pushBox.classList.remove("hidden");
   pushMsg.textContent = "";
+  pushMsg.classList.remove("error");
 
   if (Notification.permission === "granted") {
-    pushBtn.textContent = "Push ist aktiv";
+    pushBtn.textContent = "Push wird geprueft...";
+    pushBtn.disabled = true;
+    try {
+      await syncPushSubscription();
+      pushBtn.textContent = "Push ist aktiv";
+    } catch (error) {
+      pushBtn.textContent = "Push neu aktivieren";
+      pushMsg.textContent = error.message || "Push-Anmeldung konnte nicht geprueft werden.";
+      pushMsg.classList.add("error");
+    } finally {
+      pushBtn.disabled = false;
+    }
   } else {
     pushBtn.textContent = "Push aktivieren";
   }
+}
+
+function samePushKey(subscription, publicKey) {
+  const savedKey = subscription?.options?.applicationServerKey;
+  if (!savedKey) return false;
+  const expected = urlBase64ToUint8Array(publicKey);
+  const actual = new Uint8Array(savedKey);
+  return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+}
+
+async function syncPushSubscription() {
+  const keyData = await api("/api/push/public-key");
+  if (!keyData.enabled || !keyData.publicKey) {
+    throw new Error("Push ist bei Render nicht eingerichtet.");
+  }
+  const registration = await navigator.serviceWorker.register("/sw.js");
+  let subscription = await registration.pushManager.getSubscription();
+  if (subscription && !samePushKey(subscription, keyData.publicKey)) {
+    await subscription.unsubscribe();
+    subscription = null;
+  }
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+    });
+  }
+  await api("/api/push/subscribe", { method: "POST", body: { subscription } });
+  return subscription;
 }
 
 async function activatePush() {
@@ -2142,16 +2183,7 @@ async function activatePush() {
       return;
     }
 
-    const keyData = await api("/api/push/public-key");
-    if (!keyData.enabled) throw new Error("Push ist online noch nicht aktiv. Bitte neu deployen.");
-    const registration = await navigator.serviceWorker.register("/sw.js");
-    const oldSubscription = await registration.pushManager.getSubscription();
-    if (oldSubscription) await oldSubscription.unsubscribe();
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
-    });
-    await api("/api/push/subscribe", { method: "POST", body: { subscription } });
+    await syncPushSubscription();
     pushBtn.textContent = "Push ist aktiv";
     pushMsg.textContent = "Du bekommst jetzt eine Meldung, wenn ein Plan veroeffentlicht wird.";
   } catch (error) {
