@@ -3342,6 +3342,20 @@ button:disabled {
   color: #fff;
 }
 
+.edit-date-chip:not(.selected):hover,
+.edit-date-chip:not(.selected):active,
+.edit-date-chip:not(.selected):focus {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.edit-date-chip:not(.selected):hover span,
+.edit-date-chip:not(.selected):active span,
+.edit-date-chip:not(.selected):focus span {
+  color: var(--muted);
+}
+
 .issue-box p {
   margin: 6px 0 0;
 }
