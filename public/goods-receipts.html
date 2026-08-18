@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wareneingangskontrolle</title>
+  <link rel="stylesheet" href="/styles.css?v=20260818-goods-receipts">
+</head>
+<body>
+  <main class="shell wide">
+    <section class="top">
+      <div><p class="eyebrow">Elli SHS · Marktleitung</p><h1>Wareneingangskontrolle</h1></div>
+      <div class="top-actions"><a class="link kpi-plan-button" href="/kpi.html">KPIs öffnen</a><a class="link kpi-plan-button" href="/?view=plan">Dienstplan öffnen</a></div>
+    </section>
+    <section id="goodsSummary" class="goods-summary"><div class="panel">Kontrolle wird geladen…</div></section>
+    <section id="goodsImport" class="panel hidden">
+      <h2>Historische Monatsdateien einlesen</h2>
+      <p class="hint">Einmalig Februar bis August auswählen. Tägliche „Gestern“-Mails werden danach automatisch gelesen.</p>
+      <input id="goodsFiles" type="file" accept=".xlsx" multiple>
+      <button id="goodsImportBtn" type="button">Dateien einlesen</button>
+      <p id="goodsImportMsg" class="msg"></p>
+    </section>
+    <section class="goods-controls panel">
+      <div class="goods-filter-switch"><button data-goods-filter="alerts" class="active">Nur Auffälligkeiten</button><button data-goods-filter="all">Alle Wareneingänge</button></div>
+      <label>Tag auswählen<select id="goodsDate"><option value="">Alle Tage</option></select></label>
+    </section>
+    <section id="goodsList"></section>
+    <p id="goodsMsg" class="msg"></p>
+  </main>
+  <script src="/goods-receipts.js?v=20260818-goods-receipts"></script>
+</body>
+</html>

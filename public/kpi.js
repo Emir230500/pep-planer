@@ -7,6 +7,7 @@ let activeTrendContext = "Dein Markt";
 let dashboardRevenue = {};
 let dashboardPrivateInsights = false;
 let activeDashboardView = "market";
+let dashboardAccess = { market: true, produce: true, backshop: true };
 let activeProduceRange = "week";
 
 function escapeHtml(value) {
@@ -286,9 +287,9 @@ function warningIcon(level) {
 function dashboardSwitchHtml() {
   return `
     <nav class="kpi-section-switch" aria-label="KPI-Bereich wählen">
-      <button type="button" data-kpi-view="market" class="${activeDashboardView === "market" ? "active" : ""}">Gesamtmarkt</button>
-      <button type="button" data-kpi-view="produce" class="${activeDashboardView === "produce" ? "active" : ""}">Obst &amp; Gemüse</button>
-      <button type="button" data-kpi-view="backshop" class="${activeDashboardView === "backshop" ? "active" : ""}">Backshop</button>
+      ${dashboardAccess.market ? `<button type="button" data-kpi-view="market" class="${activeDashboardView === "market" ? "active" : ""}">Gesamtmarkt</button>` : ""}
+      ${dashboardAccess.produce ? `<button type="button" data-kpi-view="produce" class="${activeDashboardView === "produce" ? "active" : ""}">Obst &amp; Gemüse</button>` : ""}
+      ${dashboardAccess.backshop ? `<button type="button" data-kpi-view="backshop" class="${activeDashboardView === "backshop" ? "active" : ""}">Backshop</button>` : ""}
     </nav>
   `;
 }
@@ -302,8 +303,10 @@ function bindDashboardSwitch() {
   });
 }
 
-function renderDashboard(revenue, canSeePrivateInsights = false) {
+function renderDashboard(revenue, canSeePrivateInsights = false, access = null) {
   dashboardRevenue = revenue || {};
+  dashboardAccess = access || { market: true, produce: true, backshop: true };
+  if (!dashboardAccess[activeDashboardView]) activeDashboardView = dashboardAccess.backshop ? "backshop" : dashboardAccess.produce ? "produce" : "market";
   dashboardPrivateInsights = Boolean(canSeePrivateInsights);
   renderActiveDashboard();
 }
@@ -677,7 +680,7 @@ async function loadKpis() {
     const response = await fetch("/api/me/revenue", { headers: { accept: "application/json" } });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "KPIs konnten nicht geladen werden.");
-    renderDashboard(data.revenue || {}, Boolean(data.canSeePrivateInsights));
+    renderDashboard(data.revenue || {}, Boolean(data.canSeePrivateInsights), data.access);
   } catch (error) {
     content.innerHTML = '<div class="panel empty">Kein Zugriff auf die KPI-Seite.</div>';
     msg.textContent = error.message;

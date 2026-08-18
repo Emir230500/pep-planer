@@ -123,6 +123,34 @@ body {
   margin: 0;
 }
 
+.goods-summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+.goods-summary-grid article { background:#fff; border:1px solid #d8dee8; border-radius:16px; padding:18px; }
+.goods-summary-grid small,.goods-summary-grid strong { display:block; }
+.goods-summary-grid strong { margin-top:8px; font-size:28px; }
+.goods-summary-grid article.danger { border-color:#e59a96; background:#fff4f3; }
+.goods-summary-grid article.warning { border-color:#f2c66d; background:#fff9e8; }
+.goods-controls { display:flex; justify-content:space-between; align-items:end; gap:16px; }
+.goods-filter-switch { display:flex; gap:8px; }
+.goods-filter-switch button { width:auto; }
+.goods-filter-switch button.active { background:#0878d1; color:#fff; }
+.goods-controls label { margin:0; min-width:210px; }
+.goods-entry-list { display:grid; gap:12px; }
+.goods-entry { background:#fff; border:2px solid #d8dee8; border-radius:18px; padding:18px; }
+.goods-entry.duplicate,.goods-entry.danger { border-color:#d92d20; background:#fff7f6; }
+.goods-entry.high { border-color:#ef7d22; background:#fff8f1; }
+.goods-entry.warning { border-color:#e6af25; background:#fffbed; }
+.goods-entry.reviewed { opacity:.72; border-color:#83b993; background:#f4fbf6; }
+.goods-entry header { display:flex; justify-content:space-between; gap:16px; }
+.goods-entry header h2 { margin:4px 0 0; font-size:20px; }
+.goods-entry header > strong { font-size:24px; white-space:nowrap; }
+.goods-reference { display:flex; justify-content:space-between; gap:12px; margin-top:14px; padding:12px; background:#f4f7fb; border-radius:12px; }
+.goods-reason { display:grid; gap:4px; margin:14px 0 0; }
+.goods-reason b { color:#a71914; }
+.goods-reason span,.goods-baseline,.goods-duplicate-dates { color:var(--muted); }
+.goods-actions { display:flex; gap:10px; margin-top:14px; }
+.goods-actions button { width:auto; }
+@media (max-width:700px) { .goods-summary-grid { grid-template-columns:1fr 1fr; } .goods-controls { align-items:stretch; flex-direction:column; } .goods-filter-switch { display:grid; grid-template-columns:1fr 1fr; } .goods-actions { display:grid; grid-template-columns:1fr; } .goods-actions button { width:100%; } }
+
 .eyebrow {
   margin: 0 0 4px;
   color: #0066cc;
