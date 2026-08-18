@@ -1759,6 +1759,12 @@ function median(values) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+function percentile(values, fraction) {
+  const sorted = values.slice().sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * fraction) - 1))];
+}
+
 function goodsReceiptState(db) {
   const entries = (db.goodsReceiptEntries || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(a.supplier).localeCompare(String(b.supplier), "de"));
   const duplicateGroups = new Map();
@@ -1773,24 +1779,35 @@ function goodsReceiptState(db) {
     if (!supplierValues.has(key)) supplierValues.set(key, []);
     if (Number(entry.value) > 0) supplierValues.get(key).push(Number(entry.value));
   }
+  const supplierBaselines = new Map();
+  for (const [key, values] of supplierValues) {
+    const typical = median(values);
+    const p99 = percentile(values, 0.99);
+    supplierBaselines.set(key, {
+      count: values.length,
+      typical,
+      warningLimit: typical == null ? null : Math.max(typical * 4, (p99 || 0) * 1.25),
+      highLimit: typical == null ? null : Math.max(typical * 6, (p99 || 0) * 1.75),
+      dangerLimit: typical == null ? null : Math.max(typical * 10, (p99 || 0) * 2.5)
+    });
+  }
   const reviews = db.goodsReceiptReviews || {};
   const assessed = entries.map(entry => {
     const duplicateKey = `${looseEmployeeKey(entry.supplier)}|${String(entry.reference).toLowerCase()}|${Number(entry.value).toFixed(2)}`;
     const duplicateDates = (duplicateGroups.get(duplicateKey) || []).map(item => item.date);
     const historyKey = `${looseEmployeeKey(entry.supplier)}|${normalizedReportText(entry.department)}`;
-    const history = (supplierValues.get(historyKey) || []).filter(value => value !== Number(entry.value));
-    const typical = median(history);
-    const mad = typical == null ? null : median(history.map(value => Math.abs(value - typical)));
-    const statisticalLimit = typical == null ? null : typical + 3 * 1.4826 * (mad || 0);
-    const warningLimit = typical == null ? null : Math.max(typical * 1.5, statisticalLimit);
+    const baseline = supplierBaselines.get(historyKey) || { count: 0, typical: null, warningLimit: null, highLimit: null, dangerLimit: null };
+    const volatileSupplier = /(?:ehg minden-hannover|max luening|max lüning)/i.test(normalizedReportText(entry.supplier));
     let level = "normal";
     let reason = "Keine Auffälligkeit";
     if (new Set(duplicateDates).size > 1) { level = "duplicate"; reason = `Gleicher Lieferant, Referenzbeleg und Warenwert an ${new Set(duplicateDates).size} Tagen`; }
-    else if (history.length >= 10 && Number(entry.value) >= typical * 3) { level = "danger"; reason = `Warenwert ist mehr als dreimal so hoch wie typisch (${typical.toFixed(2)} €)`; }
-    else if (history.length >= 10 && Number(entry.value) >= typical * 2) { level = "high"; reason = `Warenwert ist mindestens doppelt so hoch wie typisch (${typical.toFixed(2)} €)`; }
-    else if (history.length >= 10 && Number(entry.value) > warningLimit) { level = "warning"; reason = `Warenwert liegt über der normalen Obergrenze (${warningLimit.toFixed(2)} €)`; }
-    return { ...entry, level, reason, duplicateDates: Array.from(new Set(duplicateDates)).sort(), baseline: { count: history.length, typical, warningLimit }, review: reviews[entry.id] || null };
+    else if (!volatileSupplier && baseline.count >= 20 && Number(entry.value) >= baseline.dangerLimit) { level = "danger"; reason = `Warenwert liegt extrem über den bisherigen Vergleichswerten (Grenze ${baseline.dangerLimit.toFixed(2)} €)`; }
+    else if (!volatileSupplier && baseline.count >= 20 && Number(entry.value) >= baseline.highLimit) { level = "high"; reason = `Warenwert liegt sehr deutlich über den bisherigen Vergleichswerten (Grenze ${baseline.highLimit.toFixed(2)} €)`; }
+    else if (!volatileSupplier && baseline.count >= 20 && Number(entry.value) > baseline.warningLimit) { level = "warning"; reason = `Warenwert liegt deutlich über den bisherigen Vergleichswerten (Grenze ${baseline.warningLimit.toFixed(2)} €)`; }
+    return { ...entry, level, reason, duplicateDates: Array.from(new Set(duplicateDates)).sort(), baseline, review: reviews[entry.id] || null };
   });
+  const priority = { duplicate: 0, danger: 1, high: 2, warning: 3, normal: 4 };
+  assessed.sort((a, b) => String(b.date).localeCompare(String(a.date)) || (priority[a.level] ?? 9) - (priority[b.level] ?? 9) || Number(b.value) - Number(a.value) || String(a.supplier).localeCompare(String(b.supplier), "de"));
   const latestDate = entries[0]?.date || "";
   const latestEntries = assessed.filter(item => item.date === latestDate);
   return { entries: assessed.slice(0, 5000), summary: { total: latestEntries.length, historyTotal: entries.length, duplicates: latestEntries.filter(item => item.level === "duplicate").length, unusual: latestEntries.filter(item => ["warning", "high", "danger"].includes(item.level)).length, suppliers: new Set(entries.map(item => looseEmployeeKey(item.supplier))).size, latestDate } };
