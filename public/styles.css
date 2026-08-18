@@ -106,6 +106,19 @@ body {
   width: auto;
 }
 
+.push-box button.push-active {
+  color: #146c2e;
+  background: #e8f7ed;
+  border-color: #7ac98d;
+}
+
+.push-box button.push-inactive {
+  color: #9f1c18;
+  background: #fff0ef;
+  border-color: #e59a96;
+  font-weight: 800;
+}
+
 .push-box .msg {
   margin: 0;
 }

@@ -690,3 +690,7 @@ document.querySelector("#kpiLogoutBtn")?.addEventListener("click", async () => {
 });
 
 loadKpis();
+
+// Keep the dashboard current when the daily report arrives shortly after the
+// page was opened. The server de-duplicates the actual GMX checks.
+setInterval(loadKpis, 2 * 60 * 1000);

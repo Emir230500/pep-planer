@@ -2116,7 +2116,7 @@ async function saveSickEntry() {
   }
   try {
     if (!groups.length) throw new Error("Bitte mindestens einen Tag auswaehlen.");
-    const pushText = document.querySelector("#sickPushMessage")?.value || sickDefaultPushMessage(sickEntry.name, selectedDates, "ED");
+    const pushText = document.querySelector("#sickPushMessage")?.value || "";
     for (let index = 0; index < groups.length; index += 1) {
       const group = groups[index];
       await api(`/api/admin/plans/${encodeURIComponent(group.planId)}/sick`, {

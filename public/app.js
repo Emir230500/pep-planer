@@ -1678,7 +1678,7 @@ async function saveTeamSick() {
       .sort((a, b) => parseGermanDate(a) - parseGermanDate(b));
     const groups = groupTeamDatesByPlan(selectedDates);
     if (!groups.length) throw new Error("Bitte mindestens einen Tag auswaehlen.");
-    const pushText = document.querySelector("#teamSickPushMessage")?.value || sickDefaultPushMessage(teamSickEntry.name, selectedDates, initialsFromName(currentTeamData?.name || ""));
+    const pushText = document.querySelector("#teamSickPushMessage")?.value || "";
     for (let index = 0; index < groups.length; index += 1) {
       const group = groups[index];
       await api(`/api/me/plans/${encodeURIComponent(group.planId)}/sick`, {
@@ -2219,10 +2219,20 @@ function urlBase64ToUint8Array(value) {
 }
 
 async function setupPushButton() {
-  if (!pushBox || !pushBtn || !pushMsg || !supportsPush()) return;
+  if (!pushBox || !pushBtn || !pushMsg) return;
   pushBox.classList.remove("hidden");
   pushMsg.textContent = "";
   pushMsg.classList.remove("error");
+  pushBtn.classList.remove("push-active", "push-inactive");
+
+  if (!supportsPush()) {
+    pushBtn.textContent = "Push nicht aktiv";
+    pushBtn.classList.add("push-inactive");
+    pushBtn.disabled = true;
+    pushMsg.textContent = "Push wird auf diesem Gerät nicht unterstützt.";
+    pushMsg.classList.add("error");
+    return;
+  }
 
   if (Notification.permission === "granted") {
     pushBtn.textContent = "Push wird geprueft...";
@@ -2230,15 +2240,18 @@ async function setupPushButton() {
     try {
       await syncPushSubscription();
       pushBtn.textContent = "Push ist aktiv";
+      pushBtn.classList.add("push-active");
     } catch (error) {
-      pushBtn.textContent = "Push neu aktivieren";
+      pushBtn.textContent = "Push nicht aktiv – aktivieren";
+      pushBtn.classList.add("push-inactive");
       pushMsg.textContent = error.message || "Push-Anmeldung konnte nicht geprueft werden.";
       pushMsg.classList.add("error");
     } finally {
       pushBtn.disabled = false;
     }
   } else {
-    pushBtn.textContent = "Push aktivieren";
+    pushBtn.textContent = "Push nicht aktiv – aktivieren";
+    pushBtn.classList.add("push-inactive");
   }
 }
 
@@ -2283,6 +2296,9 @@ async function activatePush() {
   try {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
+      pushBtn.textContent = "Push nicht aktiv – aktivieren";
+      pushBtn.classList.remove("push-active");
+      pushBtn.classList.add("push-inactive");
       pushMsg.textContent = "Push wurde nicht erlaubt.";
       pushMsg.classList.add("error");
       return;
@@ -2290,8 +2306,13 @@ async function activatePush() {
 
     await syncPushSubscription();
     pushBtn.textContent = "Push ist aktiv";
+    pushBtn.classList.remove("push-inactive");
+    pushBtn.classList.add("push-active");
     pushMsg.textContent = "Du bekommst jetzt eine Meldung, wenn ein Plan veroeffentlicht wird.";
   } catch (error) {
+    pushBtn.textContent = "Push nicht aktiv – aktivieren";
+    pushBtn.classList.remove("push-active");
+    pushBtn.classList.add("push-inactive");
     pushMsg.textContent = error.message || "Push konnte nicht aktiviert werden.";
     pushMsg.classList.add("error");
   }
