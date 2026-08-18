@@ -1391,6 +1391,7 @@ function leadershipRevenueState(db) {
     comparison: revenue.comparison,
     latestDate: revenue.latestDate,
     lastSuccessAt: revenue.importStatus.lastSuccessAt || "",
+    importStatus: revenue.importStatus,
     produce: revenue.produce,
     backshop: revenue.backshop
   };
