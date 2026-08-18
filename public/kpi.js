@@ -9,6 +9,7 @@ let dashboardPrivateInsights = false;
 let activeDashboardView = "market";
 let dashboardAccess = { market: true, produce: true, backshop: true };
 let activeProduceRange = "week";
+let activeKpiDates = { market: "", produce: "", backshop: "" };
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
@@ -48,6 +49,19 @@ function parseIsoDate(value) {
 function isoDateValue(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function kpiDatePickerHtml(entries, view) {
+  const dates = [...new Set((entries || []).map(item => String(item.date || "")).filter(Boolean))].sort().reverse();
+  if (!dates.length) return "";
+  const selected = dates.includes(activeKpiDates[view]) ? activeKpiDates[view] : dates[0];
+  activeKpiDates[view] = selected;
+  return `<label class="kpi-day-picker">Tag auswählen<select data-kpi-date="${view}">${dates.map(date => `<option value="${date}" ${date === selected ? "selected" : ""}>${escapeHtml(dateText(date))}</option>`).join("")}</select></label>`;
+}
+
+function dataStatusHtml(revenue) {
+  const last = revenue.lastSuccessAt ? new Date(revenue.lastSuccessAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "Noch keine erfolgreiche Prüfung";
+  return `<section class="kpi-data-status"><div><b>Datenstatus</b><small>Mail zuletzt geprüft: ${escapeHtml(last)}</small></div><div class="kpi-data-status-items"><span>Gesamt: <b>${escapeHtml(dateText(revenue.latestDate))}</b></span><span>Obst: <b>${escapeHtml(dateText(revenue.produce?.latestDate))}</b></span><span>Backshop: <b>${escapeHtml(dateText(revenue.backshop?.latestDate))}</b></span></div></section>`;
 }
 
 function currentWeekSummary(entries) {
@@ -278,7 +292,13 @@ function ownMarketWarnings(latest) {
   return warnings;
 }
 
+function reliableMarketWarnings(latest, sampleSize) {
+  if (sampleSize < 5) return [{ level: "info", title: "Noch nicht belastbar", value: `Erst ${sampleSize} von mindestens 5 Tagesberichten vorhanden.` }];
+  return ownMarketWarnings(latest);
+}
+
 function warningIcon(level) {
+  if (level === "info") return "i";
   if (level === "danger") return "!";
   if (level === "warning") return "↘";
   return "✓";
@@ -302,6 +322,10 @@ function bindDashboardSwitch() {
       renderActiveDashboard();
     });
   });
+  content.querySelectorAll("[data-kpi-date]").forEach(select => select.addEventListener("change", () => {
+    activeKpiDates[select.dataset.kpiDate] = select.value;
+    renderActiveDashboard();
+  }));
 }
 
 function renderDashboard(revenue, canSeePrivateInsights = false, access = null) {
@@ -316,13 +340,15 @@ function renderActiveDashboard() {
   if (activeDashboardView === "produce") renderProduceDashboard(dashboardRevenue, dashboardPrivateInsights, "produce");
   else if (activeDashboardView === "backshop") renderProduceDashboard(dashboardRevenue, dashboardPrivateInsights, "backshop");
   else renderMarketDashboard(dashboardRevenue, dashboardPrivateInsights);
-  if (content.firstElementChild) content.insertAdjacentHTML("afterbegin", dashboardSwitchHtml());
+  if (content.firstElementChild) content.insertAdjacentHTML("afterbegin", dashboardSwitchHtml() + dataStatusHtml(dashboardRevenue));
   bindDashboardSwitch();
 }
 
 function renderMarketDashboard(revenue, canSeePrivateInsights = false) {
-  const entries = Array.isArray(revenue.entries) ? revenue.entries : [];
-  const comparison = Array.isArray(revenue.comparison) ? revenue.comparison : [];
+  const allEntries = Array.isArray(revenue.entries) ? revenue.entries : [];
+  const selectedDate = activeKpiDates.market || allEntries[0]?.date || "";
+  const entries = allEntries.filter(item => String(item.date) <= selectedDate);
+  const comparison = selectedDate === revenue.latestDate && Array.isArray(revenue.comparison) ? revenue.comparison : [];
   const latest = entries[0];
   if (!latest) {
     content.innerHTML = '<div class="panel empty">Noch keine Umsatzmail eingelesen. Die Daten erscheinen nach dem automatischen GMX-Abruf.</div>';
@@ -340,6 +366,7 @@ function renderMarketDashboard(revenue, canSeePrivateInsights = false) {
   trendSourceEntries = entries;
   activeTrendContext = "Dein Markt";
   content.innerHTML = `
+    <div class="kpi-date-row">${kpiDatePickerHtml(allEntries, "market")}</div>
     <section class="revenue-hero">
       <small>Umsatz Vortag · ${escapeHtml(dateText(latest.date))}</small>
       <strong>${escapeHtml(money(latest.revenue))}</strong>
@@ -435,9 +462,9 @@ function producePeriodLabel(rangeName, start, end) {
   return `Laufende Woche · ${dateText(start)} bis ${dateText(end)}`;
 }
 
-function aggregateProduce(revenue, rangeName) {
+function aggregateProduce(revenue, rangeName, anchorDate = "") {
   const produce = revenue.produce || {};
-  const latestDate = produce.latestDate || produce.entries?.[0]?.date || "";
+  const latestDate = anchorDate || produce.latestDate || produce.entries?.[0]?.date || "";
   const bounds = produceRangeBounds(latestDate, rangeName);
   const inRange = item => String(item.date || "") >= bounds.start && String(item.date || "") <= bounds.end;
   const entries = (produce.entries || []).filter(inRange);
@@ -543,6 +570,11 @@ function seasonalProduceTip(date) {
 function produceWarnings(summary, isBackshop = false) {
   const warnings = [];
   const label = isBackshop ? "Backshop" : "Obst";
+  if (summary.entries.length < 5) {
+    warnings.push({ level: "info", title: "Noch nicht belastbar", value: `Erst ${summary.entries.length} von mindestens 5 Tagesberichten vorhanden.` });
+    if (!isBackshop) warnings.push({ level: "season", title: "Saisonhinweis", value: seasonalProduceTip(summary.latestDate) });
+    return warnings;
+  }
   if (summary.deviation != null && summary.deviation <= -10) warnings.push({ level: "danger", title: `${label}-Umsatz deutlich unter Vorjahr`, value: number(summary.deviation, " %") });
   else if (summary.deviation != null && summary.deviation <= -5) warnings.push({ level: "warning", title: `${label}-Umsatz unter Vorjahr`, value: number(summary.deviation, " %") });
   if (summary.writeOffRate != null && summary.writeOffRate >= 4) warnings.push({ level: "danger", title: "Abschriftenquote sehr hoch", value: percent(summary.writeOffRate) });
@@ -587,13 +619,15 @@ function renderProduceDashboard(revenue, canSeePrivateInsights = false, departme
     content.innerHTML = `<div class="panel empty">Noch keine ${departmentLabelHtml}-Umsatzmail eingelesen. Sobald beide täglichen Berichte im GMX-Postfach liegen, erscheinen die Daten hier automatisch.</div>`;
     return;
   }
-  const summary = aggregateProduce({ ...revenue, produce }, activeProduceRange);
+  const selectedDate = activeKpiDates[department] || produce.entries[0]?.date || "";
+  const summary = aggregateProduce({ ...revenue, produce }, activeProduceRange, selectedDate);
   trendSourceEntries = produce.entries || [];
   activeTrendContext = departmentLabel;
   if (!["revenue", "writeOffs"].includes(activeTrendMetric)) activeTrendMetric = "revenue";
   content.innerHTML = `
     <section class="produce-toolbar">
       <div><small>Abteilung</small><h2>${departmentLabelHtml}</h2></div>
+      ${kpiDatePickerHtml(produce.entries, department)}
       <div class="produce-range-switch" role="tablist" aria-label="Zeitraum wählen">
         ${[["day", "Tag"], ["week", "Woche"], ["month", "Monat"]].map(([key, label]) => `<button type="button" data-produce-range="${key}" class="${activeProduceRange === key ? "active" : ""}">${label}</button>`).join("")}
       </div>
@@ -665,7 +699,7 @@ function privateInsightsHtml(latest) {
         <h2>Warnungen</h2>
       </div>
       <div class="kpi-warning-list">
-        ${ownMarketWarnings(latest).map(item => `
+        ${reliableMarketWarnings(latest, trendSourceEntries.length).map(item => `
           <article class="kpi-warning-item ${item.level}">
             <span class="kpi-warning-icon" aria-hidden="true">${warningIcon(item.level)}</span>
             <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.value)}</small></div>

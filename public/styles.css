@@ -261,9 +261,21 @@ h2 {
 }
 
 .goods-import-optional summary { cursor:pointer; font-weight:700; }
+.kpi-data-status { align-items:center; background:#eef7ff; border:1px solid #b9dcf7; border-radius:14px; display:flex; gap:14px; justify-content:space-between; margin-bottom:16px; padding:12px 16px; }
+.kpi-data-status div:first-child { display:grid; gap:3px; }
+.kpi-data-status small { color:var(--muted); }
+.kpi-data-status-items { display:flex; flex-wrap:wrap; gap:8px 16px; }
+.kpi-date-row { display:flex; justify-content:flex-end; margin-bottom:12px; }
+.kpi-day-picker { display:grid; font-weight:700; gap:5px; margin:0; min-width:190px; }
+.kpi-day-picker select { background:#fff; border:1px solid #cbd4df; border-radius:10px; min-height:42px; padding:8px 10px; }
+.kpi-warning-item.info { background:#eef7ff; }
 
 @media (max-width:700px) {
   .kpi-section-switch { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .kpi-data-status { align-items:stretch; flex-direction:column; }
+  .kpi-data-status-items { display:grid; gap:5px; }
+  .kpi-date-row,.kpi-day-picker { width:100%; }
+  .produce-toolbar .kpi-day-picker { order:3; }
   .kpi-section-switch button,.kpi-section-switch .kpi-section-link { font-size:14px; min-height:46px; padding:7px 5px; }
   .goods-summary-grid { gap:8px; }
   .goods-summary-grid article { border-radius:13px; padding:12px; }
