@@ -12,11 +12,12 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "backshop-kpi-automation-20260818-v1";
+const BUILD_VERSION = "goods-receipt-control-20260818-v1";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const DEFAULT_GMX_EMAIL = process.env.GMX_EMAIL || "edemircan@gmx.net";
 const REVENUE_REPORT_SENDER = String(process.env.REVENUE_REPORT_SENDER || "NoReplyBerichtsexport@edeka.de").trim().toLowerCase();
 const REVENUE_REPORT_PREFIX = String(process.env.REVENUE_REPORT_PREFIX || "Umsatz_8453700_").trim().toLowerCase();
+const GOODS_RECEIPT_PREFIX = String(process.env.GOODS_RECEIPT_PREFIX || "Wareneingangskontrollliste_8453700_").trim().toLowerCase();
 const REVENUE_IMPORT_INTERVAL_MS = 2 * 60 * 1000;
 // Keep the original key pair as a compatibility fallback so existing devices
 // continue receiving push messages until Render environment values are set.
@@ -48,7 +49,7 @@ function defaultDb() {
   return {
     employees: {}, plans: [], publishedPlanIds: [], pushSubscriptions: [], pepCorrections: [],
     revenueEntries: [], produceRevenueEntries: [], produceArticleEntries: [], backshopRevenueEntries: [], backshopArticleEntries: [],
-    revenueSettings: {}, revenueImport: { processedMessageIds: [] }
+    revenueSettings: {}, revenueImport: { processedMessageIds: [] }, goodsReceiptEntries: [], goodsReceiptReviews: {}
   };
 }
 
@@ -85,6 +86,8 @@ function normalizeDb(db) {
   clean.revenueSettings = clean.revenueSettings && typeof clean.revenueSettings === "object" ? clean.revenueSettings : {};
   clean.revenueImport = clean.revenueImport && typeof clean.revenueImport === "object" ? clean.revenueImport : {};
   clean.revenueImport.processedMessageIds = Array.isArray(clean.revenueImport.processedMessageIds) ? clean.revenueImport.processedMessageIds : [];
+  clean.goodsReceiptEntries = Array.isArray(clean.goodsReceiptEntries) ? clean.goodsReceiptEntries : [];
+  clean.goodsReceiptReviews = clean.goodsReceiptReviews && typeof clean.goodsReceiptReviews === "object" ? clean.goodsReceiptReviews : {};
   return clean;
 }
 
@@ -338,7 +341,13 @@ function canSeeTeamPlan(name) {
 }
 
 function canSeeRevenue(name) {
-  return canSeeTeamPlan(name);
+  return canSeeTeamPlan(name) || employeeNameMatches("Dorenkamp, Vanessa", name);
+}
+
+function revenueAccess(name) {
+  if (canSeeTeamPlan(name)) return { market: true, produce: true, backshop: true };
+  if (employeeNameMatches("Dorenkamp, Vanessa", name)) return { market: false, produce: false, backshop: true };
+  return { market: false, produce: false, backshop: false };
 }
 
 function canSeePrivateRevenueInsights(name) {
@@ -1684,6 +1693,109 @@ function saveBackshopArticleEntry(db, report, source = {}) {
   return saved;
 }
 
+function expandedWorksheetRows(XLSX, sheet) {
+  const cells = Object.keys(sheet || {}).filter(key => !key.startsWith("!"));
+  if (cells.length) {
+    const range = cells.reduce((bounds, key) => {
+      const cell = XLSX.utils.decode_cell(key);
+      bounds.s.r = Math.min(bounds.s.r, cell.r); bounds.s.c = Math.min(bounds.s.c, cell.c);
+      bounds.e.r = Math.max(bounds.e.r, cell.r); bounds.e.c = Math.max(bounds.e.c, cell.c);
+      return bounds;
+    }, { s: { r: Infinity, c: Infinity }, e: { r: 0, c: 0 } });
+    sheet["!ref"] = XLSX.utils.encode_range(range);
+  }
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+}
+
+function parseGermanDayToIso(value) {
+  const match = String(value || "").trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  return match ? `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}` : "";
+}
+
+function parseGoodsReceiptWorkbook(buffer) {
+  const XLSX = require("xlsx");
+  const workbook = XLSX.read(buffer, { type: "buffer", cellDates: false });
+  const sheet = workbook.Sheets.Kreuztabelle || workbook.Sheets.Tabelle || workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet) throw new Error("Im Anhang wurde keine Wareneingangstabelle gefunden.");
+  const rows = expandedWorksheetRows(XLSX, sheet);
+  const headerIndex = rows.findIndex(row => row.some(value => normalizedReportText(value).includes("tatsachlicher lieferant")));
+  if (headerIndex < 0) throw new Error("Die Spalte 'Tatsächlicher Lieferant' wurde nicht gefunden.");
+  const header = rows[headerIndex].map(value => normalizedReportText(value));
+  const supplierCol = header.findIndex(value => value.includes("tatsachlicher lieferant"));
+  const dateCol = header.findIndex(value => value.includes("kalendertag"));
+  const referenceCol = header.findIndex(value => value.includes("referenzbeleg"));
+  const valueCol = header.findIndex(value => value.includes("we vk"));
+  const departmentCol = header.findIndex(value => value === "abteilung");
+  if ([supplierCol, dateCol, referenceCol, valueCol].some(index => index < 0)) throw new Error("Lieferant, Datum, Referenzbeleg oder WE VK fehlen im Bericht.");
+  const entries = rows.slice(headerIndex + 1).map(row => {
+    const supplier = String(row[supplierCol] || "").trim();
+    const reference = String(row[referenceCol] || "").trim();
+    const date = parseGermanDayToIso(row[dateCol]);
+    const value = revenueNumber(row[valueCol]);
+    if (!supplier || !reference || !date || value == null || /^(Ergebnis|Gesamtergebnis)$/i.test(reference)) return null;
+    const normalizedValue = Math.round(Number(value) * 100) / 100;
+    const id = crypto.createHash("sha256").update(`${looseEmployeeKey(supplier)}|${reference.toLowerCase()}|${date}|${normalizedValue.toFixed(2)}`).digest("hex").slice(0, 24);
+    return { id, supplier, reference, date, value: normalizedValue, department: String(row[departmentCol] || "").trim() };
+  }).filter(Boolean);
+  if (!entries.length) throw new Error("Der Wareneingangsbericht enthält keine einzelnen Buchungen.");
+  return entries;
+}
+
+function saveGoodsReceiptEntries(db, entries, source = {}) {
+  const map = new Map((db.goodsReceiptEntries || []).map(item => [item.id, item]));
+  let added = 0;
+  for (const entry of entries) {
+    if (!map.has(entry.id)) added += 1;
+    map.set(entry.id, { ...map.get(entry.id), ...entry, sourceMessageId: String(source.messageId || ""), sourceSubject: String(source.subject || ""), importedAt: new Date().toISOString() });
+  }
+  db.goodsReceiptEntries = Array.from(map.values()).sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-30000);
+  return { added, total: db.goodsReceiptEntries.length };
+}
+
+function median(values) {
+  const sorted = values.slice().sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function goodsReceiptState(db) {
+  const entries = (db.goodsReceiptEntries || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(a.supplier).localeCompare(String(b.supplier), "de"));
+  const duplicateGroups = new Map();
+  for (const entry of entries) {
+    const key = `${looseEmployeeKey(entry.supplier)}|${String(entry.reference).toLowerCase()}|${Number(entry.value).toFixed(2)}`;
+    if (!duplicateGroups.has(key)) duplicateGroups.set(key, []);
+    duplicateGroups.get(key).push(entry);
+  }
+  const supplierValues = new Map();
+  for (const entry of entries) {
+    const key = `${looseEmployeeKey(entry.supplier)}|${normalizedReportText(entry.department)}`;
+    if (!supplierValues.has(key)) supplierValues.set(key, []);
+    if (Number(entry.value) > 0) supplierValues.get(key).push(Number(entry.value));
+  }
+  const reviews = db.goodsReceiptReviews || {};
+  const assessed = entries.map(entry => {
+    const duplicateKey = `${looseEmployeeKey(entry.supplier)}|${String(entry.reference).toLowerCase()}|${Number(entry.value).toFixed(2)}`;
+    const duplicateDates = (duplicateGroups.get(duplicateKey) || []).map(item => item.date);
+    const historyKey = `${looseEmployeeKey(entry.supplier)}|${normalizedReportText(entry.department)}`;
+    const history = (supplierValues.get(historyKey) || []).filter(value => value !== Number(entry.value));
+    const typical = median(history);
+    const mad = typical == null ? null : median(history.map(value => Math.abs(value - typical)));
+    const statisticalLimit = typical == null ? null : typical + 3 * 1.4826 * (mad || 0);
+    const warningLimit = typical == null ? null : Math.max(typical * 1.5, statisticalLimit);
+    let level = "normal";
+    let reason = "Keine Auffälligkeit";
+    if (new Set(duplicateDates).size > 1) { level = "duplicate"; reason = `Gleicher Lieferant, Referenzbeleg und Warenwert an ${new Set(duplicateDates).size} Tagen`; }
+    else if (history.length >= 10 && Number(entry.value) >= typical * 3) { level = "danger"; reason = `Warenwert ist mehr als dreimal so hoch wie typisch (${typical.toFixed(2)} €)`; }
+    else if (history.length >= 10 && Number(entry.value) >= typical * 2) { level = "high"; reason = `Warenwert ist mindestens doppelt so hoch wie typisch (${typical.toFixed(2)} €)`; }
+    else if (history.length >= 10 && Number(entry.value) > warningLimit) { level = "warning"; reason = `Warenwert liegt über der normalen Obergrenze (${warningLimit.toFixed(2)} €)`; }
+    return { ...entry, level, reason, duplicateDates: Array.from(new Set(duplicateDates)).sort(), baseline: { count: history.length, typical, warningLimit }, review: reviews[entry.id] || null };
+  });
+  const latestDate = entries[0]?.date || "";
+  const latestEntries = assessed.filter(item => item.date === latestDate);
+  return { entries: assessed.slice(0, 5000), summary: { total: latestEntries.length, historyTotal: entries.length, duplicates: latestEntries.filter(item => item.level === "duplicate").length, unusual: latestEntries.filter(item => ["warning", "high", "danger"].includes(item.level)).length, suppliers: new Set(entries.map(item => looseEmployeeKey(item.supplier))).size, latestDate } };
+}
+
 async function testGmxConnection(db) {
   const { ImapFlow } = require("imapflow");
   const credentials = revenueCredentials(db);
@@ -1712,7 +1824,7 @@ async function importRevenueFromGmx(db) {
   state.lastRunAt = new Date().toISOString();
   state.lastError = "";
   const processed = new Set(state.processedMessageIds || []);
-  const forceSchemaRescan = Number(state.reportSchemaVersion || 0) < 4;
+  const forceSchemaRescan = Number(state.reportSchemaVersion || 0) < 5;
   const client = new ImapFlow({
     host: "imap.gmx.net", port: 993, secure: true,
     auth: { user: credentials.email, pass: credentials.password }, logger: false
@@ -1730,20 +1842,28 @@ async function importRevenueFromGmx(db) {
         if (!message?.source) continue;
         const parsed = await simpleParser(message.source);
         const senderMatches = (parsed.from?.value || []).some(sender => String(sender.address || "").trim().toLowerCase() === REVENUE_REPORT_SENDER);
-        const subjectMatches = String(parsed.subject || message.envelope?.subject || "").trim().toLowerCase().startsWith(REVENUE_REPORT_PREFIX);
+        const subjectText = String(parsed.subject || message.envelope?.subject || "").trim().toLowerCase();
+        const subjectMatches = subjectText.startsWith(REVENUE_REPORT_PREFIX) || subjectText.startsWith(GOODS_RECEIPT_PREFIX);
         if (!senderMatches || !subjectMatches) continue;
         const messageId = String(parsed.messageId || `${message.envelope?.date?.toISOString?.() || ""}-${uid}`);
         if (processed.has(messageId) && !forceSchemaRescan) continue;
         const attachments = (parsed.attachments || []).filter(item => {
           const filename = String(item.filename || "").trim().toLowerCase();
-          return filename.startsWith(REVENUE_REPORT_PREFIX) && /\.xlsx$/i.test(filename);
+          return (filename.startsWith(REVENUE_REPORT_PREFIX) || filename.startsWith(GOODS_RECEIPT_PREFIX)) && /\.xlsx$/i.test(filename);
         });
         if (!attachments.length) continue;
         let importedFromMessage = 0;
         for (const attachment of attachments) {
           try {
-            const report = parseRevenueAttachment(attachment.content, credentials.marketCode);
             const source = { messageId, subject: parsed.subject || message.envelope?.subject || "" };
+            const filename = String(attachment.filename || "").trim().toLowerCase();
+            if (filename.startsWith(GOODS_RECEIPT_PREFIX)) {
+              saveGoodsReceiptEntries(db, parseGoodsReceiptWorkbook(attachment.content), source);
+              imported += 1;
+              importedFromMessage += 1;
+              continue;
+            }
+            const report = parseRevenueAttachment(attachment.content, credentials.marketCode);
             if (report.type === "produce-articles") {
               saveProduceArticleEntry(db, report, source);
             } else if (report.type === "backshop-articles") {
@@ -1774,7 +1894,7 @@ async function importRevenueFromGmx(db) {
       lock.release();
     }
     state.processedMessageIds = Array.from(processed).slice(-200);
-    state.reportSchemaVersion = 4;
+    state.reportSchemaVersion = 5;
     state.lastSuccessAt = new Date().toISOString();
     state.lastResult = imported ? `${imported} Umsatzbericht(e) importiert.` : "Keine neue passende Umsatzmail gefunden.";
     return { ok: true, imported, entry: latest, message: state.lastResult };
@@ -1802,7 +1922,7 @@ function revenueAutoImportDue(db) {
   const state = db.revenueImport || {};
   // A parser upgrade must re-read recent messages immediately, even when the
   // regular 15-minute check ran just before a new deployment.
-  if (Number(state.reportSchemaVersion || 0) < 4) return true;
+  if (Number(state.reportSchemaVersion || 0) < 5) return true;
   const lastRun = state.lastRunAt ? new Date(state.lastRunAt).getTime() : 0;
   // Both daily exports may arrive a few minutes apart. Keep checking after the
   // first successful import so the second mail is not postponed until tomorrow.
@@ -2287,7 +2407,53 @@ async function handleApi(req, res, pathname, requestUrl) {
       if (!canSeeRevenue(name)) return json(res, 403, { error: "Die KPIs sind nur fuer die Team-Marktleitung freigegeben." });
       await ensureAutomaticRevenueImport();
       const db = await readDb();
-      return json(res, 200, { name, canSeePrivateInsights: canSeePrivateRevenueInsights(name), revenue: leadershipRevenueState(db) });
+      const access = revenueAccess(name);
+      const fullRevenue = leadershipRevenueState(db);
+      const revenue = access.market ? fullRevenue : { backshop: fullRevenue.backshop };
+      return json(res, 200, { name, access, canSeePrivateInsights: canSeePrivateRevenueInsights(name), revenue });
+    }
+
+    if (pathname === "/api/me/goods-receipts" && req.method === "GET") {
+      const name = requireEmployee(req, res);
+      if (!name) return;
+      if (!canSeeTeamPlan(name)) return json(res, 403, { error: "Die Wareneingangskontrolle ist nur für die Marktleitung freigegeben." });
+      await ensureAutomaticRevenueImport();
+      const db = await readDb();
+      return json(res, 200, { name, canImport: canSeePrivateRevenueInsights(name), ...goodsReceiptState(db) });
+    }
+
+    if (pathname === "/api/me/goods-receipts/upload" && req.method === "POST") {
+      const name = requireEmployee(req, res);
+      if (!name) return;
+      if (!canSeePrivateRevenueInsights(name)) return json(res, 403, { error: "Nur Emirkan darf historische Wareneingänge importieren." });
+      const body = await readBody(req);
+      const files = Array.isArray(body.files) ? body.files : [];
+      if (!files.length) return json(res, 400, { error: "Bitte mindestens eine Exceldatei auswählen." });
+      const db = await readDb();
+      let added = 0;
+      for (const file of files.slice(0, 12)) {
+        const base64 = String(file.base64 || "").replace(/^data:[^;]+;base64,/, "");
+        if (!base64) continue;
+        const result = saveGoodsReceiptEntries(db, parseGoodsReceiptWorkbook(Buffer.from(base64, "base64")), { subject: `Historischer Import: ${String(file.name || "Wareneingang")}` });
+        added += result.added;
+      }
+      await writeDb(db);
+      return json(res, 200, { ok: true, added, ...goodsReceiptState(db) });
+    }
+
+    if (pathname === "/api/me/goods-receipts/review" && req.method === "POST") {
+      const name = requireEmployee(req, res);
+      if (!name) return;
+      if (!canSeeTeamPlan(name)) return json(res, 403, { error: "Nicht erlaubt." });
+      const body = await readBody(req);
+      const id = String(body.id || "");
+      const status = ["ok", "duplicate"].includes(body.status) ? body.status : "";
+      if (!id || !status) return json(res, 400, { error: "Ungültige Prüfung." });
+      const db = await readDb();
+      if (!(db.goodsReceiptEntries || []).some(item => item.id === id)) return json(res, 404, { error: "Wareneingang nicht gefunden." });
+      db.goodsReceiptReviews[id] = { status, reviewer: name, reviewedAt: new Date().toISOString() };
+      await writeDb(db);
+      return json(res, 200, { ok: true });
     }
 
     if (pathname === "/api/me/shifts" && req.method === "GET") {
@@ -2372,7 +2538,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseRevenueWorkbook, parseRevenueReport, saveRevenueEntry, startServer };
+module.exports = { parseRevenueWorkbook, parseRevenueReport, saveRevenueEntry, parseGoodsReceiptWorkbook, saveGoodsReceiptEntries, goodsReceiptState, startServer };
 
 
 
