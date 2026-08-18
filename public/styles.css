@@ -135,6 +135,8 @@ body {
 .goods-filter-switch button.active { background:#0878d1; color:#fff; }
 .goods-controls label { margin:0; min-width:210px; }
 .goods-entry-list { display:grid; gap:12px; }
+.goods-supplier-heading { border-bottom:2px solid #d8dee8; margin:14px 0 0; padding:0 2px 8px; }
+.goods-supplier-heading:first-child { margin-top:0; }
 .goods-entry { background:#fff; border:2px solid #d8dee8; border-radius:18px; padding:18px; }
 .goods-entry.duplicate,.goods-entry.danger { border-color:#d92d20; background:#fff7f6; }
 .goods-entry.high { border-color:#ef7d22; background:#fff8f1; }
@@ -267,6 +269,7 @@ h2 {
   .goods-summary-grid article { border-radius:13px; padding:12px; }
   .goods-summary-grid strong { font-size:22px; }
   .goods-entry { border-radius:14px; padding:13px; }
+  .goods-supplier-heading { font-size:19px; margin-top:10px; }
   .goods-entry header { align-items:flex-start; flex-direction:column; gap:8px; }
   .goods-entry header h2 { font-size:18px; overflow-wrap:anywhere; }
   .goods-entry header > strong { font-size:22px; }

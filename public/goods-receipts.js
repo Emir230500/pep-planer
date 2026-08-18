@@ -24,16 +24,25 @@ function levelLabel(item) {
 function renderList() {
   const selectedDate = document.querySelector("#goodsDate")?.value || "";
   const alerts = new Set(["duplicate", "danger", "high", "warning"]);
-  const entries = (goodsData.entries || []).filter(item => (!selectedDate || item.date === selectedDate) && (goodsFilter === "all" || alerts.has(item.level)));
+  const entries = (goodsData.entries || []).filter(item => (!selectedDate || item.date === selectedDate) && (goodsFilter === "all" || alerts.has(item.level))).sort((a, b) =>
+    String(a.supplier).localeCompare(String(b.supplier), "de") ||
+    String(b.date).localeCompare(String(a.date)) ||
+    String(a.department).localeCompare(String(b.department), "de") ||
+    String(a.reference).localeCompare(String(b.reference), "de", { numeric: true })
+  );
   if (!entries.length) { listBox.innerHTML = '<div class="panel empty">Für diese Auswahl gibt es keine Auffälligkeiten.</div>'; return; }
-  listBox.innerHTML = `<div class="goods-entry-list">${entries.map(item => `<article class="goods-entry ${escapeHtml(item.level)} ${item.review ? "reviewed" : ""}">
-    <header><div><small>${escapeHtml(dateText(item.date))} · ${escapeHtml(item.department || "Wareneingang")}</small><h2>${escapeHtml(item.supplier)}</h2></div><strong>${escapeHtml(money(item.value))}</strong></header>
+  let previousSupplier = "";
+  listBox.innerHTML = `<div class="goods-entry-list">${entries.map(item => {
+    const supplierHeading = item.supplier !== previousSupplier ? `<h2 class="goods-supplier-heading">${escapeHtml(item.supplier)}</h2>` : "";
+    previousSupplier = item.supplier;
+    return `${supplierHeading}<article class="goods-entry ${escapeHtml(item.level)} ${item.review ? "reviewed" : ""}">
+    <header><div><small>${escapeHtml(dateText(item.date))}</small><h2>${escapeHtml(item.department || "Wareneingang")}</h2></div><strong>${escapeHtml(money(item.value))}</strong></header>
     <div class="goods-reference"><span>Referenzbeleg</span><b>${escapeHtml(item.reference)}</b></div>
     <p class="goods-reason"><b>${escapeHtml(levelLabel(item))}</b><span>${escapeHtml(item.reason)}</span></p>
     ${item.baseline?.count >= 10 ? `<p class="goods-baseline">Typischer Warenwert bei diesem Lieferanten: <b>${escapeHtml(money(item.baseline.typical))}</b> · Vergleich aus ${item.baseline.count} Lieferungen</p>` : ""}
     ${item.duplicateDates?.length > 1 ? `<p class="goods-duplicate-dates">Gefunden am: ${item.duplicateDates.map(dateText).join(" und ")}</p>` : ""}
     <div class="goods-actions"><button data-review-id="${item.id}" data-review-status="ok" class="secondary">In Ordnung</button><button data-review-id="${item.id}" data-review-status="duplicate" class="danger">Doppelbuchung bestätigen</button></div>
-  </article>`).join("")}</div>`;
+  </article>`; }).join("")}</div>`;
   listBox.querySelectorAll("[data-review-id]").forEach(button => button.addEventListener("click", async () => { await api("/api/me/goods-receipts/review", { method: "POST", body: { id: button.dataset.reviewId, status: button.dataset.reviewStatus } }); await loadGoods(); }));
 }
 function fillDates() {
