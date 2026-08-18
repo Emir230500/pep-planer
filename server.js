@@ -12,11 +12,12 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "kpi-produce-total-fix-20260817-v2";
+const BUILD_VERSION = "push-sick-routing-and-mail-sync-20260818-v1";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const DEFAULT_GMX_EMAIL = process.env.GMX_EMAIL || "edemircan@gmx.net";
 const REVENUE_REPORT_SENDER = String(process.env.REVENUE_REPORT_SENDER || "NoReplyBerichtsexport@edeka.de").trim().toLowerCase();
 const REVENUE_REPORT_PREFIX = String(process.env.REVENUE_REPORT_PREFIX || "Umsatz_8453700_").trim().toLowerCase();
+const REVENUE_IMPORT_INTERVAL_MS = 2 * 60 * 1000;
 // Keep the original key pair as a compatibility fallback so existing devices
 // continue receiving push messages until Render environment values are set.
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
@@ -1059,13 +1060,14 @@ async function sendPlanPush(db, plan, mode = "auto", targetNames = null, options
   const hasChanges = Array.isArray(plan.changes) && plan.changes.length > 0;
   const customMessage = sanitizePushMessage(options.message || options.pushMessage || "");
   const appendMessage = sanitizePushMessage(options.appendMessage || options.pushAppendMessage || "");
+  const customTitle = sanitizePushMessage(options.title || "");
   const defaultBody = hasChanges
     ? defaultPushBody(plan, targetNames)
     : `${plan.title || "Ein neuer Plan"} wurde veroeffentlicht.`;
   const body = customMessage || (appendMessage ? `${defaultBody} - ${appendMessage}` : defaultBody);
 
   const payload = JSON.stringify({
-    title: customMessage ? "Arbeitsplan Info" : hasChanges ? "Planaenderung" : "Neuer Arbeitsplan online",
+    title: customTitle || (customMessage ? "Arbeitsplan Info" : hasChanges ? "Planaenderung" : "Neuer Arbeitsplan online"),
     body,
     url: "/"
   });
@@ -1208,6 +1210,12 @@ function sickPushBody(name, dates, editorName = "") {
   return `Krankmeldung: ${name}${editor} ${weekdayShort(first.date)} ${first.value} bis ${weekdayShort(last.date)} ${last.value}`;
 }
 
+function sickPushMessageMatchesEmployee(message, name) {
+  const haystack = looseEmployeeKey(message).replace(/,/g, " ");
+  const parts = looseEmployeeKey(name).replace(/,/g, " ").split(/\s+/).filter(part => part.length > 1);
+  return Boolean(parts.length && parts.every(part => haystack.includes(part)));
+}
+
 async function markEmployeeSick(db, planId, name, date, wholeWeek = false, notifyMode = "leadership", notifyNames = [], pushMessage = "", editorName = "") {
   const plan = db.plans.find(item => item.id === planId);
   if (!plan) return { error: "Plan nicht gefunden.", status: 404 };
@@ -1264,16 +1272,22 @@ async function markEmployeeSick(db, planId, name, date, wholeWeek = false, notif
   const corrections = changes.map(change => createManualPepCorrection(db, plan, change)).filter(Boolean);
 
   const mode = sickNotifyMode(notifyMode);
-  const notificationText = pushMessage || sickPushBody(cleanName, validDates, editorName);
+  const standardNotificationText = sickPushBody(cleanName, validDates, editorName);
+  const requestedNotificationText = sanitizePushMessage(pushMessage);
+  // A sick route must never emit a stale normal plan-change message. Custom
+  // text remains possible, but only when it clearly belongs to this employee.
+  const notificationText = requestedNotificationText && sickPushMessageMatchesEmployee(requestedNotificationText, cleanName)
+    ? requestedNotificationText
+    : standardNotificationText;
   let push = { sent: 0, removed: 0, skipped: true, mode };
   if (publishedIds(db).includes(plan.id) && mode !== "none") {
     if (mode === "selected_leadership") {
       const selectedNames = selectedLeadershipNames(notifyNames);
       push = selectedNames.length
-        ? await sendPlanPush(db, plan, "affected", selectedNames, { pushMessage: notificationText })
+        ? await sendPlanPush(db, plan, "affected", selectedNames, { title: "Krankmeldung", pushMessage: notificationText })
         : { sent: 0, removed: 0, skipped: true, mode };
     } else {
-      push = await sendPlanPush(db, plan, "leadership", null, { pushMessage: notificationText });
+      push = await sendPlanPush(db, plan, "leadership", null, { title: "Krankmeldung", pushMessage: notificationText });
     }
   }
 
@@ -1750,7 +1764,7 @@ function revenueAutoImportDue(db) {
   const lastRun = state.lastRunAt ? new Date(state.lastRunAt).getTime() : 0;
   // Both daily exports may arrive a few minutes apart. Keep checking after the
   // first successful import so the second mail is not postponed until tomorrow.
-  return !lastRun || Date.now() - lastRun >= 15 * 60 * 1000;
+  return !lastRun || Date.now() - lastRun >= REVENUE_IMPORT_INTERVAL_MS;
 }
 
 async function ensureAutomaticRevenueImport() {
@@ -2297,7 +2311,7 @@ async function startServer() {
   });
   const revenueTimer = setInterval(() => {
     ensureAutomaticRevenueImport().catch(() => {});
-  }, 15 * 60 * 1000);
+  }, REVENUE_IMPORT_INTERVAL_MS);
   revenueTimer.unref();
   return server;
 }
