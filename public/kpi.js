@@ -288,6 +288,7 @@ function dashboardSwitchHtml() {
     <nav class="kpi-section-switch" aria-label="KPI-Bereich wählen">
       <button type="button" data-kpi-view="market" class="${activeDashboardView === "market" ? "active" : ""}">Gesamtmarkt</button>
       <button type="button" data-kpi-view="produce" class="${activeDashboardView === "produce" ? "active" : ""}">Obst &amp; Gemüse</button>
+      <button type="button" data-kpi-view="backshop" class="${activeDashboardView === "backshop" ? "active" : ""}">Backshop</button>
     </nav>
   `;
 }
@@ -295,7 +296,7 @@ function dashboardSwitchHtml() {
 function bindDashboardSwitch() {
   content.querySelectorAll("[data-kpi-view]").forEach(button => {
     button.addEventListener("click", () => {
-      activeDashboardView = button.dataset.kpiView === "produce" ? "produce" : "market";
+      activeDashboardView = ["produce", "backshop"].includes(button.dataset.kpiView) ? button.dataset.kpiView : "market";
       renderActiveDashboard();
     });
   });
@@ -308,7 +309,8 @@ function renderDashboard(revenue, canSeePrivateInsights = false) {
 }
 
 function renderActiveDashboard() {
-  if (activeDashboardView === "produce") renderProduceDashboard(dashboardRevenue, dashboardPrivateInsights);
+  if (activeDashboardView === "produce") renderProduceDashboard(dashboardRevenue, dashboardPrivateInsights, "produce");
+  else if (activeDashboardView === "backshop") renderProduceDashboard(dashboardRevenue, dashboardPrivateInsights, "backshop");
   else renderMarketDashboard(dashboardRevenue, dashboardPrivateInsights);
   if (content.firstElementChild) content.insertAdjacentHTML("afterbegin", dashboardSwitchHtml());
   bindDashboardSwitch();
@@ -534,18 +536,19 @@ function seasonalProduceTip(date) {
   return tips[month] || "Saisonartikel und regionale Schwerpunkte regelmäßig prüfen.";
 }
 
-function produceWarnings(summary) {
+function produceWarnings(summary, isBackshop = false) {
   const warnings = [];
-  if (summary.deviation != null && summary.deviation <= -10) warnings.push({ level: "danger", title: "Obst-Umsatz deutlich unter Vorjahr", value: number(summary.deviation, " %") });
-  else if (summary.deviation != null && summary.deviation <= -5) warnings.push({ level: "warning", title: "Obst-Umsatz unter Vorjahr", value: number(summary.deviation, " %") });
+  const label = isBackshop ? "Backshop" : "Obst";
+  if (summary.deviation != null && summary.deviation <= -10) warnings.push({ level: "danger", title: `${label}-Umsatz deutlich unter Vorjahr`, value: number(summary.deviation, " %") });
+  else if (summary.deviation != null && summary.deviation <= -5) warnings.push({ level: "warning", title: `${label}-Umsatz unter Vorjahr`, value: number(summary.deviation, " %") });
   if (summary.writeOffRate != null && summary.writeOffRate >= 4) warnings.push({ level: "danger", title: "Abschriftenquote sehr hoch", value: percent(summary.writeOffRate) });
   else if (summary.writeOffRate != null && summary.writeOffRate >= 2) warnings.push({ level: "warning", title: "Abschriftenquote beobachten", value: percent(summary.writeOffRate) });
   if (!warnings.length) warnings.push({ level: "good", title: "Keine akute Auffälligkeit", value: "Umsatz und Abschriften liegen innerhalb der Grenzwerte." });
-  warnings.push({ level: "season", title: "Saisonhinweis", value: seasonalProduceTip(summary.latestDate) });
+  if (!isBackshop) warnings.push({ level: "season", title: "Saisonhinweis", value: seasonalProduceTip(summary.latestDate) });
   return warnings;
 }
 
-function producePrivateInsightsHtml(summary) {
+function producePrivateInsightsHtml(summary, isBackshop = false) {
   return `
     <section class="kpi-trend-card">
       <div class="kpi-trend-head">
@@ -564,26 +567,29 @@ function producePrivateInsightsHtml(summary) {
     </section>
     <section class="kpi-warning-card">
       <div class="kpi-warning-head"><small>Nur für Emirkan</small><h2>Warnungen &amp; Saison</h2></div>
-      <div class="kpi-warning-list">${produceWarnings(summary).map(item => `
+      <div class="kpi-warning-list">${produceWarnings(summary, isBackshop).map(item => `
         <article class="kpi-warning-item ${item.level}"><span class="kpi-warning-icon" aria-hidden="true">${item.level === "season" ? "☀" : warningIcon(item.level)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.value)}</small></div></article>
       `).join("")}</div>
     </section>
   `;
 }
 
-function renderProduceDashboard(revenue, canSeePrivateInsights = false) {
-  const produce = revenue.produce || {};
+function renderProduceDashboard(revenue, canSeePrivateInsights = false, department = "produce") {
+  const produce = revenue[department] || {};
+  const isBackshop = department === "backshop";
+  const departmentLabel = isBackshop ? "Backshop" : "Obst & Gemüse";
+  const departmentLabelHtml = isBackshop ? "Backshop" : "Obst &amp; Gemüse";
   if (!Array.isArray(produce.entries) || !produce.entries.length) {
-    content.innerHTML = '<div class="panel empty">Noch keine Obst-Umsatzmail eingelesen. Sobald beide täglichen Obst-Berichte im GMX-Postfach liegen, erscheinen die Daten hier automatisch.</div>';
+    content.innerHTML = `<div class="panel empty">Noch keine ${departmentLabelHtml}-Umsatzmail eingelesen. Sobald beide täglichen Berichte im GMX-Postfach liegen, erscheinen die Daten hier automatisch.</div>`;
     return;
   }
-  const summary = aggregateProduce(revenue, activeProduceRange);
+  const summary = aggregateProduce({ ...revenue, produce }, activeProduceRange);
   trendSourceEntries = produce.entries || [];
-  activeTrendContext = "Obst & Gemüse";
+  activeTrendContext = departmentLabel;
   if (!["revenue", "writeOffs"].includes(activeTrendMetric)) activeTrendMetric = "revenue";
   content.innerHTML = `
     <section class="produce-toolbar">
-      <div><small>Abteilung</small><h2>Obst &amp; Gemüse</h2></div>
+      <div><small>Abteilung</small><h2>${departmentLabelHtml}</h2></div>
       <div class="produce-range-switch" role="tablist" aria-label="Zeitraum wählen">
         ${[["day", "Tag"], ["week", "Woche"], ["month", "Monat"]].map(([key, label]) => `<button type="button" data-produce-range="${key}" class="${activeProduceRange === key ? "active" : ""}">${label}</button>`).join("")}
       </div>
@@ -594,10 +600,10 @@ function renderProduceDashboard(revenue, canSeePrivateInsights = false) {
       <span class="${trend(summary.deviation)}">${summary.deviation == null ? "Noch kein vollständiger Vorjahresvergleich" : `${escapeHtml(number(summary.deviation, " %"))} zum Vorjahr`}</span>
     </section>
     <section class="revenue-summary-grid produce-summary-grid">
-      <article class="produce-share-card"><small>Anteil am Gesamtumsatz</small><strong>${summary.revenueSharePercent == null ? "Noch nicht verfügbar" : escapeHtml(percent(summary.revenueSharePercent))}</strong><em>${summary.matchedDays ? `aus ${summary.matchedDays} gemeinsamem Tagesbericht${summary.matchedDays === 1 ? "" : "en"}` : "Gesamt- und Obstbericht müssen zum selben Tag vorliegen"}</em></article>
+      <article class="produce-share-card"><small>Anteil am Gesamtumsatz</small><strong>${summary.revenueSharePercent == null ? "Noch nicht verfügbar" : escapeHtml(percent(summary.revenueSharePercent))}</strong><em>${summary.matchedDays ? `aus ${summary.matchedDays} gemeinsamem Tagesbericht${summary.matchedDays === 1 ? "" : "en"}` : `Gesamt- und ${departmentLabel}-Bericht müssen zum selben Tag vorliegen`}</em></article>
       <article><small>Abschriften</small><strong>${escapeHtml(money(summary.writeOffs, 2))}</strong></article>
       <article><small>Abschriftenquote</small><strong>${summary.writeOffRate == null ? "-" : escapeHtml(percent(summary.writeOffRate))}</strong></article>
-      <article><small>Rang im Obst-Vergleich</small><strong>${summary.ownRank ? `${summary.ownRank} von ${summary.comparison.length}` : "-"}</strong></article>
+      <article><small>Rang im ${departmentLabel}-Vergleich</small><strong>${summary.ownRank ? `${summary.ownRank} von ${summary.comparison.length}` : "-"}</strong></article>
     </section>
     <section class="produce-secondary-grid">
       <article><small>Umsatz Vorjahr</small><strong>${summary.priorYearRevenue == null ? "Noch kein Vergleich" : escapeHtml(money(summary.priorYearRevenue, 2))}</strong></article>
@@ -609,13 +615,13 @@ function renderProduceDashboard(revenue, canSeePrivateInsights = false) {
       ${produceTopListHtml("Top 5 Verkaufsartikel", summary.topRevenue, "revenue", "Für diesen Zeitraum fehlen noch Artikeldetails.")}
       ${produceTopListHtml("Top 5 Abschriftenartikel", summary.topWriteOffs, "writeOffs", "Keine Abschriftenartikel in diesem Zeitraum.")}
     </section>
-    ${canSeePrivateInsights ? producePrivateInsightsHtml(summary) : ""}
+    ${canSeePrivateInsights ? producePrivateInsightsHtml(summary, isBackshop) : ""}
     <details class="revenue-details kpi-market-comparison">
-      <summary>Obst-Umsatz aller Märkte</summary>
+      <summary>${departmentLabelHtml}-Umsatz aller Märkte</summary>
       <div class="market-comparison-cards produce-market-cards">${summary.comparison.map((item, index) => `
         <article class="market-comparison-card ${index + 1 === summary.ownRank ? "own" : ""}">
           <header><span class="market-rank">#${index + 1}</span><strong>${escapeHtml(item.marketName)}</strong>${index + 1 === summary.ownRank ? '<span class="own-market-badge">Dein Markt</span>' : ""}</header>
-          <div class="market-card-main"><div><small>Obst-Umsatz</small><strong>${escapeHtml(money(item.revenue, 2))}</strong></div><span class="market-card-change ${trend(item.priorYearDeviationPercent)}">${item.priorYearDeviationPercent == null ? "Kein VJ" : escapeHtml(number(item.priorYearDeviationPercent, " %"))}</span></div>
+          <div class="market-card-main"><div><small>${departmentLabelHtml}-Umsatz</small><strong>${escapeHtml(money(item.revenue, 2))}</strong></div><span class="market-card-change ${trend(item.priorYearDeviationPercent)}">${item.priorYearDeviationPercent == null ? "Kein VJ" : escapeHtml(number(item.priorYearDeviationPercent, " %"))}</span></div>
         </article>
       `).join("")}</div>
     </details>
