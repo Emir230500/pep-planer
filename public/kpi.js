@@ -290,6 +290,7 @@ function dashboardSwitchHtml() {
       ${dashboardAccess.market ? `<button type="button" data-kpi-view="market" class="${activeDashboardView === "market" ? "active" : ""}">Gesamtmarkt</button>` : ""}
       ${dashboardAccess.produce ? `<button type="button" data-kpi-view="produce" class="${activeDashboardView === "produce" ? "active" : ""}">Obst &amp; Gemüse</button>` : ""}
       ${dashboardAccess.backshop ? `<button type="button" data-kpi-view="backshop" class="${activeDashboardView === "backshop" ? "active" : ""}">Backshop</button>` : ""}
+      ${dashboardAccess.market ? `<a href="/goods-receipts.html" class="kpi-section-link">Wareneingang</a>` : ""}
     </nav>
   `;
 }

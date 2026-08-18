@@ -225,12 +225,13 @@ h2 {
   border-radius: 14px;
   display: grid;
   gap: 4px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 16px;
   padding: 4px;
 }
 
 .kpi-section-switch button,
+.kpi-section-switch .kpi-section-link,
 .produce-range-switch button {
   background: transparent;
   border: 0;
@@ -241,11 +242,39 @@ h2 {
   padding: 8px 14px;
 }
 
+.kpi-section-switch .kpi-section-link {
+  align-items: center;
+  display: flex;
+  font-weight: 700;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}
+
 .kpi-section-switch button.active,
 .produce-range-switch button.active {
   background: #fff;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.14);
   color: #111;
+}
+
+.goods-import-optional summary { cursor:pointer; font-weight:700; }
+
+@media (max-width:700px) {
+  .kpi-section-switch { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .kpi-section-switch button,.kpi-section-switch .kpi-section-link { font-size:14px; min-height:46px; padding:7px 5px; }
+  .goods-summary-grid { gap:8px; }
+  .goods-summary-grid article { border-radius:13px; padding:12px; }
+  .goods-summary-grid strong { font-size:22px; }
+  .goods-entry { border-radius:14px; padding:13px; }
+  .goods-entry header { align-items:flex-start; flex-direction:column; gap:8px; }
+  .goods-entry header h2 { font-size:18px; overflow-wrap:anywhere; }
+  .goods-entry header > strong { font-size:22px; }
+  .goods-reference { align-items:flex-start; flex-direction:column; overflow-wrap:anywhere; }
+  .goods-controls label { min-width:0; width:100%; }
+  .goods-filter-switch { grid-template-columns:1fr; }
+  .goods-filter-switch button { min-height:44px; width:100%; }
+  .goods-import-optional .panel { padding:14px; }
 }
 
 .produce-toolbar {

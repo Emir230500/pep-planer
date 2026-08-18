@@ -13,12 +13,14 @@
       <div class="top-actions"><a class="link kpi-plan-button" href="/kpi.html">KPIs öffnen</a><a class="link kpi-plan-button" href="/?view=plan">Dienstplan öffnen</a></div>
     </section>
     <section id="goodsSummary" class="goods-summary"><div class="panel">Kontrolle wird geladen…</div></section>
-    <section id="goodsImport" class="panel hidden">
-      <h2>Historische Monatsdateien einlesen</h2>
-      <p class="hint">Einmalig Februar bis August auswählen. Tägliche „Gestern“-Mails werden danach automatisch gelesen.</p>
-      <input id="goodsFiles" type="file" accept=".xlsx" multiple>
-      <button id="goodsImportBtn" type="button">Dateien einlesen</button>
-      <p id="goodsImportMsg" class="msg"></p>
+    <section id="goodsImport" class="goods-import-optional hidden">
+      <details class="panel">
+        <summary>Monatsdateien nachträglich ergänzen</summary>
+        <p class="hint">Nur verwenden, falls später ein Monat fehlt. Tägliche „Gestern“-Mails werden automatisch gelesen.</p>
+        <input id="goodsFiles" type="file" accept=".xlsx" multiple>
+        <button id="goodsImportBtn" type="button">Dateien einlesen</button>
+        <p id="goodsImportMsg" class="msg"></p>
+      </details>
     </section>
     <section class="goods-controls panel">
       <div class="goods-filter-switch"><button data-goods-filter="alerts" class="active">Nur Auffälligkeiten</button><button data-goods-filter="all">Alle Wareneingänge</button></div>
