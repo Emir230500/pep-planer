@@ -1,0 +1,17 @@
+name: PEP Planer wach halten
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  keep-awake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: App aufwecken und Mailabruf anstoßen
+        run: |
+          curl --fail --silent --show-error \
+            --retry 5 --retry-delay 10 --max-time 90 \
+            https://pep-planer.onrender.com/health
