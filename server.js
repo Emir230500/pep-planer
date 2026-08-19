@@ -12,13 +12,17 @@ const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
 const PUBLIC_DIR = path.join(__dirname, "public");
-const BUILD_VERSION = "goods-receipt-control-20260818-v1";
+const BUILD_VERSION = "free-db-transfer-20260819-v1";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const DEFAULT_GMX_EMAIL = process.env.GMX_EMAIL || "edemircan@gmx.net";
 const REVENUE_REPORT_SENDER = String(process.env.REVENUE_REPORT_SENDER || "NoReplyBerichtsexport@edeka.de").trim().toLowerCase();
 const REVENUE_REPORT_PREFIX = String(process.env.REVENUE_REPORT_PREFIX || "Umsatz_8453700_").trim().toLowerCase();
 const GOODS_RECEIPT_PREFIX = String(process.env.GOODS_RECEIPT_PREFIX || "Wareneingangskontrollliste_8453700_").trim().toLowerCase();
-const REVENUE_IMPORT_INTERVAL_MS = 2 * 60 * 1000;
+// Automatic reports normally arrive in the morning. A 30-minute check during
+// that window is prompt enough without repeatedly downloading the large JSON
+// database from Neon throughout the day.
+const REVENUE_IMPORT_INTERVAL_MS = 30 * 60 * 1000;
+const DB_CACHE_TTL_MS = 60 * 1000;
 // Keep the original key pair as a compatibility fallback so existing devices
 // continue receiving push messages until Render environment values are set.
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
@@ -26,6 +30,9 @@ const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
 let pgPool = null;
 let webPush = null;
+let dbCache = null;
+let dbCacheAt = 0;
+let nextRevenueAutoCheckAt = 0;
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && PUSH_CONTACT) {
   try {
@@ -128,11 +135,14 @@ async function ensureDb() {
 }
 
 async function readDb() {
+  if (dbCache && Date.now() - dbCacheAt < DB_CACHE_TTL_MS) return dbCache;
   await ensureDb();
   const pool = await getPgPool();
   if (pool) {
     const result = await pool.query("SELECT value FROM app_store WHERE key = $1", ["db"]);
-    return normalizeDb(result.rows[0]?.value || defaultDb());
+    dbCache = normalizeDb(result.rows[0]?.value || defaultDb());
+    dbCacheAt = Date.now();
+    return dbCache;
   }
   return normalizeDb(JSON.parse(fs.readFileSync(DB_FILE, "utf8")));
 }
@@ -145,11 +155,15 @@ async function writeDb(db) {
     await pool.query("INSERT INTO app_backups (value) SELECT value FROM app_store WHERE key = $1", ["db"]);
     await pool.query("UPDATE app_store SET value = $2::jsonb, updated_at = now() WHERE key = $1", ["db", JSON.stringify(db)]);
     await pool.query("DELETE FROM app_backups WHERE id NOT IN (SELECT id FROM app_backups ORDER BY created_at DESC LIMIT 30)");
+    dbCache = db;
+    dbCacheAt = Date.now();
     return;
   }
 
   backupDb();
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  dbCache = db;
+  dbCacheAt = Date.now();
 }
 
 function backupDb() {
@@ -1949,6 +1963,11 @@ function revenueAutoImportDue(db) {
 
 async function ensureAutomaticRevenueImport() {
   if (revenueAutoImportPromise) return revenueAutoImportPromise;
+  const hour = berlinHour();
+  // No database access for frequent page/health requests. Check mail only from
+  // 07:00 through 14:59 Berlin time, when the daily exports are expected.
+  if (hour < 7 || hour >= 15 || Date.now() < nextRevenueAutoCheckAt) return;
+  nextRevenueAutoCheckAt = Date.now() + REVENUE_IMPORT_INTERVAL_MS;
   revenueAutoImportPromise = (async () => {
     const db = await readDb();
     if (!revenueAutoImportDue(db)) return;
@@ -2530,11 +2549,8 @@ async function startServer() {
   await ensureDb();
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    // A normal uptime-bot request is enough to wake Render and start the
-    // daily GMX revenue check after 08:00 without exposing mail credentials.
-    if (url.pathname === "/" || url.pathname === "/health") {
-      ensureAutomaticRevenueImport().catch(() => {});
-    }
+    // Uptime checks must stay database-free so Render can remain awake without
+    // consuming Neon's public network-transfer allowance.
     if (url.pathname === "/health") return json(res, 200, { ok: true, buildVersion: BUILD_VERSION });
     if (url.pathname.startsWith("/api/")) return handleApi(req, res, url.pathname, url);
     serveStatic(req, res, url.pathname);
