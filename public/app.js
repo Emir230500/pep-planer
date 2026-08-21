@@ -54,13 +54,13 @@ function showShifts(data) {
   kpiLink?.classList.toggle("hidden", !data.canSeeRevenue);
   setupPushButton();
 
-  if (!data.plans.length) {
-    shiftList.innerHTML = '<div class="panel empty">Noch kein veroeffentlichter Dienstplan vorhanden.</div>';
+  if (data.teamView) {
+    showTeamShifts(data);
     return;
   }
 
-  if (data.teamView) {
-    showTeamShifts(data);
+  if (!data.plans.length) {
+    shiftList.innerHTML = '<div class="panel empty">Noch kein veroeffentlichter Dienstplan vorhanden.</div>';
     return;
   }
 
