@@ -1833,7 +1833,9 @@ function goodsReceiptState(db) {
   const normalLimit = Math.max(0, 5000 - alertEntries.length);
   const visibleEntries = alertEntries.concat(assessed.filter(item => !alertLevels.has(item.level)).slice(0, normalLimit));
   const availableDates = Array.from(new Set(entries.map(item => item.date))).sort().reverse();
-  return { entries: visibleEntries, availableDates, summary: { total: latestEntries.length, historyTotal: entries.length, duplicates: latestEntries.filter(item => item.level === "duplicate").length, historicalDuplicates: assessed.filter(item => item.level === "duplicate").length, unusual: latestEntries.filter(item => ["warning", "high", "danger"].includes(item.level)).length, suppliers: new Set(entries.map(item => looseEmployeeKey(item.supplier))).size, latestDate } };
+  const historicalDuplicateGroups = new Set(assessed.filter(item => item.level === "duplicate").map(item => `${looseEmployeeKey(item.supplier)}|${String(item.reference).toLowerCase()}|${Number(item.value).toFixed(2)}`)).size;
+  const historicalUnusual = assessed.filter(item => ["warning", "high", "danger"].includes(item.level)).length;
+  return { entries: visibleEntries, availableDates, summary: { total: latestEntries.length, historyTotal: entries.length, duplicates: latestEntries.filter(item => item.level === "duplicate").length, historicalDuplicates: assessed.filter(item => item.level === "duplicate").length, historicalDuplicateGroups, historicalUnusual, unusual: latestEntries.filter(item => ["warning", "high", "danger"].includes(item.level)).length, suppliers: new Set(entries.map(item => looseEmployeeKey(item.supplier))).size, latestDate } };
 }
 
 async function testGmxConnection(db) {
