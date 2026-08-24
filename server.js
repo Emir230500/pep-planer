@@ -1825,7 +1825,15 @@ function goodsReceiptState(db) {
   assessed.sort((a, b) => String(b.date).localeCompare(String(a.date)) || (priority[a.level] ?? 9) - (priority[b.level] ?? 9) || Number(b.value) - Number(a.value) || String(a.supplier).localeCompare(String(b.supplier), "de"));
   const latestDate = entries[0]?.date || "";
   const latestEntries = assessed.filter(item => item.date === latestDate);
-  return { entries: assessed.slice(0, 5000), summary: { total: latestEntries.length, historyTotal: entries.length, duplicates: latestEntries.filter(item => item.level === "duplicate").length, unusual: latestEntries.filter(item => ["warning", "high", "danger"].includes(item.level)).length, suppliers: new Set(entries.map(item => looseEmployeeKey(item.supplier))).size, latestDate } };
+  // Always return every historical warning before filling the response with
+  // normal rows. Otherwise older duplicates disappear once the history grows
+  // beyond the response cap.
+  const alertLevels = new Set(["duplicate", "danger", "high", "warning"]);
+  const alertEntries = assessed.filter(item => alertLevels.has(item.level));
+  const normalLimit = Math.max(0, 5000 - alertEntries.length);
+  const visibleEntries = alertEntries.concat(assessed.filter(item => !alertLevels.has(item.level)).slice(0, normalLimit));
+  const availableDates = Array.from(new Set(entries.map(item => item.date))).sort().reverse();
+  return { entries: visibleEntries, availableDates, summary: { total: latestEntries.length, historyTotal: entries.length, duplicates: latestEntries.filter(item => item.level === "duplicate").length, historicalDuplicates: assessed.filter(item => item.level === "duplicate").length, unusual: latestEntries.filter(item => ["warning", "high", "danger"].includes(item.level)).length, suppliers: new Set(entries.map(item => looseEmployeeKey(item.supplier))).size, latestDate } };
 }
 
 async function testGmxConnection(db) {
