@@ -8,7 +8,7 @@ let dashboardRevenue = {};
 let dashboardPrivateInsights = false;
 let activeDashboardView = "market";
 let dashboardAccess = { market: true, produce: true, backshop: true };
-let activeProduceRange = "week";
+let activeProduceRanges = { produce: "day", backshop: "week" };
 let activeKpiDates = { market: "", produce: "", backshop: "" };
 
 function escapeHtml(value) {
@@ -612,6 +612,7 @@ function producePrivateInsightsHtml(summary, isBackshop = false) {
 
 function renderProduceDashboard(revenue, canSeePrivateInsights = false, department = "produce") {
   const produce = revenue[department] || {};
+  const activeProduceRange = activeProduceRanges[department] || "day";
   const isBackshop = department === "backshop";
   const departmentLabel = isBackshop ? "Backshop" : "Obst & Gemüse";
   const departmentLabelHtml = isBackshop ? "Backshop" : "Obst &amp; Gemüse";
@@ -665,7 +666,7 @@ function renderProduceDashboard(revenue, canSeePrivateInsights = false, departme
     </details>
   `;
   content.querySelectorAll("[data-produce-range]").forEach(button => button.addEventListener("click", () => {
-    activeProduceRange = ["day", "week", "month"].includes(button.dataset.produceRange) ? button.dataset.produceRange : "week";
+    activeProduceRanges[department] = ["day", "week", "month"].includes(button.dataset.produceRange) ? button.dataset.produceRange : "day";
     renderActiveDashboard();
   }));
   content.querySelectorAll("[data-trend-metric]").forEach(button => button.addEventListener("click", () => updateTrendChart(button.dataset.trendMetric)));
