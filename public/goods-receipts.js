@@ -14,7 +14,11 @@ async function api(url, options = {}) {
 }
 function renderSummary() {
   const s = goodsData.summary || {};
-  summaryBox.innerHTML = `<div class="goods-summary-grid"><article><small>Wareneingänge</small><strong>${s.total || 0}</strong></article><article class="danger"><small>Sichere Dubletten</small><strong>${s.duplicates || 0}</strong></article><article class="warning"><small>Hohe Warenwerte</small><strong>${s.unusual || 0}</strong></article><article><small>Aktueller Stand</small><strong>${dateText(s.latestDate) || "–"}</strong></article></div>`;
+  const allDays = !(document.querySelector("#goodsDate")?.value || "");
+  const total = allDays ? s.historyTotal : s.total;
+  const duplicates = allDays ? (s.historicalDuplicateGroups ?? s.historicalDuplicates) : s.duplicates;
+  const unusual = allDays ? s.historicalUnusual : s.unusual;
+  summaryBox.innerHTML = `<div class="goods-summary-grid"><article><small>Wareneingänge</small><strong>${total || 0}</strong></article><article class="danger"><small>Sichere Dubletten</small><strong>${duplicates || 0}</strong></article><article class="warning"><small>Hohe Warenwerte</small><strong>${unusual || 0}</strong></article><article><small>Aktueller Stand</small><strong>${dateText(s.latestDate) || "–"}</strong></article></div>`;
 }
 function levelLabel(item) {
   if (item.review?.status === "ok") return "Geprüft: in Ordnung";
@@ -55,11 +59,11 @@ function fillDates() {
   else if (goodsData.summary?.latestDate) select.value = goodsData.summary.latestDate;
 }
 async function loadGoods() {
-  try { goodsData = await api("/api/me/goods-receipts"); renderSummary(); fillDates(); renderList(); if (goodsData.canImport) importBox.classList.remove("hidden"); }
+  try { goodsData = await api("/api/me/goods-receipts"); fillDates(); renderSummary(); renderList(); if (goodsData.canImport) importBox.classList.remove("hidden"); }
   catch (error) { msg.textContent = error.message; msg.classList.add("error"); }
 }
 document.querySelectorAll("[data-goods-filter]").forEach(button => button.addEventListener("click", () => { goodsFilter = button.dataset.goodsFilter; document.querySelectorAll("[data-goods-filter]").forEach(item => item.classList.toggle("active", item === button)); renderList(); }));
-document.querySelector("#goodsDate").addEventListener("change", renderList);
+document.querySelector("#goodsDate").addEventListener("change", () => { renderSummary(); renderList(); });
 document.querySelector("#goodsImportBtn").addEventListener("click", async () => {
   const files = [...document.querySelector("#goodsFiles").files]; const importMsg = document.querySelector("#goodsImportMsg");
   if (!files.length) { importMsg.textContent = "Bitte Monatsdateien auswählen."; return; }
