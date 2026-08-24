@@ -47,7 +47,9 @@ function renderList() {
 }
 function fillDates() {
   const select = document.querySelector("#goodsDate"); const current = select.value;
-  const dates = [...new Set((goodsData.entries || []).map(item => item.date))].sort().reverse();
+  const dates = Array.isArray(goodsData.availableDates) && goodsData.availableDates.length
+    ? goodsData.availableDates
+    : [...new Set((goodsData.entries || []).map(item => item.date))].sort().reverse();
   select.innerHTML = '<option value="">Alle Tage</option>' + dates.map(date => `<option value="${date}">${dateText(date)}</option>`).join("");
   if (dates.includes(current)) select.value = current;
   else if (goodsData.summary?.latestDate) select.value = goodsData.summary.latestDate;
