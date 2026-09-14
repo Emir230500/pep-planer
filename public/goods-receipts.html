@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wareneingangskontrolle</title>
-  <link rel="stylesheet" href="/styles.css?v=20260818-goods-receipts">
+  <link rel="stylesheet" href="/styles.css?v=20260914-goods-receipts">
 </head>
 <body>
   <main class="shell wide">
@@ -25,10 +25,12 @@
     <section class="goods-controls panel">
       <div class="goods-filter-switch"><button data-goods-filter="alerts" class="active">Nur Auffälligkeiten</button><button data-goods-filter="all">Alle Wareneingänge</button></div>
       <label>Tag auswählen<select id="goodsDate"><option value="">Alle Tage</option></select></label>
+      <label>Lieferant<select id="goodsSupplier"><option value="">Alle Lieferanten</option></select></label>
+      <label>Sortierung<select id="goodsSort"><option value="supplier">Lieferant → Datum</option><option value="date">Datum → Lieferant</option></select></label>
     </section>
     <section id="goodsList"></section>
     <p id="goodsMsg" class="msg"></p>
   </main>
-  <script src="/goods-receipts.js?v=20260818-goods-receipts"></script>
+  <script src="/goods-receipts.js?v=20260914-goods-receipts"></script>
 </body>
 </html>
