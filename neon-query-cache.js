@@ -152,7 +152,6 @@ try {
       const nextValue = parseNextValue(parts.values);
       if (isOnlyTransientRevenueChange(nextValue)) {
         rememberWrite(parts.values);
-        backupWrittenForCurrentWrite = false;
         console.log("[neon-cache] skipped redundant app_store write (mail status only)");
         return deliver(parts, fakeResult("UPDATE"));
       }
