@@ -10,6 +10,7 @@ const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 try {
   const pg = require("pg");
   const originalQuery = pg.Pool.prototype.query;
+  const originalConnect = pg.Pool.prototype.connect;
   let cachedDbValue;
   let cachedAt = 0;
   let lastBackupAt = 0;
@@ -18,6 +19,23 @@ try {
   function normalizedSql(text) {
     return String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
   }
+
+  function ensurePoolErrorHandler(pool) {
+    if (!pool || pool.__pepNeonErrorHandlerInstalled) return;
+    Object.defineProperty(pool, "__pepNeonErrorHandlerInstalled", {
+      value: true,
+      enumerable: false,
+      configurable: false
+    });
+    pool.on("error", error => {
+      console.error("[neon-cache] postgres pool connection error:", error?.message || error);
+    });
+  }
+
+  pg.Pool.prototype.connect = function patchedConnect() {
+    ensurePoolErrorHandler(this);
+    return originalConnect.apply(this, arguments);
+  };
 
   function queryParts(config, values, callback) {
     if (typeof config === "string") {
@@ -125,6 +143,7 @@ try {
   }
 
   pg.Pool.prototype.query = function patchedQuery(config, values, callback) {
+    ensurePoolErrorHandler(this);
     const parts = queryParts(config, values, callback);
     const read = isDbRead(parts.text, parts.values);
     const write = isDbWrite(parts.text, parts.values);
@@ -165,10 +184,20 @@ try {
       if (write) rememberWrite(parts.values);
       if (backupCleanup) backupWrittenForCurrentWrite = false;
       return queryResult;
+    }).catch(error => {
+      if (backupInsert) {
+        lastBackupAt = 0;
+        backupWrittenForCurrentWrite = false;
+      }
+      if (read && cachedDbValue !== undefined) {
+        console.error("[neon-cache] Neon read failed; serving last in-memory database snapshot:", error?.message || error);
+        return cachedResult();
+      }
+      throw error;
     });
   };
 
-  console.log(`[neon-cache] app_store cache active (${Math.round(CACHE_TTL_MS / 3600000)}h TTL, daily backups, redundant writes blocked)`);
+  console.log(`[neon-cache] app_store cache active (${Math.round(CACHE_TTL_MS / 3600000)}h TTL, daily backups, redundant writes blocked, pool errors guarded)`);
 } catch (error) {
   console.error("[neon-cache] preload disabled:", error?.message || error);
 }
