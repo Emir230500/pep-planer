@@ -1,6 +1,6 @@
 "use strict";
 
-const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const configuredTtl = Number(process.env.NEON_QUERY_CACHE_TTL_MS || DEFAULT_TTL_MS);
 const CACHE_TTL_MS = Number.isFinite(configuredTtl) && configuredTtl >= 5 * 60 * 1000
   ? configuredTtl
