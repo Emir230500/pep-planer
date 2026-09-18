@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Einfache Dienstplan-Anzeige fuer PEP-Exporte",
-  "main": "server.js",
+  "main": "server-v2.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server-v2.js"
   },
   "dependencies": {
     "imapflow": "^1.7.1",
