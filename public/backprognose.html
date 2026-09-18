@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backprognose Beta - Elli SHS</title>
+  <link rel="stylesheet" href="/styles.css?v=20260918-backprognose-beta">
+  <style>
+    .bp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .bp-kpi{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+    .bp-kpi strong{display:block;font-size:1.45rem;margin-top:4px}
+    .bp-note{padding:12px 14px;border-radius:12px;background:#f2f8ff;border:1px solid #cfe4ff}
+    .bp-warning{background:#fff8e6;border-color:#f2d38d}
+    .bp-files{display:grid;gap:12px}
+    .bp-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+    .bp-toolbar label{min-width:180px;flex:1}
+    .bp-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+    .bp-table{width:100%;border-collapse:collapse;min-width:1080px;background:#fff}
+    .bp-table th,.bp-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+    .bp-table th:first-child,.bp-table td:first-child,.bp-table th:nth-child(2),.bp-table td:nth-child(2){text-align:left}
+    .bp-table thead th{position:sticky;top:0;background:#f7f7f9;z-index:1}
+    .bp-badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:.78rem;background:#eef3ff}
+    .bp-risk-high{color:#b42318;font-weight:700}.bp-risk-mid{color:#9a6700;font-weight:700}.bp-risk-low{color:#137333;font-weight:700}
+    .bp-empty{text-align:center;padding:28px;color:var(--muted)}
+    .bp-status{font-size:.92rem;color:var(--muted)}
+    .bp-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .bp-actions .link{display:inline-flex;align-items:center}
+    @media(max-width:700px){.bp-table{font-size:.86rem}.bp-table th,.bp-table td{padding:8px}.bp-toolbar label{min-width:100%}}
+  </style>
+</head>
+<body>
+  <main class="shell wide">
+    <section class="top">
+      <div>
+        <p class="eyebrow">Admin - Elli SHS</p>
+        <h1>Backprognose <span class="bp-badge">Beta</span></h1>
+      </div>
+      <div class="bp-actions">
+        <a class="link" href="/admin.html">Zur Verwaltung</a>
+        <a class="link" href="/">Mitarbeiteransicht</a>
+      </div>
+    </section>
+
+    <section id="bpLogin" class="panel">
+      <h2>Admin-Login</h2>
+      <p class="hint">Der Testbereich nutzt dieselbe Admin-Anmeldung. Die Verkaufsdateien werden nur im Browser ausgewertet und nicht nach Neon hochgeladen.</p>
+      <form id="bpLoginForm">
+        <label>Passwort<input id="bpPassword" type="password" autocomplete="current-password" placeholder="Admin-Passwort"></label>
+        <button type="submit">Anmelden</button>
+        <p id="bpLoginMsg" class="msg"></p>
+      </form>
+    </section>
+
+    <section id="bpArea" class="hidden">
+      <section class="panel">
+        <div class="panel-title-row">
+          <div>
+            <h2>Datenbasis laden</h2>
+            <p class="hint">V1 rechnet komplett lokal im Browser. Dadurch entsteht für diesen Bereich praktisch kein zusätzlicher Neon-Datentransfer.</p>
+          </div>
+        </div>
+        <div class="bp-note">Für den ersten Test: <strong>alles.xlsx</strong> als Viertelstunden-Datei und <strong>11.xlsx, 22.xlsx, 33.xlsx</strong> gemeinsam als Tagesdateien auswählen.</div>
+        <div class="bp-files" style="margin-top:14px">
+          <label>Viertelstunden-Abverkauf
+            <input id="quarterFiles" type="file" accept=".xlsx,.xls" multiple>
+          </label>
+          <label>Tagesverkauf / Aktionen / Abschriften
+            <input id="dailyFiles" type="file" accept=".xlsx,.xls" multiple>
+          </label>
+        </div>
+        <div class="bp-toolbar" style="margin-top:14px">
+          <label>Zieltag
+            <input id="targetDate" type="date" value="2026-09-18">
+          </label>
+          <button id="runForecastBtn" type="button">Prognose berechnen</button>
+          <button id="clearForecastBtn" class="secondary" type="button">Zurücksetzen</button>
+        </div>
+        <p id="bpImportMsg" class="msg"></p>
+      </section>
+
+      <section id="bpSummary" class="hidden">
+        <div class="bp-grid">
+          <div class="bp-kpi"><span>Erkannte Artikel</span><strong id="kpiArticles">-</strong></div>
+          <div class="bp-kpi"><span>Viertelstunden-Zeilen</span><strong id="kpiQuarterRows">-</strong></div>
+          <div class="bp-kpi"><span>Tages-Zeilen</span><strong id="kpiDailyRows">-</strong></div>
+          <div class="bp-kpi"><span>Prognose gesamt</span><strong id="kpiForecast">-</strong></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title-row">
+          <div>
+            <h2>Produktionsplan</h2>
+            <p id="forecastHint" class="hint">Noch keine Daten berechnet.</p>
+          </div>
+        </div>
+        <div class="bp-toolbar">
+          <label>Bereich
+            <select id="typeFilter">
+              <option value="">Alle</option>
+              <option value="Backplan">Backplan</option>
+              <option value="Brotplan">Brotplan</option>
+              <option value="Auftauplan">Auftauplan</option>
+            </select>
+          </label>
+          <label>Backprogramm
+            <select id="programFilter"><option value="">Alle</option></select>
+          </label>
+          <label>Artikel suchen
+            <input id="articleSearch" type="search" placeholder="Artikelnummer oder Name">
+          </label>
+        </div>
+        <div class="bp-table-wrap" style="margin-top:14px">
+          <table class="bp-table">
+            <thead>
+              <tr>
+                <th>Artikel</th>
+                <th>Bereich / Programm</th>
+                <th>Prognose</th>
+                <th>06-09</th>
+                <th>09-12</th>
+                <th>12-14</th>
+                <th>14-17</th>
+                <th>Abschrift-Risiko</th>
+                <th>Referenz 18.09.</th>
+                <th>Abweichung</th>
+              </tr>
+            </thead>
+            <tbody id="forecastRows"><tr><td colspan="10" class="bp-empty">Daten laden und Prognose berechnen.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="bp-status" style="margin-top:12px">V1: gleiche Wochentage werden stärker gewichtet, jüngere Wochen zählen mehr. Abschriften werden als Risikosignal angezeigt, aber noch nicht aggressiv von der Stückzahl abgezogen. Blech-/Mindestmengen ergänzen wir nach dem ersten Test.</p>
+      </section>
+    </section>
+
+    <footer class="site-credit">Created by Demircan</footer>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="/backprognose.js?v=20260918-beta1"></script>
+</body>
+</html>
