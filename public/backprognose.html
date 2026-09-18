@@ -59,7 +59,7 @@
             <p class="hint">V1 rechnet komplett lokal im Browser. Dadurch entsteht für diesen Bereich praktisch kein zusätzlicher Neon-Datentransfer.</p>
           </div>
         </div>
-        <div class="bp-note">Für den ersten Test: <strong>alles.xlsx</strong> als Viertelstunden-Datei und <strong>11.xlsx, 22.xlsx, 33.xlsx</strong> gemeinsam als Tagesdateien auswählen.</div>
+        <div class="bp-note">Für den ersten Test: <strong>alles.xlsx</strong> als Viertelstunden-Datei und <strong>11.xlsx, 22.xlsx, 33.xlsx</strong> gemeinsam als Tagesdateien auswählen. Danach werden nur die relevanten Backshop-Daten lokal in diesem Browser gespeichert.</div>
         <div class="bp-files" style="margin-top:14px">
           <label>Viertelstunden-Abverkauf
             <input id="quarterFiles" type="file" accept=".xlsx,.xls" multiple>
@@ -137,5 +137,6 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/backprognose.js?v=20260918-beta1"></script>
+  <script src="/backprognose-cache.js?v=20260918-beta1"></script>
 </body>
 </html>
