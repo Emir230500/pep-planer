@@ -15,7 +15,9 @@ function bp3Canonical(value){
 }
 
 bp2Core = function(value){
-  const stop = new Set([...BP2_STOP, "gbv", "gva"]);
+  // "PB" is an EDEKA/Harry abbreviation in rows such as "Harry PB Paderborner kg".
+  // It must not split the weight/half-bread article from the matching whole loaf.
+  const stop = new Set([...BP2_STOP, "gbv", "gva", "pb"]);
   return bp3Canonical(value)
     .split(" ")
     .filter(Boolean)
@@ -23,6 +25,20 @@ bp2Core = function(value){
     .filter(token => !/^\d+$/.test(token))
     .map(token => token === "croissants" ? "croissant" : (token === "donuts" ? "donut" : token))
     .join(" ");
+};
+
+// Weight articles represent the same physical loaf as the piece article.
+// Example Paderborner 1 kg: 0.5 kg sold = half a loaf, 1.0 kg = one loaf,
+// therefore two half loaves count as one whole loaf for production planning.
+bp2Qty = function(item,row){
+  const q = Math.max(0, num(row.qty));
+  if(!q) return 0;
+  const itemKg = bp2WeightKg(item.name);
+  const bakeryWeight = /brot|baguette|ciabatta|kruste|kassler|paderborner|laib/i.test(norm(item.name));
+  const rowName = bp3Canonical(row?.name || "");
+  const isWeightArticle = /(?:^|\s)kg(?:\s|$)/.test(rowName);
+  if(itemKg > 0 && bakeryWeight && isWeightArticle) return q / itemKg;
+  return q;
 };
 
 bp2Daily = function(item){
@@ -51,5 +67,5 @@ bp2Daily = function(item){
 // Show model generation in the UI so test screenshots are unambiguous.
 window.addEventListener("load", () => {
   const status = document.querySelector(".bp-status");
-  if(status) status.textContent = "V3: Produktfamilien über alte/neue Artikelnummern hinweg, Viertelstunden-Abverkauf als Mengenbasis, Tagesdateien für Aktionen und Abschriften, robuste Freitags-/Wochentags-Historie und aktuelle Wochenentwicklung. Rohdaten bleiben lokal im Browser.";
+  if(status) status.textContent = "V3: Produktfamilien über alte/neue Artikelnummern hinweg, Viertelstunden-Abverkauf als Mengenbasis, Gewichts-/Halbbrote als Ganzbrot-Äquivalente, Tagesdateien für Aktionen und Abschriften, robuste Freitags-/Wochentags-Historie und aktuelle Wochenentwicklung. Rohdaten bleiben lokal im Browser.";
 });
