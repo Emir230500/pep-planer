@@ -3,6 +3,8 @@ name: PEP Planer wach halten
 on:
   schedule:
     - cron: "*/10 * * * *"
+    - cron: "0,15,30,45 6,7 * * *"
+    - cron: "0,15 8 * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,8 +12,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: App aufwecken und Mailabruf anstoßen
+      - name: App aufwecken
         run: |
           curl --fail --silent --show-error \
             --retry 5 --retry-delay 10 --max-time 90 \
             https://pep-planer.onrender.com/health
+
+      - name: Umsatzmails zu den Morgen-Zeitpunkten pruefen
+        if: github.event_name == 'schedule'
+        run: |
+          curl --fail --silent --show-error \
+            --retry 3 --retry-delay 10 --max-time 90 \
+            https://pep-planer.onrender.com/api/jobs/revenue-import
