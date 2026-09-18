@@ -33,7 +33,7 @@
     <section class="top">
       <div>
         <p class="eyebrow">Admin - Elli SHS</p>
-        <h1>Backprognose <span class="bp-badge">Beta</span></h1>
+        <h1>Backprognose <span class="bp-badge">Beta V2</span></h1>
       </div>
       <div class="bp-actions">
         <a class="link" href="/admin.html">Zur Verwaltung</a>
@@ -56,10 +56,10 @@
         <div class="panel-title-row">
           <div>
             <h2>Datenbasis laden</h2>
-            <p class="hint">V1 rechnet komplett lokal im Browser. Dadurch entsteht für diesen Bereich praktisch kein zusätzlicher Neon-Datentransfer.</p>
+            <p class="hint">V2 rechnet komplett lokal im Browser. Dadurch entsteht für diesen Bereich praktisch kein zusätzlicher Neon-Datentransfer.</p>
           </div>
         </div>
-        <div class="bp-note">Für den ersten Test: <strong>alles.xlsx</strong> als Viertelstunden-Datei und <strong>11.xlsx, 22.xlsx, 33.xlsx</strong> gemeinsam als Tagesdateien auswählen. Danach werden nur die relevanten Backshop-Daten lokal in diesem Browser gespeichert.</div>
+        <div class="bp-note">Für den ersten Test: <strong>alles.xlsx</strong> als Viertelstunden-Datei und <strong>11.xlsx, 22.xlsx, 33.xlsx</strong> gemeinsam als Tagesdateien auswählen. V2 ordnet historische EDEKA-Artikel über Produktfamilien zu und speichert nur relevante Backshop-Daten lokal im Browser.</div>
         <div class="bp-files" style="margin-top:14px">
           <label>Viertelstunden-Abverkauf
             <input id="quarterFiles" type="file" accept=".xlsx,.xls" multiple>
@@ -129,7 +129,7 @@
             <tbody id="forecastRows"><tr><td colspan="10" class="bp-empty">Daten laden und Prognose berechnen.</td></tr></tbody>
           </table>
         </div>
-        <p class="bp-status" style="margin-top:12px">V1: gleiche Wochentage werden stärker gewichtet, jüngere Wochen zählen mehr. Abschriften werden als Risikosignal angezeigt, aber noch nicht aggressiv von der Stückzahl abgezogen. Blech-/Mindestmengen ergänzen wir nach dem ersten Test.</p>
+        <p class="bp-status" style="margin-top:12px">V2: Produktfamilien statt fremder Artikelnummern, gleiche Wochentage und jüngere Wochen stärker gewichtet, aktuelle Wochenentwicklung berücksichtigt, Abschriften bremsen Sicherheitsbestand. Wetter, Feiertage und lokale Ereignisse werden im nächsten Schritt als nachvollziehbare Tagesfaktoren ergänzt.</p>
       </section>
     </section>
 
@@ -137,6 +137,6 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/backprognose.js?v=20260918-beta1"></script>
-  <script src="/backprognose-cache.js?v=20260918-beta1"></script>
+  <script src="/backprognose-cache.js?v=20260918-beta2"></script>
 </body>
 </html>
