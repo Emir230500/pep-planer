@@ -1,0 +1,19 @@
+name: Bakery production automation
+
+on:
+  schedule:
+    # Both UTC variants are used. The server only accepts the correct Europe/Berlin window.
+    - cron: '15 3 * * *'
+    - cron: '15 4 * * *'
+    - cron: '35 18 * * *'
+    - cron: '35 19 * * *'
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake app and run allowed bakery window
+        run: |
+          curl --fail --silent --show-error --retry 4 --retry-delay 20 --max-time 180 \
+            -X POST https://pep-planer.onrender.com/api/bakery/auto
