@@ -1,5 +1,6 @@
 
 // Exact evening bakery mail checks: 20:35 primary, 20:45 safety retry (Europe/Berlin).
+// All recent mails from the configured EDEKA report sender are checked, independent of subject/report name.
 // No raw report data is stored; importMail keeps only the compact model and de-duplicates mail sources.
 const bakeryEveningSlots = new Set();
 async function runBakeryEveningCheck(slot){
@@ -7,7 +8,7 @@ async function runBakeryEveningCheck(slot){
   if(bakeryEveningSlots.has(key))return;
   bakeryEveningSlots.add(key);
   try{
-    const imported=await importMail({days:3,maxMessages:80});
+    const imported=await importMail({days:3,maxMessages:500});
     if(imported?.files>0){
       const target=add(z.date,1);
       const p=await plan(target);
