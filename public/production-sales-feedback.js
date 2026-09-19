@@ -20,9 +20,9 @@
       const sale=sm.get(String(no)),sold=sale?Math.round(Number(sale.sold_qty)||0):0,planned=Math.round(Number(item.total)||0),delta=sold-planned;
       const pill=document.createElement('span');pill.className='pill sales-feedback';pill.textContent=`Verkauft ${sold}`;
       const info=document.createElement('span');info.className='sales-feedback';
-      if(delta>0){pill.style.cssText='background:#eaf7ef;color:#176a38';info.style.color='#176a38';info.textContent=`+${delta} über Plan`}
+      if(delta>0){pill.style.cssText='background:#f1f2f4;color:#414146';info.style.color='#606064';info.textContent=`+${delta} über Plan`}
       else if(delta<0){pill.style.cssText='background:#fdecec;color:#b42318';info.style.color='#b42318';info.textContent=`${delta} unter Plan`}
-      else{pill.style.cssText='background:#f1f2f4;color:#414146';info.style.color='#606064';info.textContent='Plan getroffen'}
+      else{pill.style.cssText='background:#eaf7ef;color:#176a38';info.style.color='#176a38';info.textContent='Plan getroffen'}
       meta.appendChild(pill);meta.appendChild(info);
     });
   };
