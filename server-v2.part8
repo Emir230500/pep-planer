@@ -48,7 +48,14 @@ function bakeryFlexibleParse(buf){
       (sl?Q:D).push(x);
     }
   }
-  if(Q.length||D.length){console.log(`[bakery-parse] flexible EDEKA report parsed: ${Q.length} q15 + ${D.length} daily rows`);return{Q,D}}
+  if(Q.length||D.length){
+    const all=Q.concat(D),dates=[...new Set(all.map(r=>r.date).filter(Boolean))].sort();
+    const direct=all.reduce((s,r)=>s+(catNo.has(String(r.no))?1:0),0);
+    const byName=all.reduce((s,r)=>s+(cat.some(i=>match(i,r.name))?1:0),0);
+    const positive=all.reduce((s,r)=>s+(Number(r.qty)>0?1:0),0);
+    console.log(`[bakery-parse] flexible EDEKA report parsed: ${Q.length} q15 + ${D.length} daily rows; dates ${dates[0]||'-'}..${dates.at(-1)||'-'}; article-no matches ${direct}/${all.length}; name matches ${byName}/${all.length}; qty>0 ${positive}/${all.length}`);
+    return{Q,D};
+  }
   return bakeryParseOriginal(buf);
 }
 parse=bakeryFlexibleParse;
