@@ -1,0 +1,10 @@
+
+// Read-only one-day diagnostic for the 2026-09-19 EDEKA report.
+// forceAfter=today makes mergeRows ignore today's rows, so this does not duplicate or persist report data.
+const bakeryParseBeforeProteinCheck=parse;
+parse=function(buf){
+  const r=bakeryParseBeforeProteinCheck(buf),all=(r?.Q||[]).concat(r?.D||[]),hits=all.filter(x=>/protein/i.test(String(x?.name||"")));
+  if(hits.length)console.log(`[bakery-protein-check] ${hits.slice(0,10).map(x=>`${x.date} :: ${x.no} :: ${x.name} :: qty=${x.qty}`).join(" || ")}`);
+  return r;
+};
+if(berlin().date==="2026-09-19")setTimeout(()=>importMail({days:3,maxMessages:500,forceAfter:berlin().date}).then(()=>console.log("[bakery-protein-check] scan complete")).catch(e=>console.error("[bakery-protein-check] failed",e.message)),5000).unref();
