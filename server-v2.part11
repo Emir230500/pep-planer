@@ -1,0 +1,54 @@
+
+// Second-pass repair. The earlier one-time diagnostic can overlap the first repair
+// during startup, so run a clean repair after startup settles. Only articles that
+// still have no positive sales for the target date are allowed through.
+async function repairMissingBakerySalesForDateV2(target){
+  await init();
+  const jobKey=`bakery-weight-name-repair-v2:${target}`;
+  if((await pool().query("SELECT 1 FROM bakery_jobs WHERE job_key=$1",[jobKey])).rowCount)return;
+
+  const M=await loadModel(true),cat=catalog(),byCore=new Map();
+  for(const it of cat){const k=core(it.name);if(!byCore.has(k))byCore.set(k,[]);byCore.get(k).push(it)}
+  const missing=new Set(cat.filter(it=>{
+    const d=(M.items?.[it.no]?.d||[]).find(e=>Array.isArray(e)&&e[0]===target);
+    return !d||!(Number(d[1])>0);
+  }).map(it=>String(it.no)));
+  if(!missing.size){
+    await pool().query("INSERT INTO bakery_jobs(job_key,ran_at) VALUES($1,now()) ON CONFLICT(job_key) DO UPDATE SET ran_at=now()",[jobKey]);
+    return;
+  }
+
+  const originalMerge=mergeRows,seenRows=new Set();
+  mergeRows=function(model,Q,D,after=""){
+    // A read-only diagnostic may still be finishing. Never let a call that skips
+    // the target date consume the repair's de-duplication keys.
+    if(after&&after>=target)return originalMerge(model,[],[],after);
+    const keep=(r,kind)=>{
+      if(r.date!==target)return false;
+      const it=bakeryRepairFind(r.name,cat,byCore);
+      if(!it||!missing.has(String(it.no)))return false;
+      const key=kind==="Q"?`Q|${r.date}|${r.slot}|${r.no}`:`D|${r.date}|${r.no}`;
+      if(seenRows.has(key))return false;
+      seenRows.add(key);
+      return true;
+    };
+    return originalMerge(model,(Q||[]).filter(r=>keep(r,"Q")),(D||[]).filter(r=>keep(r,"D")),after);
+  };
+
+  try{
+    const result=await importMail({days:3,maxMessages:500,forceAfter:add(target,-1)});
+    const refreshed=await loadModel(true),repaired=[];
+    for(const it of cat){
+      if(!missing.has(String(it.no)))continue;
+      const d=(refreshed.items?.[it.no]?.d||[]).find(e=>Array.isArray(e)&&e[0]===target);
+      if(d&&Number(d[1])>0)repaired.push(`${it.no}:${it.name}=${Math.round(Number(d[1])||0)}`);
+    }
+    await pool().query("INSERT INTO bakery_jobs(job_key,ran_at) VALUES($1,now()) ON CONFLICT(job_key) DO UPDATE SET ran_at=now()",[jobKey]);
+    if(repaired.length)console.log(`[bakery-repair-v2] ${target}: ${repaired.join(" | ")}`);
+    else console.log(`[bakery-repair-v2] ${target}: no missing article recovered; import hits ${result?.files||0}`);
+  }finally{
+    mergeRows=originalMerge;
+  }
+}
+
+if(berlin().date==="2026-09-19")setTimeout(()=>repairMissingBakerySalesForDateV2("2026-09-19").catch(e=>console.error("[bakery-repair-v2] failed",e.message)),65000).unref();
