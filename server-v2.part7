@@ -22,9 +22,12 @@ async function runBakeryEveningCheck(slot){
 }
 function bakeryEveningTick(){
   const z=berlin();
-  if(z.hour!==20)return;
-  if(z.minute>=35&&z.minute<45)return void runBakeryEveningCheck('20:35');
-  if(z.minute>=45)return void runBakeryEveningCheck('20:45');
+  if(z.hour===20){
+    if(z.minute>=35&&z.minute<45)return void runBakeryEveningCheck('20:35');
+    if(z.minute>=45)return void runBakeryEveningCheck('20:45');
+  }
+  // Catch-up only if a deploy/restart delayed the 20:45 safety check.
+  if(z.hour===21&&z.minute<=10)return void runBakeryEveningCheck('20:45');
 }
 setTimeout(bakeryEveningTick,1500).unref();
 setInterval(bakeryEveningTick,30000).unref();
