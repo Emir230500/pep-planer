@@ -32,8 +32,10 @@ function bakeryFlexibleParse(buf){
       if(!best||score>best.score)best={i,keys,score};
     }
     if(!best)continue;
+    const rawHeader=(rows[best.i]||[]).map(v=>String(v??"").trim()).filter(Boolean).slice(0,20);
+    console.log(`[bakery-parse-header] sheet=${sn}; header=${rawHeader.join(" | ")}`);
     const keys=best.keys,defaultDate=bakeryWorkbookDate(rows.slice(0,best.i+1));
-    let carry={article:"",name:"",date:defaultDate};
+    let carry={article:"",name:"",date:defaultDate},sample=[];
     for(const row of rows.slice(best.i+1)){
       const o={};keys.forEach((k,i)=>{if(k&&o[k]===undefined)o[k]=row[i]});
       let no=article(o.article),name=String(o.name||"").trim(),date=iso(o.date)||carry.date||defaultDate,sl=slot(o.slot);
@@ -45,8 +47,10 @@ function bakeryFlexibleParse(buf){
       if(date)carry.date=date;else date=carry.date;
       if(!no||!date||/gesamt|ergebnis|summe/i.test(name))continue;
       const x={date,slot:sl,no,name:name||ref?.name||no,qty:num(o.qty),revenue:num(o.revenue),writeoff:Math.abs(num(o.writeoff)),action:num(o.action)};
+      if(sample.length<3)sample.push(`${x.no} :: ${String(x.name).slice(0,80)} :: qty=${x.qty}`);
       (sl?Q:D).push(x);
     }
+    if(sample.length)console.log(`[bakery-parse-sample] sheet=${sn}; ${sample.join(" || ")}`);
   }
   if(Q.length||D.length){
     const all=Q.concat(D),dates=[...new Set(all.map(r=>r.date).filter(Boolean))].sort();
