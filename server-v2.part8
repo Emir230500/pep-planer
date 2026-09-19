@@ -20,22 +20,32 @@ function bakeryWorkbookDate(rows){
   for(let i=0;i<Math.min(50,rows.length);i++)for(const c of rows[i]||[]){const d=iso(c);if(d)return d}
   return"";
 }
+function bakeryKeys(row){
+  let seenArticle=false;
+  return (row||[]).map(v=>{
+    const raw=n(v),k=bakeryHeaderKey(v);
+    if(k==="article"&&raw==="artikel"){
+      if(seenArticle)return"name";
+      seenArticle=true;
+      return"article";
+    }
+    return k;
+  });
+}
 function bakeryFlexibleParse(buf){
   const X=require("xlsx"),w=X.read(buf,{type:"buffer",cellDates:true}),Q=[],D=[],cat=catalog(),catNo=new Map(cat.map(x=>[String(x.no),x]));
   for(const sn of w.SheetNames){
     const rows=X.utils.sheet_to_json(w.Sheets[sn],{header:1,raw:true,defval:null,blankrows:false});
     let best=null;
     for(let i=0;i<Math.min(140,rows.length);i++){
-      const keys=(rows[i]||[]).map(bakeryHeaderKey),known=keys.filter(Boolean),score=new Set(known).size;
+      const keys=bakeryKeys(rows[i]),known=keys.filter(Boolean),score=new Set(known).size;
       if(!keys.includes("qty"))continue;
       if(!keys.includes("article")&&!keys.includes("name"))continue;
       if(!best||score>best.score)best={i,keys,score};
     }
     if(!best)continue;
-    const rawHeader=(rows[best.i]||[]).map(v=>String(v??"").trim()).filter(Boolean).slice(0,20);
-    console.log(`[bakery-parse-header] sheet=${sn}; header=${rawHeader.join(" | ")}`);
     const keys=best.keys,defaultDate=bakeryWorkbookDate(rows.slice(0,best.i+1));
-    let carry={article:"",name:"",date:defaultDate},sample=[];
+    let carry={article:"",name:"",date:defaultDate};
     for(const row of rows.slice(best.i+1)){
       const o={};keys.forEach((k,i)=>{if(k&&o[k]===undefined)o[k]=row[i]});
       let no=article(o.article),name=String(o.name||"").trim(),date=iso(o.date)||carry.date||defaultDate,sl=slot(o.slot);
@@ -47,17 +57,14 @@ function bakeryFlexibleParse(buf){
       if(date)carry.date=date;else date=carry.date;
       if(!no||!date||/gesamt|ergebnis|summe/i.test(name))continue;
       const x={date,slot:sl,no,name:name||ref?.name||no,qty:num(o.qty),revenue:num(o.revenue),writeoff:Math.abs(num(o.writeoff)),action:num(o.action)};
-      if(sample.length<3)sample.push(`${x.no} :: ${String(x.name).slice(0,80)} :: qty=${x.qty}`);
       (sl?Q:D).push(x);
     }
-    if(sample.length)console.log(`[bakery-parse-sample] sheet=${sn}; ${sample.join(" || ")}`);
   }
   if(Q.length||D.length){
     const all=Q.concat(D),dates=[...new Set(all.map(r=>r.date).filter(Boolean))].sort();
     const direct=all.reduce((s,r)=>s+(catNo.has(String(r.no))?1:0),0);
     const byName=all.reduce((s,r)=>s+(cat.some(i=>match(i,r.name))?1:0),0);
-    const positive=all.reduce((s,r)=>s+(Number(r.qty)>0?1:0),0);
-    console.log(`[bakery-parse] flexible EDEKA report parsed: ${Q.length} q15 + ${D.length} daily rows; dates ${dates[0]||'-'}..${dates.at(-1)||'-'}; article-no matches ${direct}/${all.length}; name matches ${byName}/${all.length}; qty>0 ${positive}/${all.length}`);
+    console.log(`[bakery-parse] parsed ${Q.length} q15 + ${D.length} daily rows; dates ${dates[0]||'-'}..${dates.at(-1)||'-'}; article matches ${direct}; name matches ${byName}`);
     return{Q,D};
   }
   return bakeryParseOriginal(buf);
