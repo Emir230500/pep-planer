@@ -1,0 +1,70 @@
+
+// Match bakery article families even when EDEKA changes only the gram weight
+// (for example production plan "Würstchendog 108g" vs sales report "Würstchendog 100g BV").
+// Pack counts such as 6ST stay significant so single items are not merged with multipacks.
+core=function(s){
+  return n(s)
+    .replace(/nougatcr/g,"nougat")
+    .replace(/schokoladengla/g,"schokoladenglasur")
+    .replace(/crodots/g,"crodot")
+    .split(" ")
+    .filter(x=>x&&!STOP.has(x)&&!/^\d+(?:g|kg)?$/.test(x))
+    .join(" ");
+};
+
+function bakeryRepairFind(name,cat,byCore){
+  const c=core(name);
+  if(c.includes("berliner")&&!/\b(?:4|6|8|12)\s*st\b/.test(n(name)))return cat.find(x=>x.name==="Berliner Auswahl")||null;
+  if(c.includes("donut")&&!c.includes("crodot")&&!/\b(?:4|6|8|12)\s*st\b/.test(n(name)))return cat.find(x=>x.name==="Donut Auswahl")||null;
+  if(c.includes("laugenkranz"))return cat.find(x=>x.name==="Laugenkranz Auswahl")||null;
+  return (byCore.get(c)||[]).find(x=>brandOk(x.name,name))||null;
+}
+
+async function repairMissingBakerySalesForDate(target){
+  await init();
+  const jobKey=`bakery-weight-name-repair-v1:${target}`;
+  if((await pool().query("SELECT 1 FROM bakery_jobs WHERE job_key=$1",[jobKey])).rowCount)return;
+
+  const M=await loadModel(),cat=catalog(),byCore=new Map();
+  for(const it of cat){const k=core(it.name);if(!byCore.has(k))byCore.set(k,[]);byCore.get(k).push(it)}
+  const missing=new Set(cat.filter(it=>{
+    const d=(M.items?.[it.no]?.d||[]).find(e=>Array.isArray(e)&&e[0]===target);
+    return !d||!(Number(d[1])>0);
+  }).map(it=>String(it.no)));
+  if(!missing.size){
+    await pool().query("INSERT INTO bakery_jobs(job_key,ran_at) VALUES($1,now()) ON CONFLICT(job_key) DO UPDATE SET ran_at=now()",[jobKey]);
+    return;
+  }
+
+  const originalMerge=mergeRows,seenRows=new Set();
+  mergeRows=function(model,Q,D,after=""){
+    const keep=(r,kind)=>{
+      if(r.date!==target)return false;
+      const it=bakeryRepairFind(r.name,cat,byCore);
+      if(!it||!missing.has(String(it.no)))return false;
+      const key=kind==="Q"?`Q|${r.date}|${r.slot}|${r.no}`:`D|${r.date}|${r.no}`;
+      if(seenRows.has(key))return false;
+      seenRows.add(key);
+      return true;
+    };
+    return originalMerge(model,(Q||[]).filter(r=>keep(r,"Q")),(D||[]).filter(r=>keep(r,"D")),after);
+  };
+
+  try{
+    const result=await importMail({days:3,maxMessages:500,forceAfter:add(target,-1)});
+    const refreshed=await loadModel(true),repaired=[];
+    for(const it of cat){
+      if(!missing.has(String(it.no)))continue;
+      const d=(refreshed.items?.[it.no]?.d||[]).find(e=>Array.isArray(e)&&e[0]===target);
+      if(d&&Number(d[1])>0)repaired.push(`${it.name}=${Math.round(Number(d[1])||0)}`);
+    }
+    await pool().query("INSERT INTO bakery_jobs(job_key,ran_at) VALUES($1,now()) ON CONFLICT(job_key) DO UPDATE SET ran_at=now()",[jobKey]);
+    if(repaired.length)console.log(`[bakery-repair] ${target}: ${repaired.join(" | ")}`);
+    else console.log(`[bakery-repair] ${target}: no missing article recovered; scanned ${result?.files||0} file(s)`);
+  }finally{
+    mergeRows=originalMerge;
+  }
+}
+
+// One-time repair for the report already imported before this matcher fix went live.
+if(berlin().date==="2026-09-19")setTimeout(()=>repairMissingBakerySalesForDate("2026-09-19").catch(e=>console.error("[bakery-repair] failed",e.message)),9000).unref();
