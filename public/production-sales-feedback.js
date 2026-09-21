@@ -3,7 +3,7 @@
   const baseRender=typeof render==="function"?render:null;
   if(!baseRender)return;
   const style=document.createElement('style');
-  style.textContent='.skip-day{width:auto!important;min-width:0!important;min-height:28px!important;height:auto!important;border:1px solid #d8d8de!important;background:#fff!important;color:#55555b!important;font:inherit!important;font-size:11px!important;line-height:1.1!important;font-weight:800!important;padding:4px 8px!important;border-radius:8px!important;box-shadow:none!important;margin:0!important;cursor:pointer}.skip-day:active{background:#f1f2f4!important}.unmapped-sale{background:#fff4dc!important;color:#8a5a00!important}';
+  style.textContent='.skip-day{width:auto!important;min-width:0!important;min-height:28px!important;height:auto!important;border:1px solid #d8d8de!important;background:#fff!important;color:#55555b!important;font:inherit!important;font-size:11px!important;line-height:1.1!important;font-weight:800!important;padding:4px 8px!important;border-radius:8px!important;box-shadow:none!important;margin:0!important;cursor:pointer}.skip-day:active{background:#f1f2f4!important}.unmapped-sale{background:#fff4dc!important;color:#8a5a00!important}.outside-plan-card .program-title{display:flex;align-items:center;gap:7px}.outside-plan-tag{display:inline-flex;align-items:center;border-radius:999px;background:#fff4dc;color:#8a5a00;padding:3px 7px;font-size:11px;font-weight:800}.outside-plan-card .item{grid-template-columns:1fr!important}.outside-plan-card .action{display:none!important}';
   document.head.appendChild(style);
   const plannedIndexes=item=>(item?.buckets||[]).map((v,i)=>Number(v)>0?i:-1).filter(i=>i>=0);
   const recordsFor=no=>(current?.actuals||[]).filter(a=>String(a.article_no)===String(no));
@@ -23,6 +23,21 @@
       render();
       if(typeof showToast==='function')showToast('Entfernt · nicht gebacken gespeichert');
     }catch(e){if(typeof showToast==='function')showToast(e.message)}finally{btn.disabled=false}
+  }
+  function appendOutsidePlan(){
+    const rows=Array.isArray(current?.outsidePlan)?current.outsidePlan:[];
+    if(currentType!=='Backplan'||currentInterval!==0||!rows.length)return;
+    const host=document.querySelector('#programs');if(!host)return;
+    const sec=document.createElement('section');sec.className='cardp program readonly outside-plan-card';
+    const total=rows.reduce((s,r)=>s+Math.max(0,Math.round(Number(r.sold_qty)||0)),0);
+    sec.innerHTML=`<div class="program-head"><div><div class="program-title">Außerhalb Plan <span class="outside-plan-tag">automatisch erkannt</span></div><small>${rows.length} Artikel · kein Mitarbeitereintrag nötig</small></div><div class="program-total">${total} verkauft</div></div>`;
+    for(const r of rows){
+      const sold=Math.max(0,Math.round(Number(r.sold_qty)||0)),wo=Math.max(0,Number(r.writeoff_qty)||0),item=document.createElement('div');item.className='item';
+      const writeoff=isToday()&&wo===0?'Abschrift folgt morgen':`Abschrift ${Number.isInteger(wo)?wo:wo.toFixed(2).replace('.',',')}`;
+      item.innerHTML=`<div><div class="item-name">${esc(r.article_name||r.article_no)}</div><div class="meta"><span class="pill">Außerhalb Plan</span><span class="pill">Verkauft ${sold}</span><span>${writeoff}</span></div></div>`;
+      sec.appendChild(item);
+    }
+    host.appendChild(sec);
   }
   render=function(){
     baseRender();
@@ -58,5 +73,6 @@
       }
     });
     document.querySelectorAll('.program').forEach(sec=>{const rows=[...sec.querySelectorAll('.item')];sec.style.display=rows.length&&rows.every(x=>x.style.display==='none')?'none':''});
+    appendOutsidePlan();
   };
 })();
