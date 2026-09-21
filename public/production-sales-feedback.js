@@ -3,14 +3,14 @@
   const baseRender=typeof render==="function"?render:null;
   if(!baseRender)return;
   const style=document.createElement('style');
-  style.textContent='.skip-day{border:0;background:transparent;color:#6e6e73;font:inherit;font-size:12px;font-weight:750;padding:3px 2px;cursor:pointer}.day-skipped{background:#fafafa!important}.day-skipped .item-name{color:#777!important}.day-skipped .donebtn{background:#f1f2f4!important;color:#555!important;border-color:#ddd!important}.unmapped-sale{background:#fff4dc!important;color:#8a5a00!important}';
+  style.textContent='.skip-day{border:1px solid #d8d8de;background:#fff;color:#55555b;font:inherit;font-size:12px;font-weight:800;padding:5px 9px;border-radius:9px;cursor:pointer}.skip-day:active{background:#f1f2f4}.day-skipped{background:#fafafa!important}.day-skipped .item-name{color:#777!important}.day-skipped .donebtn{background:#f1f2f4!important;color:#555!important;border-color:#ddd!important}.unmapped-sale{background:#fff4dc!important;color:#8a5a00!important}';
   document.head.appendChild(style);
   const plannedIndexes=item=>(item?.buckets||[]).map((v,i)=>Number(v)>0?i:-1).filter(i=>i>=0);
   const recordsFor=no=>(current?.actuals||[]).filter(a=>String(a.article_no)===String(no));
   const skipped=(no,item)=>{const idx=plannedIndexes(item),m=new Map(recordsFor(no).map(a=>[Number(a.interval_index),Number(a.actual_qty)]));return idx.length>0&&idx.every(i=>m.has(i)&&m.get(i)===0)};
-  const hasAnyActual=no=>recordsFor(no).length>0;
+  const hasPositiveActual=no=>recordsFor(no).some(a=>Number(a.actual_qty)>0);
   async function markNotBaked(no,item,btn){
-    if(!isToday()||hasAnyActual(no))return;
+    if(!isToday()||hasPositiveActual(no))return;
     if(!confirm(`${item.name}\n\nDiesen Artikel heute komplett als „nicht gebacken“ markieren?`))return;
     btn.disabled=true;
     try{
@@ -40,7 +40,7 @@
       if(daySkipped&&doneBtn)doneBtn.textContent='Nicht gebacken';
       const oldPill=[...meta.querySelectorAll('.pill')].find(x=>/^Verkauft\s/i.test(x.textContent||''));
       if(oldPill){const next=oldPill.nextElementSibling;if(next&&/Plan/i.test(next.textContent||''))next.remove();oldPill.remove()}
-      meta.querySelectorAll('.sales-feedback,.skip-feedback').forEach(x=>x.remove());
+      meta.querySelectorAll('.sales-feedback,.skip-feedback,.skip-day').forEach(x=>x.remove());
       if(daySkipped){const p=document.createElement('span');p.className='pill skip-feedback';p.textContent='Heute nicht gebacken';meta.appendChild(p)}
       if(hasSales){
         const sale=sm.get(String(no));
@@ -59,7 +59,7 @@
           }
         }
       }
-      if(isToday()&&!daySkipped&&!hasAnyActual(no)&&action){
+      if(isToday()&&!daySkipped&&!hasPositiveActual(no)&&action){
         const b=document.createElement('button');b.type='button';b.className='skip-day';b.textContent='Heute nicht gebacken';b.onclick=()=>markNotBaked(no,item,b);meta.appendChild(b);
       }
     });
