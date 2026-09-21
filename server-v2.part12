@@ -1,0 +1,67 @@
+
+// Match renamed/supplier-switched bakery items conservatively. EDEKA report names can
+// change while the physical product remains the same (e.g. Sonnenblumenkernbrötchen
+// vs Sonnenblumenbrötchen 80g). Gram weights and supplier prefixes are not identities;
+// pack counts such as 4ST/6ST/8ST remain significant.
+core=function(s){
+  return n(s)
+    .replace(/nougatcr/g,"nougat")
+    .replace(/schokoladengla/g,"schokoladenglasur")
+    .replace(/crodots/g,"crodot")
+    .replace(/sonnenblumenkern/g,"sonnenblumen")
+    .split(" ")
+    .filter(x=>x&&!STOP.has(x)&&!/^\d+(?:g|kg)?$/.test(x))
+    .join(" ");
+};
+brandOk=function(a,b){
+  const A=brand(a),B=brand(b);
+  if(!A||!B||A===B)return true;
+  // Supplier/brand changes are allowed only when the normalized product identity is exact.
+  return core(a)===core(b);
+};
+function bakeryRepairFindV3(name,cat,byCore){
+  const c=core(name);
+  if(c.includes("berliner")&&!/\b(?:4|6|8|12)\s*st\b/.test(n(name)))return cat.find(x=>x.name==="Berliner Auswahl")||null;
+  if(c.includes("donut")&&!c.includes("crodot")&&!/\b(?:4|6|8|12)\s*st\b/.test(n(name)))return cat.find(x=>x.name==="Donut Auswahl")||null;
+  if(c.includes("laugenkranz"))return cat.find(x=>x.name==="Laugenkranz Auswahl")||null;
+  const candidates=(byCore.get(c)||[]);
+  if(candidates.length===1)return candidates[0];
+  return candidates.find(x=>brandOk(x.name,name))||null;
+}
+async function repairMissingBakerySalesForDateV3(target){
+  await init();
+  const jobKey=`bakery-name-repair-v3:${target}`;
+  if((await pool().query("SELECT 1 FROM bakery_jobs WHERE job_key=$1",[jobKey])).rowCount)return;
+  const M=await loadModel(true),cat=catalog(),byCore=new Map();
+  for(const it of cat){const k=core(it.name);if(!byCore.has(k))byCore.set(k,[]);byCore.get(k).push(it)}
+  const missing=new Set(cat.filter(it=>{
+    const d=(M.items?.[it.no]?.d||[]).find(e=>Array.isArray(e)&&e[0]===target);
+    return !d||!(Number(d[1])>0);
+  }).map(it=>String(it.no)));
+  if(!missing.size){await pool().query("INSERT INTO bakery_jobs(job_key,ran_at) VALUES($1,now()) ON CONFLICT DO NOTHING",[jobKey]);return}
+  const originalMerge=mergeRows,seenRows=new Set();
+  mergeRows=function(model,Q,D,after=""){
+    if(after&&after>=target)return originalMerge(model,[],[],after);
+    const keep=(r,kind)=>{
+      if(r.date!==target)return false;
+      const it=bakeryRepairFindV3(r.name,cat,byCore);
+      if(!it||!missing.has(String(it.no)))return false;
+      const key=kind==="Q"?`Q|${r.date}|${r.slot}|${r.no}`:`D|${r.date}|${r.no}`;
+      if(seenRows.has(key))return false;
+      seenRows.add(key);return true;
+    };
+    return originalMerge(model,(Q||[]).filter(r=>keep(r,"Q")),(D||[]).filter(r=>keep(r,"D")),after);
+  };
+  try{
+    const result=await importMail({days:5,maxMessages:500,forceAfter:add(target,-1)}),refreshed=await loadModel(true),repaired=[];
+    for(const it of cat){
+      if(!missing.has(String(it.no)))continue;
+      const d=(refreshed.items?.[it.no]?.d||[]).find(e=>Array.isArray(e)&&e[0]===target);
+      if(d&&Number(d[1])>0)repaired.push(`${it.no}:${it.name}=${Math.round(Number(d[1])||0)}`);
+    }
+    await pool().query("INSERT INTO bakery_jobs(job_key,ran_at) VALUES($1,now()) ON CONFLICT(job_key) DO UPDATE SET ran_at=now()",[jobKey]);
+    console.log(`[bakery-repair-v3] ${target}: ${repaired.length?repaired.join(" | "):`no additional match; scanned ${result?.files||0} file(s)`}`);
+  }finally{mergeRows=originalMerge}
+}
+// Repair the already imported 19.09 report once; future evening imports use the matcher above automatically.
+setTimeout(()=>repairMissingBakerySalesForDateV3("2026-09-19").catch(e=>console.error("[bakery-repair-v3] failed",e.message)),14000).unref();
