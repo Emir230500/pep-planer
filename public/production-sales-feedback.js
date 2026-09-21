@@ -3,7 +3,7 @@
   const baseRender=typeof render==="function"?render:null;
   if(!baseRender)return;
   const style=document.createElement('style');
-  style.textContent='.skip-day{border:1px solid #d8d8de;background:#fff;color:#55555b;font:inherit;font-size:12px;font-weight:800;padding:5px 9px;border-radius:9px;cursor:pointer}.skip-day:active{background:#f1f2f4}.day-skipped{background:#fafafa!important}.day-skipped .item-name{color:#777!important}.day-skipped .donebtn{background:#f1f2f4!important;color:#555!important;border-color:#ddd!important}.unmapped-sale{background:#fff4dc!important;color:#8a5a00!important}';
+  style.textContent='.skip-day{width:auto!important;min-width:0!important;min-height:28px!important;height:auto!important;border:1px solid #d8d8de!important;background:#fff!important;color:#55555b!important;font:inherit!important;font-size:11px!important;line-height:1.1!important;font-weight:800!important;padding:4px 8px!important;border-radius:8px!important;box-shadow:none!important;margin:0!important;cursor:pointer}.skip-day:active{background:#f1f2f4!important}.day-skipped{background:#fafafa!important}.day-skipped .item-name{color:#777!important}.day-skipped .donebtn{background:#f1f2f4!important;color:#555!important;border-color:#ddd!important}.unmapped-sale{background:#fff4dc!important;color:#8a5a00!important}';
   document.head.appendChild(style);
   const plannedIndexes=item=>(item?.buckets||[]).map((v,i)=>Number(v)>0?i:-1).filter(i=>i>=0);
   const recordsFor=no=>(current?.actuals||[]).filter(a=>String(a.article_no)===String(no));
@@ -21,7 +21,7 @@
         if(at>=0)list[at]=rec;else list.push(rec);
       }
       render();
-      if(typeof showToast==='function')showToast('Für heute als nicht gebacken markiert');
+      if(typeof showToast==='function')showToast('Als nicht gebacken markiert');
     }catch(e){if(typeof showToast==='function')showToast(e.message)}finally{btn.disabled=false}
   }
   render=function(){
@@ -41,7 +41,7 @@
       const oldPill=[...meta.querySelectorAll('.pill')].find(x=>/^Verkauft\s/i.test(x.textContent||''));
       if(oldPill){const next=oldPill.nextElementSibling;if(next&&/Plan/i.test(next.textContent||''))next.remove();oldPill.remove()}
       meta.querySelectorAll('.sales-feedback,.skip-feedback,.skip-day').forEach(x=>x.remove());
-      if(daySkipped){const p=document.createElement('span');p.className='pill skip-feedback';p.textContent='Heute nicht gebacken';meta.appendChild(p)}
+      if(daySkipped){const p=document.createElement('span');p.className='pill skip-feedback';p.textContent='Nicht gebacken';meta.appendChild(p)}
       if(hasSales){
         const sale=sm.get(String(no));
         if(!sale){
@@ -60,7 +60,7 @@
         }
       }
       if(isToday()&&!daySkipped&&!hasPositiveActual(no)&&action){
-        const b=document.createElement('button');b.type='button';b.className='skip-day';b.textContent='Heute nicht gebacken';b.onclick=()=>markNotBaked(no,item,b);meta.appendChild(b);
+        const b=document.createElement('button');b.type='button';b.className='skip-day';b.textContent='Nicht gebacken';b.onclick=()=>markNotBaked(no,item,b);meta.appendChild(b);
       }
     });
   };
