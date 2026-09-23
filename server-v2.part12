@@ -112,3 +112,37 @@ plan=async function(target){
   }
   return out;
 };
+
+// Reject ambiguous overlapping interval imports instead of inflating historical sales.
+const mergeRowsBeforeGuard=mergeRows;
+mergeRows=function(model,Q,D,after=''){
+  const cat=catalog(),byCore=new Map();
+  for(const it of cat){const key=core(it.name);if(!byCore.has(key))byCore.set(key,[]);byCore.get(key).push(it)}
+  const relevant=(Q||[]).filter(r=>!after||r.date>after);
+  const checked=require('./bakery-import-guard').guardQuarterRows(model,relevant,r=>{
+    const known=bakeryRepairFindV3(r.name,cat,byCore);
+    if(known)return{no:String(known.no),item:model.items?.[known.no],qty:qFor(known,r)};
+    if(bakeryUnknownCandidate(r.name))return{no:String(r.no),item:model.u?.[r.no],qty:Math.max(0,+r.qty||0)};
+    return null;
+  });
+  const warningsBefore=JSON.stringify(model.importWarnings||[]);
+  if(checked.conflicts.length){
+    const map=new Map((model.importWarnings||[]).map(x=>[x.article+'|'+x.date,x]));
+    for(const x of checked.conflicts)map.set(x.article+'|'+x.date,x);
+    model.importWarnings=[...map.values()].slice(-20);
+    console.error('[bakery-import] overlapping sales report requires review:',checked.conflicts.length);
+  }
+  const rejected=new Set(checked.conflicts.map(x=>x.article+'|'+x.date));
+  const daily=(D||[]).filter(r=>{const known=bakeryRepairFindV3(r.name,cat,byCore);return !rejected.has(String(known?.no||r.no)+'|'+r.date)});
+  const changed=mergeRowsBeforeGuard(model,checked.rows,daily,after);
+  return changed||warningsBefore!==JSON.stringify(model.importWarnings||[]);
+};
+
+// Only one mail import can mutate the shared compact model at a time.
+const importMailBeforeQueue=importMail;
+let bakeryImportQueue=Promise.resolve();
+importMail=function(options){
+  const run=bakeryImportQueue.then(()=>importMailBeforeQueue(options));
+  bakeryImportQueue=run.catch(()=>{});
+  return run;
+};

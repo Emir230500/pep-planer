@@ -2,15 +2,18 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { constantEqual, createSessions, cookieValue, createLoginLimiter } = require("./security");
 
 const PORT = Number(process.env.PORT || 3000);
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const DB_FILE = path.join(DATA_DIR, "db.json");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
 const SESSION_SECRET_FILE = path.join(DATA_DIR, ".session-secret");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || readOrCreateSessionSecret();
+const sessions = createSessions(SESSION_SECRET);
+const allowLogin = createLoginLimiter();
 const PUBLIC_DIR = path.join(__dirname, "public");
 const BUILD_VERSION = "free-db-transfer-20260819-v1";
 const CRON_SECRET = process.env.CRON_SECRET || "";
@@ -23,10 +26,9 @@ const GOODS_RECEIPT_PREFIX = String(process.env.GOODS_RECEIPT_PREFIX || "Warenei
 // database from Neon throughout the day.
 const REVENUE_IMPORT_INTERVAL_MS = 30 * 60 * 1000;
 const DB_CACHE_TTL_MS = 60 * 1000;
-// Keep the original key pair as a compatibility fallback so existing devices
-// continue receiving push messages until Render environment values are set.
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BGl8Kj0c9KZ2Ek7WKG3QjvWKiY2NWp6A-uSc2Iz4OlDGA51abixHEPKVl638OR_5W8Y1A96txs-ZCXlzTsDuBzE";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "mW6Xe15oKonHIx5-6jn8oVxkkOtxw4rmOOfTDCDcK6s";
+// Push keys must be configured securely; no embedded fallback credentials.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const PUSH_CONTACT = process.env.PUSH_CONTACT || "mailto:admin@example.com";
 let pgPool = null;
 let webPush = null;
@@ -180,7 +182,7 @@ function backupDb() {
 }
 
 function json(res, status, body) {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+  res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
   res.end(JSON.stringify(body));
 }
 
@@ -448,31 +450,34 @@ function sign(value) {
   return crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("hex");
 }
 
-function createCookie(payload) {
-  const raw = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `${raw}.${sign(raw)}`;
-}
+function createCookie(payload) { return sessions.issue(payload); }
 
 function readCookie(req, cookieName = "plan_session") {
-  const found = String(req.headers.cookie || "").split(";").map(x => x.trim()).find(x => x.startsWith(`${cookieName}=`));
-  if (!found) return null;
-  const token = found.split("=").slice(1).join("=");
-  const [raw, sig] = token.split(".");
-  if (!raw || sig !== sign(raw)) return null;
-  try {
-    return JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
-  } catch {
-    return null;
+  return sessions.verify(cookieValue(req, cookieName));
+}
+
+async function authenticatedSession(req, employeeOnly = false) {
+  const names = employeeOnly ? ["plan_employee_session", "plan_session"] : ["plan_admin_session", "plan_employee_session", "plan_session"];
+  for (const name of names) {
+    const s = readCookie(req, name);
+    if (!s) continue;
+    if (!employeeOnly && s.role === "admin" && ADMIN_PASSWORD && constantEqual(s.credentialVersion || "", sessions.version(ADMIN_PASSWORD))) return s;
+    if (s.role === "employee" && s.name) {
+      const employee = findEmployeeByName(await readDb(), s.name);
+      if (employee && !employee.disabled && constantEqual(s.credentialVersion || "", sessions.version(employee.pinHash))) return s;
+    }
   }
+  return null;
 }
 
 function setSession(res, payload) {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const secure = ["development", "test"].includes(process.env.NODE_ENV) ? "" : "; Secure";
   const cookieName = payload?.role === "admin" ? "plan_admin_session" : "plan_employee_session";
   res.setHeader("set-cookie", `${cookieName}=${createCookie(payload)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${secure}`);
 }
 
-function clearSession(res) {
+function clearSession(res, req) {
+  for (const name of ["plan_session", "plan_employee_session", "plan_admin_session"]) sessions.revoke(cookieValue(req, name));
   res.setHeader("set-cookie", [
     "plan_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
     "plan_employee_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
@@ -480,20 +485,16 @@ function clearSession(res) {
   ]);
 }
 
-function requireAdmin(req, res) {
-  const adminSession = readCookie(req, "plan_admin_session") || readCookie(req);
-  if (adminSession?.role === "admin") return true;
-  const employeeSession = readCookie(req, "plan_employee_session") || readCookie(req);
-  if (employeeSession?.role === "employee" && canManagePlans(employeeSession.name)) return true;
-  json(res, 401, { error: "Nicht angemeldet." });
-  return false;
+async function requireAdmin(req, res) {
+  const session = await authenticatedSession(req);
+  if (session?.role === "admin" || (session?.role === "employee" && canManagePlans(session.name))) return true;
+  json(res, 401, { error: "Nicht angemeldet." }); return false;
 }
 
-function requireEmployee(req, res) {
-  const session = readCookie(req, "plan_employee_session") || readCookie(req);
-  if (session?.role === "employee" && session.name) return session.name;
-  json(res, 401, { error: "Nicht angemeldet." });
-  return "";
+async function requireEmployee(req, res) {
+  const session = await authenticatedSession(req, true);
+  if (session?.role === "employee") return session.name;
+  json(res, 401, { error: "Nicht angemeldet." }); return "";
 }
 
 function generatePin() {
@@ -1997,13 +1998,16 @@ async function handleApi(req, res, pathname, requestUrl) {
   try {
     if (pathname === "/api/admin/login" && req.method === "POST") {
       const body = await readBody(req);
-      if (String(body.password || "") !== ADMIN_PASSWORD) return json(res, 403, { error: "Falsches Passwort." });
-      setSession(res, { role: "admin" });
+      if (!ADMIN_PASSWORD) return json(res, 503, { error: "Admin-Anmeldung ist noch nicht eingerichtet." });
+      if (!allowLogin(req, "admin")) { res.setHeader("retry-after", "900"); return json(res, 429, { error: "Zu viele Anmeldeversuche. Bitte später erneut versuchen." }); }
+      if (!constantEqual(String(body.password || ""), ADMIN_PASSWORD)) return json(res, 403, { error: "Falsches Passwort." });
+      setSession(res, { role: "admin", credentialVersion: sessions.version(ADMIN_PASSWORD) });
       return json(res, 200, { ok: true });
     }
 
     if (pathname === "/api/employee/login" && req.method === "POST") {
       const body = await readBody(req);
+      if (!allowLogin(req, "employee:" + looseEmployeeKey(body.name))) { res.setHeader("retry-after", "900"); return json(res, 429, { error: "Zu viele Anmeldeversuche. Bitte später erneut versuchen." }); }
       const db = await readDb();
       const employeeSyncChanged = ensureEmployeesFromPlans(db);
       const breakSyncChanged = ensureLegalBreaksInPlans(db);
@@ -2011,24 +2015,24 @@ async function handleApi(req, res, pathname, requestUrl) {
       if (loginDataChanged) await writeDb(db);
       const name = normalizeName(body.name);
       const employee = findEmployeeByName(db, name);
-      if (!employee || !verifyPin(body.pin, employee.pinHash)) return json(res, 403, { error: "Name oder PIN stimmt nicht." });
-      setSession(res, { role: "employee", name: employee.name });
+      if (!employee || employee.disabled || !verifyPin(body.pin, employee.pinHash)) return json(res, 403, { error: "Name oder PIN stimmt nicht." });
+      setSession(res, { role: "employee", name: employee.name, credentialVersion: sessions.version(employee.pinHash) });
       return json(res, 200, { ok: true });
     }
 
     if (pathname === "/api/logout" && req.method === "POST") {
-      clearSession(res);
+      clearSession(res, req);
       return json(res, 200, { ok: true });
     }
 
     if (pathname === "/api/push/public-key" && req.method === "GET") {
-      const name = requireEmployee(req, res);
+      const name = await requireEmployee(req, res);
       if (!name) return;
       return json(res, 200, { enabled: Boolean(webPush), publicKey: VAPID_PUBLIC_KEY });
     }
 
     if (pathname === "/api/push/subscribe" && req.method === "POST") {
-      const name = requireEmployee(req, res);
+      const name = await requireEmployee(req, res);
       if (!name) return;
       if (!webPush) return json(res, 503, { error: "Push ist auf diesem Server noch nicht aktiv." });
       const body = await readBody(req);
@@ -2042,7 +2046,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/admin/overview" && req.method === "GET") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       await ensureAutomaticRevenueImport();
       const db = await readDb();
       cleanupPepCorrections(db);
@@ -2067,7 +2071,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/admin/revenue/settings" && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const body = await readBody(req);
       const email = String(body.email || "").trim().toLowerCase();
       const marketCode = String(body.marketCode || "802163").trim();
@@ -2100,7 +2104,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/admin/revenue/upload" && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const body = await readBody(req);
       const base64 = String(body.fileBase64 || "").replace(/^data:[^;]+;base64,/, "");
       if (!base64) return json(res, 400, { error: "Bitte eine Umsatz-Exceldatei auswaehlen." });
@@ -2136,7 +2140,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/admin/revenue/test" && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const db = await readDb();
       await testGmxConnection(db);
       db.revenueImport.lastRunAt = new Date().toISOString();
@@ -2148,7 +2152,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/admin/revenue/import" && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const db = await readDb();
       try {
         const result = await importRevenueFromGmx(db);
@@ -2179,7 +2183,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/admin/employees" && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const body = await readBody(req);
       const name = normalizeName(body.name);
       if (!name || !name.includes(",")) return json(res, 400, { error: "Bitte Name als Nachname, Vorname eingeben." });
@@ -2194,7 +2198,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/employees\/[^/]+\/pin$/) && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const body = await readBody(req);
       const name = decodeURIComponent(pathname.split("/")[4]);
       const pin = String(body.pin || "").trim();
@@ -2210,17 +2214,17 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/admin/pep-browser-text" && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       return json(res, 400, { error: "PEP direkt aus offenem Browser lesen funktioniert nur lokal am PC. Online bitte PEP-Text einfuegen oder Datei/PDF hochladen." });
     }
 
     if (pathname === "/api/admin/open-pep-browser" && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       return json(res, 400, { error: "PEP-Browser oeffnen funktioniert nur lokal am PC. Online bitte PEP direkt im Browser oeffnen und kopieren." });
     }
 
     if (pathname === "/api/admin/upload" && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const body = await readBody(req);
       const shifts = applyDailyBreaks((body.shifts || []).map(cleanShift).filter(shift => shift.name && shift.date && ((shift.start && shift.end) || isStatusShift(shift))));
       if (!shifts.length) return json(res, 400, { error: "Keine gueltigen Schichten gefunden." });
@@ -2265,7 +2269,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/pep-corrections\/[^/]+\/done$/) && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
@@ -2279,7 +2283,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/shifts\/edit$/) && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
@@ -2290,7 +2294,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/sick$/) && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
@@ -2311,7 +2315,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/changes\/delete$/) && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
@@ -2328,7 +2332,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/me\/plans\/[^/]+\/shifts\/edit$/) && req.method === "POST") {
-      const editorName = requireEmployee(req, res);
+      const editorName = await requireEmployee(req, res);
       if (!editorName) return;
       if (!canSeeTeamPlan(editorName)) return json(res, 403, { error: "Du darfst den Teamplan nicht bearbeiten." });
       const id = decodeURIComponent(pathname.split("/")[4]);
@@ -2341,7 +2345,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/me\/plans\/[^/]+\/sick$/) && req.method === "POST") {
-      const editorName = requireEmployee(req, res);
+      const editorName = await requireEmployee(req, res);
       if (!editorName) return;
       if (!canSeeTeamPlan(editorName)) return json(res, 403, { error: "Du darfst den Teamplan nicht bearbeiten." });
       const id = decodeURIComponent(pathname.split("/")[4]);
@@ -2354,7 +2358,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/publish$/) && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
@@ -2383,7 +2387,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/notify$/) && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
       const body = await readBody(req);
       const db = await readDb();
@@ -2411,7 +2415,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+\/unpublish$/) && req.method === "POST") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/")[4]);
       const db = await readDb();
       setPublishedIds(db, publishedIds(db).filter(item => item !== id));
@@ -2420,7 +2424,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.match(/^\/api\/admin\/plans\/[^/]+$/) && req.method === "GET") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/").pop());
       const db = await readDb();
       if (ensureLegalBreaksInPlans(db)) await writeDb(db);
@@ -2438,7 +2442,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname.startsWith("/api/admin/plans/") && req.method === "DELETE") {
-      if (!requireAdmin(req, res)) return;
+      if (!await requireAdmin(req, res)) return;
       const id = decodeURIComponent(pathname.split("/").pop());
       const db = await readDb();
       db.plans = db.plans.filter(plan => plan.id !== id);
@@ -2449,7 +2453,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/me/revenue" && req.method === "GET") {
-      const name = requireEmployee(req, res);
+      const name = await requireEmployee(req, res);
       if (!name) return;
       if (!canSeeRevenue(name)) return json(res, 403, { error: "Die KPIs sind nur fuer die Team-Marktleitung freigegeben." });
       await ensureAutomaticRevenueImport();
@@ -2461,7 +2465,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/me/goods-receipts" && req.method === "GET") {
-      const name = requireEmployee(req, res);
+      const name = await requireEmployee(req, res);
       if (!name) return;
       if (!canSeeTeamPlan(name)) return json(res, 403, { error: "Die Wareneingangskontrolle ist nur für die Marktleitung freigegeben." });
       await ensureAutomaticRevenueImport();
@@ -2470,7 +2474,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/me/goods-receipts/upload" && req.method === "POST") {
-      const name = requireEmployee(req, res);
+      const name = await requireEmployee(req, res);
       if (!name) return;
       if (!canSeePrivateRevenueInsights(name)) return json(res, 403, { error: "Nur Emirkan darf historische Wareneingänge importieren." });
       const body = await readBody(req);
@@ -2489,7 +2493,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/me/goods-receipts/review" && req.method === "POST") {
-      const name = requireEmployee(req, res);
+      const name = await requireEmployee(req, res);
       if (!name) return;
       if (!canSeeTeamPlan(name)) return json(res, 403, { error: "Nicht erlaubt." });
       const body = await readBody(req);
@@ -2504,7 +2508,7 @@ async function handleApi(req, res, pathname, requestUrl) {
     }
 
     if (pathname === "/api/me/shifts" && req.method === "GET") {
-      const name = requireEmployee(req, res);
+      const name = await requireEmployee(req, res);
       if (!name) return;
       await ensureAutomaticRevenueImport();
       const db = await readDb();
@@ -2582,7 +2586,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseRevenueWorkbook, parseRevenueReport, saveRevenueEntry, parseGoodsReceiptWorkbook, saveGoodsReceiptEntries, goodsReceiptState, startServer };
+module.exports = { authenticatedSession, parseRevenueWorkbook, parseRevenueReport, saveRevenueEntry, parseGoodsReceiptWorkbook, saveGoodsReceiptEntries, goodsReceiptState, startServer };
 
 
 
