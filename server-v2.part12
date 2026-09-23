@@ -64,7 +64,6 @@ async function repairMissingBakerySalesForDateV3(target){
   }finally{mergeRows=originalMerge}
 }
 // Repair the already imported 19.09 report once; future evening imports use the matcher above automatically.
-setTimeout(()=>repairMissingBakerySalesForDateV3("2026-09-19").catch(e=>console.error("[bakery-repair-v3] failed",e.message)),14000).unref();
 
 // Compact outside-plan learner. Unknown bakery articles are kept only as small daily
 // aggregates inside bakery_model: no raw files, no extra table, max 24 items x 42 days.

@@ -75,3 +75,13 @@ function allowCron(req, res, secret) {
 }
 
 module.exports = { constantEqual, createSessions, cookieValue, createLoginLimiter, allowCron };
+
+function securityHeaders(req, res) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
+  if (process.env.RENDER === "true" || req.socket?.encrypted) res.setHeader("Strict-Transport-Security", "max-age=31536000");
+  if (String(req.url || "").startsWith("/api/")) res.setHeader("Cache-Control", "no-store");
+}
+module.exports.securityHeaders = securityHeaders;

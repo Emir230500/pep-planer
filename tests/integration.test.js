@@ -57,6 +57,6 @@ test("assembled bakery code guards imports and cron before any database call", (
   X.utils.book_append_sheet(workbook, X.utils.aoa_to_sheet([["Datum", "Artikelnummer", "Artikelbezeichnung", "Viertelstunde", "Menge", "Umsatz"], ["23.09.2026", item.no, item.name, "08:00", 10, 20]]), "Report");
   const parsed = parse(X.write(workbook, { type: "buffer", bookType: "xlsx" })); assert.equal(parsed.Q.length, 1); assert.equal(parsed.Q[0].qty, 10);
   http.createServer(() => {});
-  const response = { writeHead(status) { this.status = status; }, end() {} };
+  const response = { setHeader() {}, writeHead(status) { this.status = status; }, end() {} };
   return handler({ url: "/api/bakery/auto", method: "POST", headers: {} }, response).then(() => { assert.equal(response.status, 403); assert.equal(databaseCalls, 0); });
 });

@@ -114,8 +114,7 @@ async function getPgPool() {
   if (!pgPool) {
     const { Pool } = require("pg");
     pgPool = new Pool({
-      connectionString: DATABASE_URL,
-      ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false }
+      ...require("./database-config").databaseConfig()
     });
   }
   return pgPool;
@@ -2565,7 +2564,7 @@ async function startServer() {
     const url = new URL(req.url, `http://${req.headers.host}`);
     // Uptime checks must stay database-free so Render can remain awake without
     // consuming Neon's public network-transfer allowance.
-    if (url.pathname === "/health") return json(res, 200, { ok: true, buildVersion: BUILD_VERSION });
+    if (url.pathname === "/health") return json(res, 200, { ok: true, buildVersion: BUILD_VERSION, commit: process.env.RENDER_GIT_COMMIT || null });
     if (url.pathname.startsWith("/api/")) return handleApi(req, res, url.pathname, url);
     serveStatic(req, res, url.pathname);
   }).listen(PORT, () => {

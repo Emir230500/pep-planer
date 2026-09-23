@@ -30,3 +30,40 @@ Rollback: Ausgangscommit dokumentieren und dessen Code gezielt wieder bereitstel
 ## Verbleibende Arbeiten
 
 Produktionsquote, Anbietervereinbarungen, vollständige Backups, TLS-Zertifikatsprüfung, mehrkundenfähige Architektur, gemeinsame Cache-/Sitzungsverwaltung, sichere historische Korrekturen, Entfernung einmaliger Reparaturjobs und vollständige rechtliche Verkaufsfreigabe bleiben gesonderte Aufgaben. Dieser erste Patch ist keine pauschale Sicherheitsfreigabe der gesamten App.
+
+## Ergänzung 23.09.2026 – zweite Prüfung
+
+Render wurde mit dem bestätigten Arbeitsbereich gelesen: Dienst pep-planer, Frankfurt,
+Tarif free, eine Instanz, Auto-Deploy von main, Start `node server.js`, Build `npm install`.
+Letzter Live-Commit: afb194e968feadeca20da960bf273d3b73c640b5.
+Gemessener Arbeitsspeicher im abgerufenen Stundenfenster etwa 140–142 MiB von 512 MiB.
+Das ist weder Datenbankspeicher noch ein Nachweis für Importspitzen oder Monatsquoten.
+
+Weitere vorbereitete Änderungen:
+- TLS-Verifikation für beide PostgreSQL-Pools. Unsichere URL-SSL-Optionen werden entfernt;
+  Zertifikate müssen gültig sein. Eigene CA gegebenenfalls als DATABASE_CA_CERT setzen.
+  DATABASE_SSL=false nur bei NODE_ENV=test/development. Vor Deploy echte Verbindung testen.
+- Je Pool maximal drei Verbindungen. Keine neue Datenbank, Tabelle oder Vollkopie.
+- Abgelaufene Reparaturtimer entfernt; historische Seed-/Recovery-Aktionen nur noch mit
+  explizitem BAKERY_ENABLE_LEGACY_BOOTSTRAP=true. Im Regelbetrieb NICHT setzen.
+- Sicherheitsheader und Commit-Kennung im weiterhin datenbankfreien Healthcheck.
+  Die CSP begrenzt Einbettung/Objekte/Basis-URL; sie ist noch keine vollständige XSS-Abwehr.
+- Wetter standardmäßig aus: WEATHER_MODE=off. Berechnung nutzt dann den vorhandenen
+  neutralen Wetterfaktor. Für einen lizenzierten kommerziellen Zugang WEATHER_MODE=commercial
+  und OPEN_METEO_API_KEY setzen. free nur für tatsächlich zulässige nichtkommerzielle Nutzung.
+  Zuschaltung erfordert zusätzlich korrekte Open-Meteo-Quellen-/Lizenzhinweise im Frontend.
+- scripts/check-capacity.js liest nur Konfigurationsvorhandensein und Datenbank-Metadaten.
+  Im autorisierten Service-Kontext mit `node scripts/check-capacity.js` ausführen.
+  Ausgabe enthält keine Nutzdaten/Schlüssel. Das Skript ermittelt keine Anbieter-Transferquote.
+- Elf lokale Tests bestanden; npm audit meldet null bekannte Treffer. CDN-Pakete und eigene
+  Logik sind damit nicht vollständig sicherheitsgeprüft. Lizenzinventar in launch/.
+
+Offen: Der Dashboard-Browser ist nicht angemeldet. Vorhandene Geheimnisse wurden weder
+angezeigt noch geändert. CRON_SECRET kann über den aktuellen GitHub-Connector nicht
+gesetzt werden; dafür ist ein autorisierter GitHub-Einstellungszugang nötig.
+Nicht blind mergen: Mit fehlendem Jobschlüssel würden automatische HTTP-Jobs ausfallen.
+Bestehenden SESSION_SECRET nicht unkontrolliert rotieren: Er verschlüsselt auch Mailzugänge.
+
+Weiterhin kein Verkaufsbetrieb: globale Caches, feste Markt-/Sortimentskonfiguration,
+PEP-Kopplung, persönliche Admin-Rollen, vollständige Backup-/Restore- und Export-/Löschwege
+müssen vor Aufnahme fremder Kunden umgesetzt und nachgewiesen werden.
