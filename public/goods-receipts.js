@@ -21,33 +21,27 @@ function annotateReferenceDuplicates() {
   const entries = goodsData.entries || [];
   const groups = new Map();
   for (const item of entries) {
-    const key = `${supplierKey(item.supplier)}|${referenceKey(item.reference)}`;
-    if (!referenceKey(item.reference)) continue;
+    const reference = referenceKey(item.reference);
+    if (!reference) continue;
+    const value = Number(item.value).toFixed(2);
+    const key = `${supplierKey(item.supplier)}|${reference}|${value}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(item);
   }
   let duplicateGroups = 0;
   for (const items of groups.values()) {
     if (items.length < 2) continue;
-    const distinct = new Set(items.map(item => `${item.date}|${Number(item.value).toFixed(2)}|${item.department || ""}`));
-    if (distinct.size < 2) continue;
     duplicateGroups += 1;
     const dates = [...new Set(items.map(item => item.date))].sort();
-    const values = [...new Set(items.map(item => Number(item.value).toFixed(2)))].map(Number).sort((a, b) => a - b);
-    const sameValue = values.length === 1;
+    const duplicateValue = Number(items[0].value);
     const sameDay = dates.length === 1;
-    const valueText = values.map(money).join(" / ");
     for (const item of items) {
       item.level = "duplicate";
       item.duplicateDates = dates;
-      item.duplicateValues = values;
-      if (!sameValue) {
-        item.reason = `Gleicher Lieferant und Referenzbeleg mehrfach erfasst, aber mit unterschiedlichen Warenwerten (${valueText}). Bitte prüfen.`;
-      } else if (sameDay) {
-        item.reason = "Gleicher Lieferant und Referenzbeleg wurde am selben Tag mehrfach erfasst. Bitte prüfen.";
-      } else {
-        item.reason = `Gleicher Lieferant und Referenzbeleg wurde an ${dates.length} Tagen erfasst. Bitte prüfen.`;
-      }
+      item.duplicateValues = [duplicateValue];
+      item.reason = sameDay
+        ? "Gleicher Lieferant, Referenzbeleg und Warenwert wurde am selben Tag mehrfach erfasst. Bitte prüfen."
+        : `Gleicher Lieferant, Referenzbeleg und Warenwert wurde an ${dates.length} Tagen erfasst. Bitte prüfen.`;
     }
   }
   const s = goodsData.summary || (goodsData.summary = {});
