@@ -7,4 +7,3 @@ parse=function(buf){
   if(hits.length)console.log(`[bakery-protein-check] ${hits.slice(0,10).map(x=>`${x.date} :: ${x.no} :: ${x.name} :: qty=${x.qty}`).join(" || ")}`);
   return r;
 };
-if(berlin().date==="2026-09-19")setTimeout(()=>importMail({days:3,maxMessages:500,forceAfter:berlin().date}).then(()=>console.log("[bakery-protein-check] scan complete")).catch(e=>console.error("[bakery-protein-check] failed",e.message)),5000).unref();

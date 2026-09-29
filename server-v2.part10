@@ -67,4 +67,3 @@ async function repairMissingBakerySalesForDate(target){
 }
 
 // One-time repair for the report already imported before this matcher fix went live.
-if(berlin().date==="2026-09-19")setTimeout(()=>repairMissingBakerySalesForDate("2026-09-19").catch(e=>console.error("[bakery-repair] failed",e.message)),9000).unref();

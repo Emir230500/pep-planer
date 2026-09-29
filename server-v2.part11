@@ -50,5 +50,3 @@ async function repairMissingBakerySalesForDateV2(target){
     mergeRows=originalMerge;
   }
 }
-
-if(berlin().date==="2026-09-19")setTimeout(()=>repairMissingBakerySalesForDateV2("2026-09-19").catch(e=>console.error("[bakery-repair-v2] failed",e.message)),65000).unref();

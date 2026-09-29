@@ -20,7 +20,10 @@ jobs:
 
       - name: Umsatzmails zu den Morgen-Zeitpunkten pruefen
         if: github.event_name == 'schedule'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          test -n "$CRON_SECRET" || { echo "CRON_SECRET fehlt"; exit 1; }
           curl --fail --silent --show-error \
             --retry 3 --retry-delay 10 --max-time 90 \
-            https://pep-planer.onrender.com/api/jobs/revenue-import
+            -H "x-cron-secret: $CRON_SECRET" -X POST https://pep-planer.onrender.com/api/jobs/revenue-import
