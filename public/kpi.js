@@ -8,6 +8,7 @@ let dashboardRevenue = {};
 let dashboardPrivateInsights = false;
 let activeDashboardView = "market";
 let dashboardAccess = { market: true, produce: true, backshop: true };
+let activeMarketRange = "day";
 let activeProduceRanges = { produce: "day", backshop: "week" };
 let activeKpiDates = { market: "", produce: "", backshop: "" };
 
@@ -344,18 +345,88 @@ function renderActiveDashboard() {
   bindDashboardSwitch();
 }
 
+function marketPeriodLabel(rangeName, start, end) {
+  if (rangeName === "day") return `Tag · ${dateText(end)}`;
+  if (rangeName === "month") return `Laufender Monat · ${monthLabel(String(end).slice(0, 7), true)}`;
+  return `Laufende Woche · ${dateText(start)} bis ${dateText(end)}`;
+}
+
+function aggregateMarket(revenue, rangeName, anchorDate = "") {
+  const allEntries = Array.isArray(revenue.entries) ? revenue.entries : [];
+  const latestDate = anchorDate || allEntries[0]?.date || revenue.latestDate || "";
+  const bounds = produceRangeBounds(latestDate, rangeName);
+  const inRange = item => String(item.date || "") >= bounds.start && String(item.date || "") <= bounds.end;
+  const entries = allEntries.filter(inRange);
+  const revenueTotal = entries.reduce((sum, item) => sum + (Number(item.revenue) || 0), 0);
+  const customerRows = entries.filter(item => item.customers != null && Number.isFinite(Number(item.customers)));
+  const customers = customerRows.length ? customerRows.reduce((sum, item) => sum + Number(item.customers), 0) : null;
+  const priorComplete = entries.length > 0 && entries.every(item => item.priorYearRevenue != null && Number.isFinite(Number(item.priorYearRevenue)));
+  const priorYearRevenue = priorComplete ? entries.reduce((sum, item) => sum + Number(item.priorYearRevenue), 0) : null;
+  const deviation = priorYearRevenue ? (revenueTotal / priorYearRevenue - 1) * 100 : null;
+
+  const history = Array.isArray(revenue.comparisonEntries) && revenue.comparisonEntries.length
+    ? revenue.comparisonEntries
+    : (rangeName === "day" && latestDate === revenue.latestDate ? (revenue.comparison || []) : []);
+  const marketMap = new Map();
+  for (const item of history.filter(inRange)) {
+    const key = String(item.marketCode || item.marketName || "");
+    if (!key) continue;
+    if (!marketMap.has(key)) marketMap.set(key, {
+      marketCode: item.marketCode,
+      marketName: item.marketName,
+      revenue: 0,
+      priorYearRevenue: 0,
+      priorComplete: true,
+      customers: 0,
+      customerDays: 0
+    });
+    const market = marketMap.get(key);
+    market.revenue += Number(item.revenue) || 0;
+    if (item.priorYearRevenue == null || !Number.isFinite(Number(item.priorYearRevenue))) market.priorComplete = false;
+    else market.priorYearRevenue += Number(item.priorYearRevenue);
+    if (item.customers != null && Number.isFinite(Number(item.customers))) {
+      market.customers += Number(item.customers);
+      market.customerDays += 1;
+    }
+  }
+  const comparison = Array.from(marketMap.values()).map(item => ({
+    marketCode: item.marketCode,
+    marketName: item.marketName,
+    revenue: item.revenue,
+    priorYearRevenue: item.priorComplete ? item.priorYearRevenue : null,
+    priorYearDeviationPercent: item.priorComplete && item.priorYearRevenue ? (item.revenue / item.priorYearRevenue - 1) * 100 : null,
+    customers: item.customerDays ? item.customers : null,
+    averageBasket: item.customerDays && item.customers ? item.revenue / item.customers : null
+  })).sort((a, b) => b.revenue - a.revenue);
+
+  const ownCode = entries[0]?.marketCode || allEntries[0]?.marketCode || "";
+  const ownRank = comparison.findIndex(item => String(item.marketCode) === String(ownCode)) + 1;
+  return {
+    latest: entries[0] || allEntries.find(item => String(item.date) <= latestDate) || null,
+    latestDate,
+    bounds,
+    entries,
+    revenue: revenueTotal,
+    customers,
+    averageBasket: customers ? revenueTotal / customers : null,
+    priorYearRevenue,
+    deviation,
+    comparison,
+    ownRank
+  };
+}
+
 function renderMarketDashboard(revenue, canSeePrivateInsights = false) {
   const allEntries = Array.isArray(revenue.entries) ? revenue.entries : [];
   const selectedDate = activeKpiDates.market || allEntries[0]?.date || "";
-  const entries = allEntries.filter(item => String(item.date) <= selectedDate);
-  const comparison = selectedDate === revenue.latestDate && Array.isArray(revenue.comparison) ? revenue.comparison : [];
-  const latest = entries[0];
+  const historicalEntries = allEntries.filter(item => String(item.date) <= selectedDate);
+  const summary = aggregateMarket(revenue, activeMarketRange, selectedDate);
+  const latest = summary.latest;
+  const comparison = summary.comparison;
   if (!latest) {
     content.innerHTML = '<div class="panel empty">Noch keine Umsatzmail eingelesen. Die Daten erscheinen nach dem automatischen GMX-Abruf.</div>';
     return;
   }
-  const ownRank = comparison.findIndex(item => String(item.marketCode) === String(latest.marketCode)) + 1;
-  const weekSummary = currentWeekSummary(entries);
   const rankedComparison = comparison.map((item, index) => ({ ...item, rank: index + 1 }));
   const mobileComparison = rankedComparison.slice().sort((a, b) => {
     const aOwn = String(a.marketCode) === String(latest.marketCode);
@@ -363,31 +434,38 @@ function renderMarketDashboard(revenue, canSeePrivateInsights = false) {
     if (aOwn !== bOwn) return aOwn ? -1 : 1;
     return a.rank - b.rank;
   });
-  trendSourceEntries = entries;
+  trendSourceEntries = historicalEntries;
   activeTrendContext = "Dein Markt";
   content.innerHTML = `
-    <div class="kpi-date-row">${kpiDatePickerHtml(allEntries, "market")}</div>
+    <section class="produce-toolbar market-toolbar">
+      <div><small>Bereich</small><h2>Gesamtmarkt</h2></div>
+      ${kpiDatePickerHtml(allEntries, "market")}
+      <div class="produce-range-switch" role="tablist" aria-label="Zeitraum wählen">
+        ${[["day", "Tag"], ["week", "Woche"], ["month", "Monat"]].map(([key, label]) => `<button type="button" data-market-range="${key}" class="${activeMarketRange === key ? "active" : ""}">${label}</button>`).join("")}
+      </div>
+    </section>
+
     <section class="revenue-hero">
-      <small>Umsatz Vortag · ${escapeHtml(dateText(latest.date))}</small>
-      <strong>${escapeHtml(money(latest.revenue))}</strong>
-      <span class="${trend(latest.priorYearDeviationPercent)}">
-        ${latest.priorYearDeviationPercent == null ? "Noch kein Vorjahresvergleich" : `${escapeHtml(number(latest.priorYearDeviationPercent, " %"))} zum Vorjahr`}
+      <small>${escapeHtml(marketPeriodLabel(activeMarketRange, summary.bounds.start, summary.bounds.end))}</small>
+      <strong>${escapeHtml(money(summary.revenue))}</strong>
+      <span class="${trend(summary.deviation)}">
+        ${summary.deviation == null ? "Noch kein vollständiger Vorjahresvergleich" : `${escapeHtml(number(summary.deviation, " %"))} zum Vorjahr`}
       </span>
     </section>
 
     <section class="revenue-summary-grid">
-      <article><small>Umsatz Vorjahr</small><strong>${escapeHtml(money(latest.priorYearRevenue))}</strong></article>
-      <article><small>Kunden</small><strong>${latest.customers == null ? "-" : escapeHtml(number(latest.customers))}</strong></article>
-      <article><small>Durchschnittsbon</small><strong>${latest.averageBasket == null ? "-" : escapeHtml(money(latest.averageBasket, 2))}</strong></article>
-      <article><small>Rang im Vergleich</small><strong>${ownRank ? `${ownRank} von ${comparison.length}` : "-"}</strong></article>
+      <article><small>Umsatz Vorjahr</small><strong>${summary.priorYearRevenue == null ? "Noch kein Vergleich" : escapeHtml(money(summary.priorYearRevenue))}</strong></article>
+      <article><small>Kunden</small><strong>${summary.customers == null ? "-" : escapeHtml(number(summary.customers))}</strong></article>
+      <article><small>Durchschnittsbon</small><strong>${summary.averageBasket == null ? "-" : escapeHtml(money(summary.averageBasket, 2))}</strong></article>
+      <article><small>Rang im Vergleich</small><strong>${summary.ownRank ? `${summary.ownRank} von ${comparison.length}` : "-"}</strong></article>
     </section>
 
-    ${weekRevenueHtml(weekSummary)}
+    ${activeMarketRange === "day" ? weekRevenueHtml(currentWeekSummary(historicalEntries)) : ""}
 
     ${canSeePrivateInsights ? privateInsightsHtml(latest) : ""}
 
     <details class="revenue-details">
-      <summary>Weitere Kennzahlen</summary>
+      <summary>${activeMarketRange === "day" ? "Weitere Kennzahlen" : `Weitere Kennzahlen vom ${escapeHtml(dateText(latest.date))}`}</summary>
       <div class="revenue-detail-grid">
         <article><small>Kunden zum Vorjahr</small><strong class="${trend(latest.customerDeviationPercent)}">${escapeHtml(number(latest.customerDeviationPercent, " %"))}</strong></article>
         <article><small>Umsatzspanne</small><strong>${escapeHtml(number(latest.grossMarginPercent, " %"))}</strong></article>
@@ -398,8 +476,8 @@ function renderMarketDashboard(revenue, canSeePrivateInsights = false) {
       </div>
     </details>
 
-    <details class="revenue-details kpi-market-comparison">
-      <summary>Alle Märkte vergleichen</summary>
+    <details class="revenue-details kpi-market-comparison" open>
+      <summary>Umsatz aller Märkte · ${activeMarketRange === "day" ? "Tag" : activeMarketRange === "week" ? "Woche" : "Monat"}</summary>
       <div class="revenue-table-wrap">
         <table class="revenue-table revenue-comparison-table">
           <thead><tr><th>Rang</th><th>Markt</th><th>Umsatz</th><th>Vorjahr</th><th>Abweichung</th></tr></thead>
@@ -408,8 +486,8 @@ function renderMarketDashboard(revenue, canSeePrivateInsights = false) {
               <td>${index + 1}</td>
               <td>${escapeHtml(item.marketName)}</td>
               <td>${escapeHtml(money(item.revenue))}</td>
-              <td>${escapeHtml(money(item.priorYearRevenue))}</td>
-              <td class="${trend(item.priorYearDeviationPercent)}">${escapeHtml(number(item.priorYearDeviationPercent, " %"))}</td>
+              <td>${item.priorYearRevenue == null ? "Kein VJ" : escapeHtml(money(item.priorYearRevenue))}</td>
+              <td class="${trend(item.priorYearDeviationPercent)}">${item.priorYearDeviationPercent == null ? "Kein VJ" : escapeHtml(number(item.priorYearDeviationPercent, " %"))}</td>
             </tr>
           `).join("")}</tbody>
         </table>
@@ -437,8 +515,13 @@ function renderMarketDashboard(revenue, canSeePrivateInsights = false) {
           `;
         }).join("")}
       </div>
+      ${comparison.length ? "" : '<p class="sub">Für diesen Zeitraum liegen noch keine Vergleichsdaten der anderen Märkte vor.</p>'}
     </details>
   `;
+  content.querySelectorAll("[data-market-range]").forEach(button => button.addEventListener("click", () => {
+    activeMarketRange = ["day", "week", "month"].includes(button.dataset.marketRange) ? button.dataset.marketRange : "day";
+    renderActiveDashboard();
+  }));
   document.querySelectorAll("[data-trend-metric]").forEach(button => {
     button.addEventListener("click", () => updateTrendChart(button.dataset.trendMetric));
   });
