@@ -1378,6 +1378,11 @@ function publicRevenueState(db) {
   const comparison = allEntries
     .filter(item => item.date === latestDate)
     .sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0));
+  const latestDateValue = latestDate ? new Date(`${latestDate}T12:00:00`).getTime() : 0;
+  const comparisonStart = latestDateValue ? new Date(latestDateValue - 120 * 86400000).toISOString().slice(0, 10) : "";
+  const comparisonEntries = allEntries
+    .filter(item => !comparisonStart || String(item.date) >= comparisonStart)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || Number(b.revenue || 0) - Number(a.revenue || 0));
   return {
     settings: {
       email: credentials.email,
@@ -1392,6 +1397,7 @@ function publicRevenueState(db) {
     },
     entries,
     comparison,
+    comparisonEntries,
     latestDate,
     produce: publicDepartmentRevenueState(db, "produce"),
     backshop: publicDepartmentRevenueState(db, "backshop")
@@ -1403,6 +1409,7 @@ function leadershipRevenueState(db) {
   return {
     entries: revenue.entries,
     comparison: revenue.comparison,
+    comparisonEntries: revenue.comparisonEntries,
     latestDate: revenue.latestDate,
     lastSuccessAt: revenue.importStatus.lastSuccessAt || "",
     importStatus: revenue.importStatus,
