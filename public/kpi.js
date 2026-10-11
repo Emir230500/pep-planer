@@ -76,12 +76,22 @@ function currentWeekSummary(entries) {
     .filter(item => String(item.date || "") >= mondayKey && String(item.date || "") <= latestDateKey)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   if (!days.length) return null;
+
+  const expectedDates = [];
+  for (const cursor = new Date(monday); cursor <= latestDate; cursor.setDate(cursor.getDate() + 1)) {
+    if (cursor.getDay() === 0) continue;
+    expectedDates.push(isoDateValue(cursor));
+  }
+  const availableDates = new Set(days.map(item => String(item.date || "")));
+  const missingDates = expectedDates.filter(date => !availableDates.has(date));
+  const complete = missingDates.length === 0;
+
   const revenue = days.reduce((sum, item) => sum + (Number(item.revenue) || 0), 0);
   const customerValues = days.filter(item => item.customers != null && Number.isFinite(Number(item.customers)));
   const customers = customerValues.length ? customerValues.reduce((sum, item) => sum + Number(item.customers), 0) : null;
-  const priorYearComplete = days.every(item => item.priorYearRevenue != null && Number.isFinite(Number(item.priorYearRevenue)));
-  const priorYearRevenue = priorYearComplete ? days.reduce((sum, item) => sum + Number(item.priorYearRevenue), 0) : null;
-  const deviation = priorYearRevenue ? (revenue - priorYearRevenue) / priorYearRevenue * 100 : null;
+  const priorYearValuesComplete = days.every(item => item.priorYearRevenue != null && Number.isFinite(Number(item.priorYearRevenue)));
+  const priorYearRevenue = priorYearValuesComplete ? days.reduce((sum, item) => sum + Number(item.priorYearRevenue), 0) : null;
+  const deviation = complete && priorYearRevenue ? (revenue - priorYearRevenue) / priorYearRevenue * 100 : null;
   let runningRevenue = 0;
   const progression = days.map(item => {
     runningRevenue += Number(item.revenue) || 0;
@@ -97,6 +107,9 @@ function currentWeekSummary(entries) {
     mondayKey,
     latestDateKey,
     days,
+    expectedDates,
+    missingDates,
+    complete,
     revenue,
     customers,
     averageBasket: customers ? revenue / customers : null,
@@ -108,6 +121,11 @@ function currentWeekSummary(entries) {
 
 function weekRevenueHtml(summary) {
   if (!summary) return "";
+  const missingText = summary.missingDates.map(date => {
+    const parsed = parseIsoDate(date);
+    const day = parsed ? parsed.toLocaleDateString("de-DE", { weekday: "short" }).replace(".", "") : "";
+    return `${day} ${dateText(date).slice(0, 5)}`;
+  }).join(", ");
   return `
     <section class="kpi-week-card">
       <div class="kpi-week-head">
@@ -115,13 +133,14 @@ function weekRevenueHtml(summary) {
           <small>Aktuelle Woche · ${escapeHtml(dateText(summary.mondayKey))} bis ${escapeHtml(dateText(summary.latestDateKey))}</small>
           <h2>Wochenumsatz</h2>
         </div>
-        <span>${summary.days.length} ${summary.days.length === 1 ? "Tagesbericht" : "Tagesberichte"}</span>
+        <span>${summary.days.length} von ${summary.expectedDates.length} Tagesberichten</span>
       </div>
       <strong class="kpi-week-total">${escapeHtml(money(summary.revenue))}</strong>
+      ${summary.complete ? "" : `<p class="kpi-week-missing"><strong>Woche unvollständig:</strong> ${escapeHtml(missingText)} fehlt. Umsatz und Vorjahresvergleich sind deshalb noch nicht als vollständige Woche zu bewerten.</p>`}
       <div class="kpi-week-facts">
         <div><small>Kunden Woche</small><strong>${summary.customers == null ? "-" : escapeHtml(number(summary.customers))}</strong></div>
         <div><small>D-Bon Woche</small><strong>${summary.averageBasket == null ? "-" : escapeHtml(money(summary.averageBasket, 2))}</strong></div>
-        <div><small>Zum Vorjahr</small><strong class="${trend(summary.deviation)}">${summary.deviation == null ? "VJ unvollständig" : escapeHtml(number(summary.deviation, " %"))}</strong></div>
+        <div><small>Zum Vorjahr</small><strong class="${trend(summary.deviation)}">${summary.complete ? (summary.deviation == null ? "VJ unvollständig" : escapeHtml(number(summary.deviation, " %"))) : "Woche unvollständig"}</strong></div>
       </div>
       <div class="kpi-week-progression" aria-label="Wochenumsatz wächst mit jedem Tagesbericht">
         ${summary.progression.map(item => `
