@@ -74,8 +74,13 @@ try {
     return normalizedSql(text).startsWith("delete from app_backups where id not in");
   }
 
+  function cloneDbValue(value) {
+    if (value === undefined) return undefined;
+    try { return JSON.parse(JSON.stringify(value)); } catch { return value; }
+  }
+
   function cachedResult() {
-    return { command: "SELECT", rowCount: 1, oid: null, rows: [{ value: cachedDbValue }], fields: [] };
+    return { command: "SELECT", rowCount: 1, oid: null, rows: [{ value: cloneDbValue(cachedDbValue) }], fields: [] };
   }
 
   function fakeResult(command = "UPDATE") {
@@ -92,7 +97,7 @@ try {
 
   function rememberReadResult(result) {
     if (result?.rows?.length && Object.prototype.hasOwnProperty.call(result.rows[0], "value")) {
-      cachedDbValue = result.rows[0].value;
+      cachedDbValue = cloneDbValue(result.rows[0].value);
       cachedAt = Date.now();
     }
   }
@@ -109,7 +114,7 @@ try {
   function rememberWrite(values) {
     const parsed = parseNextValue(values);
     if (parsed !== undefined) {
-      cachedDbValue = parsed;
+      cachedDbValue = cloneDbValue(parsed);
       cachedAt = Date.now();
     } else {
       cachedDbValue = undefined;
