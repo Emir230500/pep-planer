@@ -1930,7 +1930,11 @@ async function importRevenueFromGmx(db) {
             imported += 1;
             importedFromMessage += 1;
           } catch (error) {
-            if (/Markt|Umsatzdatum|Umsatz-Tabelle|Artikelbericht|Artikelüberschriften/.test(error.message || "")) continue;
+            const message = error.message || "";
+            if (/Markt|Umsatzdatum|Umsatz-Tabelle|Artikelbericht|Artikelüberschriften|Tatsächlicher Lieferant|Lieferant, Datum|Wareneingangsbericht/.test(message)) {
+              console.warn(`[revenue-import] attachment skipped: ${message}`);
+              continue;
+            }
             throw error;
           }
         }
@@ -1998,6 +2002,22 @@ async function ensureAutomaticRevenueImport() {
     revenueAutoImportPromise = null;
   });
   return revenueAutoImportPromise;
+}
+
+async function startupRevenueCatchup() {
+  if (berlinHour() < 8) return;
+  const db = await readDb();
+  const latestDate = publicRevenueState(db).latestDate || "";
+  const expectedDate = berlinDay(new Date(Date.now() - 86400000));
+  if (latestDate && latestDate >= expectedDate) return;
+  try {
+    const result = await importRevenueFromGmx(db);
+    await writeDb(db);
+    console.log(`[revenue-catchup] latest ${latestDate || "-"} -> ${publicRevenueState(db).latestDate || "-"}; imported ${result.imported || 0}`);
+  } catch (error) {
+    await writeDb(db).catch(() => {});
+    console.error("[revenue-catchup] failed", error.message || error);
+  }
 }
 
 async function handleApi(req, res, pathname, requestUrl) {
@@ -2574,6 +2594,8 @@ async function startServer() {
   }).listen(PORT, () => {
     console.log(`Arbeitsplan-App laeuft auf http://localhost:${PORT}`);
     ensureAutomaticRevenueImport().catch(() => {});
+    const catchupTimer = setTimeout(() => startupRevenueCatchup().catch(() => {}), 2500);
+    catchupTimer.unref();
   });
   const revenueTimer = setInterval(() => {
     ensureAutomaticRevenueImport().catch(() => {});
