@@ -1870,72 +1870,62 @@ async function inspectOctober8RevenueMail() {
   const XLSX = require("xlsx");
   const db = await readDb();
   const credentials = revenueCredentials(db);
-  if (!credentials.email || !credentials.password) {
-    console.log("[oct8-mail-check] GMX credentials unavailable");
-    return;
-  }
+  if (!credentials.email || !credentials.password) return;
   const client = new ImapFlow({
     host: "imap.gmx.net", port: 993, secure: true,
     auth: { user: credentials.email, pass: credentials.password }, logger: false
   });
   try {
     await client.connect();
-    const lock = await client.getMailboxLock("INBOX", { readOnly: true });
-    try {
-      const since = new Date("2026-10-07T00:00:00Z");
-      const uidsRaw = await client.search({ since }, { uid: true });
-      const uids = uidsRaw ? Array.from(uidsRaw) : [];
-      let matches = 0;
-      for (const uid of uids) {
-        const message = await client.fetchOne(uid, { envelope: true, source: true }, { uid: true });
-        if (!message?.source) continue;
-        const parsed = await simpleParser(message.source);
-        const subject = String(parsed.subject || message.envelope?.subject || "").trim();
-        const senderMatches = (parsed.from?.value || []).some(sender => String(sender.address || "").trim().toLowerCase() === REVENUE_REPORT_SENDER);
-        const attachments = (parsed.attachments || []).filter(item => /\.xlsx$/i.test(String(item.filename || "")));
-        if (!senderMatches && !subject.toLowerCase().startsWith(REVENUE_REPORT_PREFIX)) continue;
-        const received = message.envelope?.date?.toISOString?.() || parsed.date?.toISOString?.() || "";
-        const reportDates = [];
-        const files = [];
-        const parsedReports = [];
-        for (const attachment of attachments) {
-          const filename = String(attachment.filename || "").trim();
-          files.push(filename);
-          try {
-            const workbook = XLSX.read(attachment.content, { type: "buffer", cellDates: true });
-            const filterSheet = workbook.Sheets.Filter;
-            if (filterSheet) {
+    const mailboxes = await client.list();
+    let matches = 0;
+    for (const box of mailboxes || []) {
+      const pathName = box.path;
+      if (!pathName || (box.flags && (box.flags.has?.("\\Noselect") || Array.from(box.flags || []).includes("\\Noselect")))) continue;
+      let lock;
+      try {
+        lock = await client.getMailboxLock(pathName, { readOnly: true });
+        const uidsRaw = await client.search({ since: new Date("2026-10-07T00:00:00Z") }, { uid: true });
+        const uids = uidsRaw ? Array.from(uidsRaw) : [];
+        for (const uid of uids) {
+          const message = await client.fetchOne(uid, { envelope: true, source: true }, { uid: true });
+          if (!message?.source) continue;
+          const parsed = await simpleParser(message.source);
+          const subject = String(parsed.subject || message.envelope?.subject || "").trim();
+          const attachments = (parsed.attachments || []).filter(item => /\.xlsx$/i.test(String(item.filename || "")));
+          if (!attachments.length) continue;
+          const received = message.envelope?.date?.toISOString?.() || parsed.date?.toISOString?.() || "";
+          for (const attachment of attachments) {
+            try {
+              const workbook = XLSX.read(attachment.content, { type: "buffer", cellDates: true });
+              const filterSheet = workbook.Sheets.Filter;
+              if (!filterSheet) continue;
               const filterRows = XLSX.utils.sheet_to_json(filterSheet, { header: 1, raw: false, defval: "" });
               const date = filterRows.flat().map(excelDateText).find(Boolean) || "";
-              if (date) reportDates.push(date);
-              if (date === "2026-10-08") {
-                const dataSheet = workbook.Sheets.Tabelle || workbook.Sheets[workbook.SheetNames[0]];
-                const rows = dataSheet ? XLSX.utils.sheet_to_json(dataSheet, { header: 1, raw: false, defval: "" }) : [];
-                const targetRows = rows.filter(row => row.some(cell => /schlo|802163|14\s+edeka/i.test(String(cell || "")))).slice(0, 12).map(row => row.slice(0, 6));
-                const headerRows = rows.slice(0, 12).map(row => row.slice(0, 8));
-                const filterText = filterRows.flat().map(value => String(value || "")).filter(Boolean).slice(0, 40);
-                parsedReports.push({ filename, diagnostic: "oct8-workbook", filterText, targetRows, headerRows });
-              }
-            }
-            try {
-              const parsedReport = parseRevenueAttachment(attachment.content, credentials.marketCode);
-              parsedReports.push({ filename, type: parsedReport.type, date: parsedReport.date || "", primaryMarketCode: parsedReport.primary?.marketCode || parsedReport.marketCode || "", primaryMarketName: parsedReport.primary?.marketName || parsedReport.marketName || "", primaryRevenue: parsedReport.primary?.revenue ?? parsedReport.revenue ?? null, marketCount: Array.isArray(parsedReport.markets) ? parsedReport.markets.length : null });
-            } catch (parseError) {
-              parsedReports.push({ filename, parseError: parseError.message || String(parseError) });
-            }
-          } catch {}
+              if (date !== "2026-10-08") continue;
+              const filterValues = filterRows.flat().map(value => String(value || "")).filter(Boolean).slice(0, 20);
+              matches += 1;
+              console.log("[oct8-all-folders]", JSON.stringify({
+                folder: pathName,
+                uid,
+                received,
+                subject,
+                filename: String(attachment.filename || ""),
+                reportDate: date,
+                filterValues
+              }));
+            } catch {}
+          }
         }
-        if (received.startsWith("2026-10-08") || received.startsWith("2026-10-09") || reportDates.includes("2026-10-08")) {
-          matches += 1;
-          console.log("[oct8-mail-check]", JSON.stringify({ uid, received, subject, attachmentFiles: files, reportDates: Array.from(new Set(reportDates)), parsedReports }));
-        }
+      } catch (error) {
+        console.warn("[oct8-all-folders] folder skipped", pathName, error.message || error);
+      } finally {
+        if (lock) lock.release();
       }
-      console.log(`[oct8-mail-check] completed; matching messages: ${matches}`);
-    } finally {
-      lock.release();
     }
+    console.log(`[oct8-all-folders] completed; matching attachments: ${matches}`);
   } catch (error) {
-    console.error("[oct8-mail-check] failed", error.message || error);
+    console.error("[oct8-all-folders] failed", error.message || error);
   } finally {
     if (client.usable) await client.logout().catch(() => {});
   }
