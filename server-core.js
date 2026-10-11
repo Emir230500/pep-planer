@@ -1864,73 +1864,6 @@ async function testGmxConnection(db) {
   }
 }
 
-async function inspectOctober8RevenueMail() {
-  const { ImapFlow } = require("imapflow");
-  const { simpleParser } = require("mailparser");
-  const XLSX = require("xlsx");
-  const db = await readDb();
-  const credentials = revenueCredentials(db);
-  if (!credentials.email || !credentials.password) return;
-  const client = new ImapFlow({
-    host: "imap.gmx.net", port: 993, secure: true,
-    auth: { user: credentials.email, pass: credentials.password }, logger: false
-  });
-  try {
-    await client.connect();
-    const mailboxes = await client.list();
-    let matches = 0;
-    for (const box of mailboxes || []) {
-      const pathName = box.path;
-      if (!pathName || (box.flags && (box.flags.has?.("\\Noselect") || Array.from(box.flags || []).includes("\\Noselect")))) continue;
-      let lock;
-      try {
-        lock = await client.getMailboxLock(pathName, { readOnly: true });
-        const uidsRaw = await client.search({ since: new Date("2026-10-07T00:00:00Z") }, { uid: true });
-        const uids = uidsRaw ? Array.from(uidsRaw) : [];
-        for (const uid of uids) {
-          const message = await client.fetchOne(uid, { envelope: true, source: true }, { uid: true });
-          if (!message?.source) continue;
-          const parsed = await simpleParser(message.source);
-          const subject = String(parsed.subject || message.envelope?.subject || "").trim();
-          const attachments = (parsed.attachments || []).filter(item => /\.xlsx$/i.test(String(item.filename || "")));
-          if (!attachments.length) continue;
-          const received = message.envelope?.date?.toISOString?.() || parsed.date?.toISOString?.() || "";
-          for (const attachment of attachments) {
-            try {
-              const workbook = XLSX.read(attachment.content, { type: "buffer", cellDates: true });
-              const filterSheet = workbook.Sheets.Filter;
-              if (!filterSheet) continue;
-              const filterRows = XLSX.utils.sheet_to_json(filterSheet, { header: 1, raw: false, defval: "" });
-              const date = filterRows.flat().map(excelDateText).find(Boolean) || "";
-              if (date !== "2026-10-08") continue;
-              const filterValues = filterRows.flat().map(value => String(value || "")).filter(Boolean).slice(0, 20);
-              matches += 1;
-              console.log("[oct8-all-folders]", JSON.stringify({
-                folder: pathName,
-                uid,
-                received,
-                subject,
-                filename: String(attachment.filename || ""),
-                reportDate: date,
-                filterValues
-              }));
-            } catch {}
-          }
-        }
-      } catch (error) {
-        console.warn("[oct8-all-folders] folder skipped", pathName, error.message || error);
-      } finally {
-        if (lock) lock.release();
-      }
-    }
-    console.log(`[oct8-all-folders] completed; matching attachments: ${matches}`);
-  } catch (error) {
-    console.error("[oct8-all-folders] failed", error.message || error);
-  } finally {
-    if (client.usable) await client.logout().catch(() => {});
-  }
-}
-
 async function importRevenueFromGmx(db) {
   const { ImapFlow } = require("imapflow");
   const { simpleParser } = require("mailparser");
@@ -2663,8 +2596,6 @@ async function startServer() {
     ensureAutomaticRevenueImport().catch(() => {});
     const catchupTimer = setTimeout(() => startupRevenueCatchup().catch(() => {}), 2500);
     catchupTimer.unref();
-    const oct8MailTimer = setTimeout(() => inspectOctober8RevenueMail().catch(() => {}), 4500);
-    oct8MailTimer.unref();
   });
   const revenueTimer = setInterval(() => {
     ensureAutomaticRevenueImport().catch(() => {});
