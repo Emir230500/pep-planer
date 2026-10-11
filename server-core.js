@@ -1897,6 +1897,7 @@ async function inspectOctober8RevenueMail() {
         const received = message.envelope?.date?.toISOString?.() || parsed.date?.toISOString?.() || "";
         const reportDates = [];
         const files = [];
+        const parsedReports = [];
         for (const attachment of attachments) {
           const filename = String(attachment.filename || "").trim();
           files.push(filename);
@@ -1908,11 +1909,17 @@ async function inspectOctober8RevenueMail() {
               const date = filterRows.flat().map(excelDateText).find(Boolean) || "";
               if (date) reportDates.push(date);
             }
+            try {
+              const parsedReport = parseRevenueAttachment(attachment.content, credentials.marketCode);
+              parsedReports.push({ filename, type: parsedReport.type, date: parsedReport.date || "", primaryMarketCode: parsedReport.primary?.marketCode || parsedReport.marketCode || "", primaryMarketName: parsedReport.primary?.marketName || parsedReport.marketName || "", primaryRevenue: parsedReport.primary?.revenue ?? parsedReport.revenue ?? null, marketCount: Array.isArray(parsedReport.markets) ? parsedReport.markets.length : null });
+            } catch (parseError) {
+              parsedReports.push({ filename, parseError: parseError.message || String(parseError) });
+            }
           } catch {}
         }
         if (received.startsWith("2026-10-08") || received.startsWith("2026-10-09") || reportDates.includes("2026-10-08")) {
           matches += 1;
-          console.log("[oct8-mail-check]", JSON.stringify({ uid, received, subject, attachmentFiles: files, reportDates: Array.from(new Set(reportDates)) }));
+          console.log("[oct8-mail-check]", JSON.stringify({ uid, received, subject, attachmentFiles: files, reportDates: Array.from(new Set(reportDates)), parsedReports }));
         }
       }
       console.log(`[oct8-mail-check] completed; matching messages: ${matches}`);
