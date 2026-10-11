@@ -1864,6 +1864,68 @@ async function testGmxConnection(db) {
   }
 }
 
+async function inspectOctober8RevenueMail() {
+  const { ImapFlow } = require("imapflow");
+  const { simpleParser } = require("mailparser");
+  const XLSX = require("xlsx");
+  const db = await readDb();
+  const credentials = revenueCredentials(db);
+  if (!credentials.email || !credentials.password) {
+    console.log("[oct8-mail-check] GMX credentials unavailable");
+    return;
+  }
+  const client = new ImapFlow({
+    host: "imap.gmx.net", port: 993, secure: true,
+    auth: { user: credentials.email, pass: credentials.password }, logger: false
+  });
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock("INBOX", { readOnly: true });
+    try {
+      const since = new Date("2026-10-07T00:00:00Z");
+      const before = new Date("2026-10-12T00:00:00Z");
+      const uids = await client.search({ since, before }, { uid: true });
+      let matches = 0;
+      for (const uid of uids) {
+        const message = await client.fetchOne(uid, { envelope: true, source: true }, { uid: true });
+        if (!message?.source) continue;
+        const parsed = await simpleParser(message.source);
+        const subject = String(parsed.subject || message.envelope?.subject || "").trim();
+        const senderMatches = (parsed.from?.value || []).some(sender => String(sender.address || "").trim().toLowerCase() === REVENUE_REPORT_SENDER);
+        const attachments = (parsed.attachments || []).filter(item => /\.xlsx$/i.test(String(item.filename || "")));
+        if (!senderMatches && !subject.toLowerCase().startsWith(REVENUE_REPORT_PREFIX)) continue;
+        const received = message.envelope?.date?.toISOString?.() || parsed.date?.toISOString?.() || "";
+        const reportDates = [];
+        const files = [];
+        for (const attachment of attachments) {
+          const filename = String(attachment.filename || "").trim();
+          files.push(filename);
+          try {
+            const workbook = XLSX.read(attachment.content, { type: "buffer", cellDates: true });
+            const filterSheet = workbook.Sheets.Filter;
+            if (filterSheet) {
+              const filterRows = XLSX.utils.sheet_to_json(filterSheet, { header: 1, raw: false, defval: "" });
+              const date = filterRows.flat().map(excelDateText).find(Boolean) || "";
+              if (date) reportDates.push(date);
+            }
+          } catch {}
+        }
+        if (received.startsWith("2026-10-08") || received.startsWith("2026-10-09") || reportDates.includes("2026-10-08")) {
+          matches += 1;
+          console.log("[oct8-mail-check]", JSON.stringify({ uid, received, subject, attachmentFiles: files, reportDates: Array.from(new Set(reportDates)) }));
+        }
+      }
+      console.log(`[oct8-mail-check] completed; matching messages: ${matches}`);
+    } finally {
+      lock.release();
+    }
+  } catch (error) {
+    console.error("[oct8-mail-check] failed", error.message || error);
+  } finally {
+    if (client.usable) await client.logout().catch(() => {});
+  }
+}
+
 async function importRevenueFromGmx(db) {
   const { ImapFlow } = require("imapflow");
   const { simpleParser } = require("mailparser");
@@ -2596,6 +2658,8 @@ async function startServer() {
     ensureAutomaticRevenueImport().catch(() => {});
     const catchupTimer = setTimeout(() => startupRevenueCatchup().catch(() => {}), 2500);
     catchupTimer.unref();
+    const oct8MailTimer = setTimeout(() => inspectOctober8RevenueMail().catch(() => {}), 4500);
+    oct8MailTimer.unref();
   });
   const revenueTimer = setInterval(() => {
     ensureAutomaticRevenueImport().catch(() => {});
