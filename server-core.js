@@ -1908,6 +1908,14 @@ async function inspectOctober8RevenueMail() {
               const filterRows = XLSX.utils.sheet_to_json(filterSheet, { header: 1, raw: false, defval: "" });
               const date = filterRows.flat().map(excelDateText).find(Boolean) || "";
               if (date) reportDates.push(date);
+              if (date === "2026-10-08") {
+                const dataSheet = workbook.Sheets.Tabelle || workbook.Sheets[workbook.SheetNames[0]];
+                const rows = dataSheet ? XLSX.utils.sheet_to_json(dataSheet, { header: 1, raw: false, defval: "" }) : [];
+                const targetRows = rows.filter(row => row.some(cell => /schlo|802163|14\s+edeka/i.test(String(cell || "")))).slice(0, 12).map(row => row.slice(0, 6));
+                const headerRows = rows.slice(0, 12).map(row => row.slice(0, 8));
+                const filterText = filterRows.flat().map(value => String(value || "")).filter(Boolean).slice(0, 40);
+                parsedReports.push({ filename, diagnostic: "oct8-workbook", filterText, targetRows, headerRows });
+              }
             }
             try {
               const parsedReport = parseRevenueAttachment(attachment.content, credentials.marketCode);
