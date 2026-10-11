@@ -1883,8 +1883,8 @@ async function inspectOctober8RevenueMail() {
     const lock = await client.getMailboxLock("INBOX", { readOnly: true });
     try {
       const since = new Date("2026-10-07T00:00:00Z");
-      const before = new Date("2026-10-12T00:00:00Z");
-      const uids = await client.search({ since, before }, { uid: true });
+      const uidsRaw = await client.search({ since }, { uid: true });
+      const uids = uidsRaw ? Array.from(uidsRaw) : [];
       let matches = 0;
       for (const uid of uids) {
         const message = await client.fetchOne(uid, { envelope: true, source: true }, { uid: true });
